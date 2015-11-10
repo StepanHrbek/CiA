@@ -1,0 +1,18 @@
+[gui]
+ Rad bych, kdybys podporoval prepinani mezi insert a indent modem a flagy
+          dlgOverwrite        =1 shl 0;{pocatecni chovani kurzoru}
+          dlgCursorToStart    =1 shl 2;{pocatecni umisteni kurzoru v dlgLine}
+ Pak takova drobnost, skoro na nic, ale nebude tezky
+ ji doplnit - aby slo kliknutim mysi do inputlajny umistit kurzor.
+ K naprosty dokonalosti by se dalo jeste podporovat ctrl-sipka
+ (posun kurzoru o slovo).
+
+[misc]
+pri generovani romfontu12 zkazi spodek y,g..
+nepocitat s 9x14 fontem
+podporu pro monochrom textmod (7) a navrat do nej
+vesa get protected mode code
+pouzit offscreenmemoffset, offscreenmemsize
+pouzit getmaximumscanlinelength
+testnout pod linuxem
+

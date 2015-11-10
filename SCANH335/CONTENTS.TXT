@@ -1,0 +1,47 @@
+This is a typical contents list for the bonus files on the disk sent to
+registered SCANHELP users.  It varies over time; if you want a specific file,
+be sure to name it when you register.
+
+0READ    ME      3595  16-11-94  10:08p  This file
+BGIRES   ZIP     8566   3-06-94   8:26p  Make BGI files into resources
+BP7BUGS2 ZIP    17944   3-06-94   8:27p  BP 7 bug list
+CLEAN    ZIP     8434   3-06-94   9:20p  Clean floppy disk
+CLEARMEM ZIP     1713   6-06-91   8:32p  Clear unused TP memory
+CLOSEBP  ZIP     5861   2-11-94   8:26p  Close orphaned BP.EXE
+DMPPRG21 ZIP    46944   3-06-94   8:31p  Dumpprog version 2.1
+ECHON    ZIP      825  15-08-94  10:13p  Echo without CR/LF
+ERR87_13 ZIP    13551   3-06-94   8:32p  Error 207 diagnostic unit
+FINDHELP ZIP    14561   3-06-94   8:32p  Search .TPH files
+FULLDB13 ZIP    14180   3-06-94   9:19p  Full debug info for TP 6
+GLUE     ZIP     8857   3-06-94   9:19p  Replaces DOS stub
+HLP2TPH  ZIP    33906   3-06-94   8:49p  Convert TurboPower .HLP to Borland TPH
+INTRFC4  ZIP    20332  23-12-90   5:12p  Dumps interface for TP 4 .TPU
+INTRFC5  ZIP    33581   3-06-94   9:20p  Incomplete TP 5.0 .TPU dumper
+INTRFC55 ZIP    47335   3-06-94   8:50p  TP 5.5 TPU dumper
+INTRFC63 ZIP    56214   3-06-94   9:19p  TP 6.0 TPU dumper
+INTRFC70 ZIP    65940  21-03-94   8:59p  TP/BP 7.0 TPU dumper
+LASTLOOK ZIP    26182   3-06-94   8:51p  Last minute checks of TP .EXE files
+LOGGER   ZIP     6210   3-06-94   9:19p  Log program args and I/O
+NOBOG134 ZIP    54378  10-09-94   6:44p  Find bogus Fidonet echomail packets
+OPENFIL5 ZIP     5786  29-08-94  10:46p  Get list of open files from DOS
+PAUSEDEV ZIP     5936   3-06-94   8:53p  TP device driver code - PAUSE command
+PROB20   ZIP    69101  21-04-89  11:04a  Probability calculator
+SCANH329 ZIP    95223  14-12-94  10:45p  Generate help files from source code
+SHOWF251 ZIP    31013   3-06-94   8:56p  Graphical display of files on disk
+STREAM16 ZIP    72733   7-12-94   9:27p  Many different types of streams
+STRIPPED ZIP     8443   3-06-94   8:58p  Detects TDSTRIP damage
+TDHIDE   ZIP    14021   3-06-94   8:58p  Shrink TD debug info
+TP6BUGS7 ZIP    30522   3-06-94   8:59p  TP 6 bug list
+TP6MAP2  ZIP    20945   3-06-94   9:20p  TP 6 file map
+TPDETECT ZIP     7732   3-06-94   8:59p  Detect TP executables
+TPDEV    ZIP     5587  29-05-91  12:00a  Device driver written in TP
+TPFORT18 ZIP    27944   3-06-94   9:00p  Links MS Fortran to TP/BP
+TPMATCH  ZIP    10370  24-02-91  10:43a  Pattern matching code
+TPU2TPS  ZIP     7730   3-06-94   9:01p  TP 6.0 system replacement helper
+TRASH    ZIP    22500   3-06-94   9:01p  Detects trashed registers
+TVBUGSP1 ZIP    11162   3-06-94   9:02p  TurboVision bug list
+UNDOCFCT ZIP    24796   3-06-94   9:20p  Undoc functions in Windows .EXEs
+VCPIMAP  ZIP     4892   3-06-94   9:03p  Map VCPI memory usage
+VTREE2   ZIP    13904  15-08-94  10:16p  Visual file tree
+WINDV10  ZIP    28960   7-09-94   7:30p  DV-like Mark/Transfer in Win3 DOS box
+

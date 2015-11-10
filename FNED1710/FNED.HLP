@@ -1,0 +1,30 @@
+Kl vesa        Co dˆl 
+ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+¨ipky          posunuj¡ kurzorem,kter˜ ukazuje aktu ln¡ znak
+Alt-V          vertik ln¡ p©evracen¡
+Alt-H          horizont ln¡ p©evracen¡
+Alt-I          bitov  inverze
++,-            zvˆt¨¡ nebo zmen¨¡ zoom
+mezern¡k       ozna‡/odzna‡ aktu ln¡ znak
+Alt-U,Alt-D    rotace nahoru nebo dol–
+Alt-L,Alt-R    rotace doleva nebo doprava
+Alt-M          minimalizuje znak
+Alt-P          p©evede na proporcion ln¡
+Alt-W          vymˆn¡ aktu ln¡ znak s jedin˜m znakem v bloku
+Alt-J,Alt-K    naklop¡ znak(y) doleva nebo doprava
+Alt-B,Alt-N    udˆl  znak(y) tlust¨¡ nebo hubenˆj¨¡
+Alt-=          makro pro ‡esk‚ znaky
+Shift-Ins      nakop¡ruje cel˜ znak do clipboardu
+Ins            p©ilep¡ znak z clipboardu
+CTRL-BackSpace vyma‘e data znaku (nezmˆn¡ velikost)
+Del            vyma‘e znak (nastav¡ v˜¨ku a ¨¡©ku na 0)
+Shift-Del      jako Del ale nakop¡ruje znak do clipboardu
+F2             ulo‘
+F3,Shift-F3    otev©i FN, otev©i FNT
+F7             za‡ tek bloku (1xF7=zru¨ v¨e, 2xF7=ozna‡ v¨e)
+F8             konec bloku
+Alt-F2         ulo‘¡ ozna‡en‚ znaky
+Alt-F3         na‡te znaky do bloku
+Esc,Alt-X      konec programu
+Enter          psan¡ znak– vedle sebe ve vy¨¨¡m rozli¨en¡
+Shift+lev  my¨ ozna‡¡ blok, kter˜ skop¡ruje do clipboardu

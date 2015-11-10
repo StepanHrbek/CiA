@@ -1,0 +1,9 @@
+
+ hlasky CiA
+
+ toto je pouze zaloha, podstatne je jake soubory jsou ../lang*.*
+
+ tyto maji byt v releasech CiA, obsahuji jen hlasky pouzivane CiA
+ 
+ mimochodem pokud pridas/upravis hlasky v lang.cz/eng apod, 
+  spust pak ../lang2inc.exe, ktery z nich vygeneruje *.inc soubory

@@ -937,6 +937,7 @@ begin
        if ext<>'' then begin inc(inserted);c.InsertStr(ext,inserted);end;
        end;
      if s<>nil then with s^ do MouseSetPos(Xres*3 div 5,Yres div 2);
+     CurScreen^.SetBright(255);{jeste nemusela byt fyzicky nastavena paleta sipky}
      CurScreen^.Sync;
      CurScreen^.ResetEvents;
      if c.count=1 then sel:=1 else sel:=dlgMenuKod('',@c,presel);

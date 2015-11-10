@@ -783,15 +783,15 @@ asm
 
      mov dl,byte ptr barva+3
      dec dl
-     js @normal{nejvyssi bajt barvy=0 -> psat normalne mono}
-     jz @bardak{nejvyssi bajt barvy=1 -> psat bardem}
+     js @normal{nejvyssi bajt barvy=0 (modifikator=a,b,c,d) -> psat normalne mono}
+     jz @bardak{nejvyssi bajt barvy=1 (modifikator=e) -> psat irisem(bardem)}
 
 {     cmp dl,8
      jz @buttonak{nejvyssi bajt barvy=9 -> psat na button}
 
    {vystup odstinovany podle vzdalenosti od okraje bitmapy}
    @bumpos:
-     push ds
+     PUSH DS
      db 0fh,0a0h{push fs}
      pusha
       push ds{push adresa monobitmapy}
@@ -817,14 +817,14 @@ asm
      mov cl,sirka_pismene
      mov ch,0
        mov al,dl{method}
-       dec al;jz @method1
-       dec al;jz @method8
-       dec al;jz @method7
-       dec al;jz @method6
-       dec al;jz @method3
-       dec al;jz @method2
-       dec al;jz @method4{skoro totez co 6}
-       @method1:
+       dec al;jz @method1{nejvyssi bajt barvy=2 (modifikator=f) -> }
+       dec al;jz @method8{nejvyssi bajt barvy=3 (modifikator=g) -> }
+       dec al;jz @method7{nejvyssi bajt barvy=4 (modifikator=h) -> }
+       dec al;jz @method6{nejvyssi bajt barvy=5 (modifikator=i) -> }
+       dec al;jz @method3{nejvyssi bajt barvy=6 (modifikator=j) -> }
+       dec al;jz @method2{nejvyssi bajt barvy=7 (modifikator=k) -> }
+       dec al;jz @method4{nejvyssi bajt barvy=8 (modifikator=l) -> }
+       @method1:{standard blob}
         call REP_MOVS_1_nz_t
         jmp @linedone
        @method2:
@@ -835,13 +835,13 @@ asm
         lodsb;or al,al;jz @vynech3
         sub al,[es:di];neg al;cmp al,25;jnc @y;mov al,25;@y:mov [es:di],al;@vynech3:inc di;loop @method3
         jmp @linedone
-       @method4:
+       @method4:{skoro totez co 6}
         lodsb;or al,al;jz @vynech4;cmp al,5;jnc @vynech4;sub [es:di],al;@vynech4:inc di;loop @method4
         jmp @linedone
        @method6:
         lodsb;or al,al;jz @vynech6;cmp al,4;jnc @vynech6;mov [es:di],al;@vynech6:inc di;loop @method6
         jmp @linedone
-       @method7:
+       @method7:{cikcak}
         push bx;mov bl,pom1;and bl,7;cmp bl,4;jc @low;neg bl;add bl,8;@low:
         mov bh,0;add di,bx;call REP_MOVS_1_nz_t;sub di,bx;pop bx
         jmp @linedone
@@ -859,7 +859,7 @@ asm
      jnz @8x_NEXT_LINE
      pop cx
 
-     pop ds
+     POP DS
      jmp @DONE
 
    {vystup odstinovany podle y}

@@ -69,6 +69,7 @@ const s_inited:boolean=false;
 {pokud nejde presne takove rozliseni, nastavi nejblizsi mozne}
 procedure babySetMode(model,x,y:word);
 begin
+ if reslist.items=0 then InitReslist(true);
  if model=babyAuto then model:=model_gfx;
  if s_inited then begin
    s.silentDone:=true;

@@ -4,10 +4,9 @@
                      °°°° ±Û² °°°°°°° ±Û² °°°° ±ÛÛÛ² °°°°°°°°°
                     °°°° ±Û² °°°°°°° ±Û² °°°° ±Û² ±Û² °°°°°°°
                    °°°° ±Û² °°°°°°° ±Û² °°°° ±ÛÛÛÛÛÛÛ² °°°°°
-                  °°°° ±Û² °°°°°°° ±Û² °°°° ±Û² °°° ±Û² °°°
-                 °°°°° ±ÛÛÛÛ² °° ±ÛÛÛÛ² °° ±Û² °°°°° ±Û² °    verze 2.00
-                °°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
-               °°°°°°°°°°°°° Code It Again, Sam °°°°°°°°    2.2. 2002
+                  °°°° ±Û² °°°°°°° ±Û² °°°° ±Û² °°° ±Û² °°°    verze 2.10
+                 °°°°° ±ÛÛÛÛ² °° ±ÛÛÛÛ² °° ±Û² °°°°° ±Û² °
+                °°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°    8.10. 2003
 
  ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ
    Zakladni informace:
@@ -228,61 +227,42 @@
  ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ
    Dalsi vyvoj:
  ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
- ş Pripominky a komentare jsou vitany, bez nich se ridi vyvoj potrebami
-   pouhych dvou lidi.
- ş Plany do budoucna
-    - Psat dalsi priklady na vsechna temata o jaka bude zajem.
-    - Pridat barevne fonty a antialiasing
-    - Opravovat vsechny nalezene a ohlasene chyby.
-    - V pripade masivniho zajmu napsat help ve formatu TPH.
- ş Zname problemy
-    - dskID() detekuje CD-ROMku jako sitovou jednotku
+ ş Je na vas...
 
 
  ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ
    Historie/Novinky:
  ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
- ş 24.leden 1996 - napad, zacatek prace
+ ş 6.rijen 2003 - verze 2.10
+    -pribyly loadery JPG a PNG (pouze jako tpu/tpp)
+    -dalsi zmeny nebyly vcas podchyceny a jsou zapomenuty
 
- ş 19.rijen 1996 - verze 0.10
-
- ş 05.duben 1997 - verze 0.32
-    -unita scrol (scrollovaci engine z Masiny), unita timer (podpora scrolu)
-    -autodone ve vsech unitach, ShutDownInts v nekterych (pred kazdym
-     ukoncenim programu probehnou retezy procedur ShutDownInts a ExitProc)
-    -unita cache
-    -postupny prechod od funkci vracejicich uspesnost jako boolean k funkcim
-     vracejicim TError (kod chyby), kody jsou kompatibilni s Midasem
-    -dynamicky tvoreny seznam chybovych hlasek (BugList)
-    -mnoho dalsich zmen, oprav, optimalizaci, prostredi je o dost stabilnejsi
-    -docasne vypusten fnt2fn.exe (pozn: fnt2fn z CiA 0.10 nemusi produkovat
-     korektni fonty, pockej si na opravu)
-
- ş 23.rijen 1997 - verze 0.50
-    -dialogy
-    -TScreen ma svuj GetEvent, pouzivej ho misto cteni z klavesnice a mysi.
-    -TPalAlloc pro alokaci barev v palete, das mu RGB a on ti vrati index
-    -fn.exe na praci s fonty
-    -TText1 si uz hlida zacatek a konec textu
-    -standardni prikaz Move je s CiA az 4x rychlejsi
-    -opravene chyby
-
-   Pri prechodu z minule verze dej zvlast pozor na tyto nenapadne zmeny:
-    -TScrolScreen.Done zrusi i listu, driv ji nechaval jen tak lezet v pameti
-    -T(Scrol)Screen.Init(model,sirka,vyska,0) podle modelu dela toto:
-      model_packed    - nastavi urcite packed
-      model_unchained - nastavi urcite unchained
-      model_256       - sam si vybere packed nebo unchained
-     Driv mezi model_packed a model_unchained nerozlisoval a sam si vybiral.
-    -TScreen.Sync cte klavesnici a stisky posila do eventbufferu, takze ted
-     by "repeat s.Sync until keypressed" nikdy neskoncilo. Na prime cteni
-     mysi a klavesnice zapomen, cti eventy pomoci GetEvent.
-    -psDisk vraci jen pismeno disku bez dvojtecky
-    -CallCommand nevraci DosError ale TError
-    -Napsat dulezitou vec jen jednou je malo, tedy:
-     Tvuj program by vubec nemel pouzivat unitu mys a funkce ReadKey,
-     KeyPressed apod. Vse potrebne ti nabizi GetEvent a dalsi metody TScreen,
-     pripadne TScrolScreen.
+ ş 2.unor 2002 - verze 2.00
+    -plna funkcnost pod Windows NT/2000 (zasadni zmeny na mnoha mistech)
+    -pribyly loadery GIF/PCX/X a player FLI/FLC; TGA loader umi cist grayscale;
+     existuji PNG/JPG loadery, ale ne volne sirene, kontakt patera@pictview.com
+    -prilozene priklady pr_*.pas
+    -unita Baby: grafika pro kazdeho
+    -k ozvuceni programu uz neni doporucovan Midasu 0.40, ale RAIN,
+     ke stazeni na dee.webpark.cz/rain
+    -nicmene adresar MIDASFIX obohacen o dalsi opravy a vylepseni Midasu 0.40
+    -vyvinuta nova a pro DOSovou aplikaci nejlepsi mozna metoda synchronizace
+     s paprskem, zalozena na zjistovani pozadavku karty na IRQ2
+    -65536x presnejsi stopky, presnost 1 mikrosekunda, procedury Delay*
+    -dukladnejsi podpora alfakanalu (metody RGBA,Color a dalsi)
+    -resizovani bitmap volitelne rychle nebo kvalitni (novy parametr method)
+    -unita FnExpand: podpora pro editry a konvertory do .fn fontu
+    -konvertor fontu fn.pas poprve siren v podobe zdrojaku
+    -unita CS: podpora cestiny a slovenstiny
+    -unita Streamy: zatim obsahuje stream na konverze znakovych sad
+    -unita Lang2: podpora cestiny a anglictiny uvnitr exace
+     (Lang1=cestina uvnitr exace, LangFile=libovolne jazyky v souborech)
+    -menu pokud se nevejde cele na obrazovku scrolluje
+    -vice cache (nova fce cacheGetPic; stara cacheGetFont(=drive caFontGet))
+    -v ruznych unitach pribyly ruzne funkce
+    -pro hlubsi studium prilozen text o scrollingu scrol.txt
+    -mnoho optimalizaci a oprav
+    -pri oslavach 6 let od vzniku CiA nebyla snedena zadna zviratka
 
  ş 6.listopad 1998 - verze 1.00
     -plna podpora hicolor/truecolor
@@ -334,32 +314,47 @@
      (cilem teto zmeny je sjednotit chovani fci v textmodu a grafice)
     -pokud zaroven pouzivas Midas, rid se pokyny ve zde prilozenem midas.pas
 
- ş 2.unor 2002 - verze 2.00
-    -plna funkcnost pod Windows NT/2000 (zasadni zmeny na mnoha mistech)
-    -pribyly loadery GIF/PCX/X a player FLI/FLC; TGA loader umi cist grayscale;
-     existuji PNG/JPG loadery, ale ne volne sirene, kontakt patera@pictview.com
-    -prilozene priklady pr_*.pas
-    -unita Baby: grafika pro kazdeho
-    -k ozvuceni programu uz neni doporucovan Midasu 0.40, ale RAIN,
-     ke stazeni na dee.webpark.cz/rain
-    -nicmene adresar MIDASFIX obohacen o dalsi opravy a vylepseni Midasu 0.40
-    -vyvinuta nova a pro DOSovou aplikaci nejlepsi mozna metoda synchronizace
-     s paprskem, zalozena na zjistovani pozadavku karty na IRQ2
-    -65536x presnejsi stopky, presnost 1 mikrosekunda, procedury Delay*
-    -dukladnejsi podpora alfakanalu (metody RGBA,Color a dalsi)
-    -resizovani bitmap volitelne rychle nebo kvalitni (novy parametr method)
-    -unita FnExpand: podpora pro editry a konvertory do .fn fontu
-    -konvertor fontu fn.pas poprve siren v podobe zdrojaku
-    -unita CS: podpora cestiny a slovenstiny
-    -unita Streamy: zatim obsahuje stream na konverze znakovych sad
-    -unita Lang2: podpora cestiny a anglictiny uvnitr exace
-     (Lang1=cestina uvnitr exace, LangFile=libovolne jazyky v souborech)
-    -menu pokud se nevejde cele na obrazovku scrolluje
-    -vice cache (nova fce cacheGetPic; stara cacheGetFont(=drive caFontGet))
-    -v ruznych unitach pribyly ruzne funkce
-    -pro hlubsi studium prilozen text o scrollingu scrol.txt
-    -mnoho optimalizaci a oprav
-    -pri oslavach 6 let od vzniku CiA nebyla snedena zadna zviratka
+ ş 23.rijen 1997 - verze 0.50
+    -dialogy
+    -TScreen ma svuj GetEvent, pouzivej ho misto cteni z klavesnice a mysi.
+    -TPalAlloc pro alokaci barev v palete, das mu RGB a on ti vrati index
+    -fn.exe na praci s fonty
+    -TText1 si uz hlida zacatek a konec textu
+    -standardni prikaz Move je s CiA az 4x rychlejsi
+    -opravene chyby
+
+   Pri prechodu z minule verze dej zvlast pozor na tyto nenapadne zmeny:
+    -TScrolScreen.Done zrusi i listu, driv ji nechaval jen tak lezet v pameti
+    -T(Scrol)Screen.Init(model,sirka,vyska,0) podle modelu dela toto:
+      model_packed    - nastavi urcite packed
+      model_unchained - nastavi urcite unchained
+      model_256       - sam si vybere packed nebo unchained
+     Driv mezi model_packed a model_unchained nerozlisoval a sam si vybiral.
+    -TScreen.Sync cte klavesnici a stisky posila do eventbufferu, takze ted
+     by "repeat s.Sync until keypressed" nikdy neskoncilo. Na prime cteni
+     mysi a klavesnice zapomen, cti eventy pomoci GetEvent.
+    -psDisk vraci jen pismeno disku bez dvojtecky
+    -CallCommand nevraci DosError ale TError
+    -Napsat dulezitou vec jen jednou je malo, tedy:
+     Tvuj program by vubec nemel pouzivat unitu mys a funkce ReadKey,
+     KeyPressed apod. Vse potrebne ti nabizi GetEvent a dalsi metody TScreen,
+     pripadne TScrolScreen.
+
+ ş 05.duben 1997 - verze 0.32
+    -unita scrol (scrollovaci engine z Masiny), unita timer (podpora scrolu)
+    -autodone ve vsech unitach, ShutDownInts v nekterych (pred kazdym
+     ukoncenim programu probehnou retezy procedur ShutDownInts a ExitProc)
+    -unita cache
+    -postupny prechod od funkci vracejicich uspesnost jako boolean k funkcim
+     vracejicim TError (kod chyby), kody jsou kompatibilni s Midasem
+    -dynamicky tvoreny seznam chybovych hlasek (BugList)
+    -mnoho dalsich zmen, oprav, optimalizaci, prostredi je o dost stabilnejsi
+    -docasne vypusten fnt2fn.exe (pozn: fnt2fn z CiA 0.10 nemusi produkovat
+     korektni fonty, pockej si na opravu)
+
+ ş 19.rijen 1996 - verze 0.10
+
+ ş 24.leden 1996 - napad, zacatek prace
 
 
  ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ
@@ -375,7 +370,7 @@
  ş Dee            dee@mail.cz
  ş Carlos         crs@centrum.cz           selector, pathbrowser,
                                            cast disku, fajlu, num, stringu atd
- ş Jan Patera     patera@pictview.com      GIF/PCX/X, FLI/FLC dekoder, cast VBE
+ ş Jan Patera     patera@pictview.com      JPG/PNG/GIF/PCX/X, FLI/FLC dekoder
  ş Jezek 2        jezek.2@seznam.cz        vse kolem GUI
  ş Sahara Surfers http://www.s2.org        dpmi, timer
  ş Erixon         sysop@foxone.fido.cz     cast prace s disky, PCK
@@ -384,5 +379,5 @@
 
 
  Aktualni informace, nove verze a balik s radove 200 fonty a nastroji k nim
- najdes na strance http://dee.webpark.cz/cia.
+ najdes na strance http://dee.cz/cia.
 

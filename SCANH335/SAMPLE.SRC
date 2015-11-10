@@ -1,0 +1,604 @@
+{$i helpdefs.inc}
+
+unit HelpFiles;
+
+  { Unit to define abstract help file object.  Included in SCANH3xx.ZIP
+    as sample of comment formatting and output. }
+
+  {#M}
+  { This comment will be highlighted as example text in most output formats.
+    The sample below won't be word-wrapped. }
+  {#F+}
+  {  program HelloWorld;  }
+  {  begin                }
+  {    writeln('Hello, world!'); }
+  {  end.                 }
+  {#F-}
+  {#M}
+
+interface
+
+uses OPString, Objects, Streams, BigCollection, TokenUnit;
+
+const
+{$ifdef dpmi}
+  ForHelpBuffer : TStreamRanking = (RamStream, EMSStream, XMSStream, FileStream);
+{$else}
+  ForHelpBuffer : TStreamRanking = (EMSStream, XMSStream, FileStream, NoStream);
+{$endif}
+
+type
+  PTopic = ^TTopic;
+  TTopic = object(TObject)
+      { An object holding a single topic as part of a #THelpFile#. }
+
+      Text : PStream;
+      { A stream to which the text of the topic is written. }
+
+      TopicNum : Longint; { The topic number in the help file. }
+      StartofLine : Boolean; { Whether the text is currently at the
+                             start of a line. }
+      FixedLines : Boolean;  { Whether lines should be fixed or wrapped }
+      Marked : Boolean;      { Whether text is currently being marked }
+      Highlighting : byte;   { Counts the current highlight level }
+
+      constructor Init(Atopicnum : Longint);
+        { Initialize an empty topic with the given value for #TopicNum#. }
+
+      destructor Done; virtual;
+        { Dispose of #Text# and destroy object. }
+
+      function GetLine(var Buffer; MaxLen : Word) : Word; virtual;
+        { Gets the next line of text, return the length }
+
+      function MoreLines : Boolean; virtual;
+        { True if there are more lines of text. }
+
+      procedure Write(s : String); virtual;
+        { Writes the string to the help text }
+
+      procedure WriteLn(const s : String); virtual;
+        { Writes, then adds a newline }
+
+      procedure WriteKeyWord(const s : String; Crossref : Longint); virtual;
+        { Writes the string with a marker that it's a cross-reference }
+
+      procedure HighLight(On : Boolean); virtual;
+    { Turns highlighting of the text on or off.  If turned on twice, it will need
+      to be turned off twice to return to standard. }
+
+      procedure ResetHighLight; virtual;
+    { Turns highlighting off regardless of the initial state. }
+
+      procedure BlankLine; virtual;
+    { Writes a blank line to the help topic, starting a new paragraph
+      afterwards. }
+
+      procedure StartXrefList(const s : String); virtual;
+    { Starts a list of cross-referenced topics. End the list with
+      #EndXrefList#. }
+
+      procedure WriteXref(const s : String; Len:Word;Crossref : longint); virtual;
+    { Like #WriteKeyWord#, but writes an entry to a cross-ref list. Len
+      is the length in characters of the longest Xref to come; this may
+      be used to format nicely. Assumes that #StartXrefList# has been called. }
+
+      procedure EndXrefList; virtual;
+    { Ends a list of cross-referenced topics started by #StartXrefList#. }
+
+      procedure ToggleFixed; virtual;
+    { Toggles word-wrap mode.  Generally, help files start out word-wrapping;
+      this should turn it off.  The TTopic method just toggles #FixedLines#. }
+
+      procedure ToggleMarked; virtual;
+    { Toggles word marking mode.  Typically marked text would be used for
+      code samples, as in the Borland help files.  This one just toggles
+      #Marked#. }
+
+      {$ifdef debug}
+      function IntegrityCheck(const msg:string):boolean; virtual;
+    { Checks that the object isn't damaged. }
+      {$endif}
+    end;
+
+  PIndexItem = ^TIndexItem;
+  TIndexItem = record
+      { This is an item stored in the index for a help file. }
+
+      Context,
+      { The context or topic number. }
+      Inserted : longint;
+      { The count in the index when this item was inserted; allows
+        a stable sort of the index. }
+      Subtitle,
+      { The token number of the subtitle string. }
+      Token : TToken;
+      { The token number of the name of index entry. }
+    end;
+
+  PIndex = ^TIndex;
+  TIndex = object(TBigSortedCollection)
+      { This is an index for a help file, meant to hold #TIndexItem# records. }
+
+      Sortby : (ByToken, BySubTitle, ByContext);
+      { Marks which sort order should be used. }
+
+      procedure FreeItem(Item : Pointer); virtual;
+        { Disposes of a TIndexItem }
+
+      function Compare(Item1, Item2 : Pointer) : Integer; virtual;
+        { Compares two index items according to the #Sortby# field. }
+
+      procedure Insert(Item : Pointer); virtual;
+        { This inserts duplicates after existing values. }
+
+      procedure AddItem(const ATitle, ASubtitle : String; Atopicnum : Longint);
+        { Add a new index entry by specifying the strings to use. }
+
+      procedure AddTokens(ATitle, ASubtitle : TToken; Atopicnum : Longint);
+        { Add a new index entry by specifying the token numbers. }
+
+      procedure DelLastInserted;
+        { This deletes the last inserted item }
+
+      {$ifdef debug}
+      function IntegrityCheck(const msg:string):boolean; virtual;
+    { Checks that the object isn't damaged. }
+      {$endif}
+    end;
+
+  PHelpFile = ^THelpFile;
+  THelpFile = object(TObject)
+  { This is the main abstract object representing a help file.  It serves
+    as a container for #THelpTopic#s. }
+
+      Index : PIndex;
+      { This is a #TIndex# maintained by the help file. }
+
+      MultiIndexed : Boolean;
+      { Indicates whether a topic can have more than one index entry
+        in this help file type. }
+
+      constructor Init;
+        { Construct an empty help file, and initialize #Index# to nil and
+          #MultiIndexed# to false. }
+
+      destructor Done; virtual;
+        { Destroy the object and dispose of the #Index#. }
+
+      function NumTopics : Longint; virtual;
+        { Return the number of topics in this file. }
+
+      function GetTitle(TopicNum : Longint) : String; virtual;
+        { Constructs a topic title for the given topic number. }
+
+      function GetSubTitle(TopicNum : Longint) : String; virtual;
+        { Constructs a topic subtitle. }
+
+      function GetTopic(Context : Longint) : PTopic; virtual;
+        { Extracts the given topic from the help file. }
+
+      function NewTopic(Context : Longint; Someinfo : Pointer) : PTopic; virtual;
+    { Constructs a new topic of the appropriate type. Someinfo might
+      be used by a descendant type. }
+
+      procedure AddTopic(ATopic : PTopic); virtual;
+    { Writes the topic at the end of the base file, and records it with the
+      appropriate topic number.  If a topic with that number existed previously,
+      it'll effectively be deleted.
+      Atopic is disposed after adding it.}
+
+      procedure DisplayTopic(var Where : Text; TopicNum : Longint); virtual;
+        { Displays the given topic number. }
+
+      procedure SetMainTopic(TopicNum : Longint); virtual;
+        { Defines which Topic is the main contents topic. }
+
+      procedure Rewrite(s : PStream); virtual;
+        { Rewrites the help file to the given stream, and closes it.  }
+
+      procedure RewriteNotify(num:longint); virtual;
+      { Should be called for each topic as it's written to the output file
+        by #ReWrite#. The default version calls #NotifyProc#. This could
+        be used to show a status report; num will run from 0 to
+        pred(#NumTopics#), possibly skipping some
+        values, but doesn't correspond to the topic number.}
+
+      procedure WriteError(const msg:string;var S:TStream); virtual;
+      { Reports an error when writing to the stream. }
+
+      function TextSize: Longint; virtual;
+        { Returns the total size of text so far }
+
+      {$ifdef debug}
+      function IntegrityCheck(const msg:string):boolean; virtual;
+    { Checks that the object isn't damaged. }
+      {$endif}
+    end;
+
+var
+  NotifyProc : procedure(num:Longint);
+  { A procedure to be called by #THelpfile.Rewrite#. }
+
+{$ifdef debug}
+const
+  LastEntry : PIndexItem = nil;
+{$endif}
+
+implementation
+
+  constructor TTopic.Init(Atopicnum : Longint);
+  begin
+    inherited Init;
+    TopicNum := Atopicnum;
+    StartofLine := True;
+  end;
+
+  destructor TTopic.Done;
+  begin
+    if Text <> nil then
+      Dispose(Text, Done);
+    inherited Done;
+  end;
+
+  function TTopic.GetLine(var Buffer; MaxLen : Word) : Word;
+    { Gets the next line of text, return the length }
+  begin
+    Abstract;
+  end;
+
+  function TTopic.MoreLines : Boolean;
+    { True if there are more lines of text. }
+  begin
+    Abstract;
+  end;
+
+  procedure TTopic.Write(s : String);
+    { Writes the string to the help text }
+  begin
+    if Length(s) > 0 then
+    begin
+      Text^.Write(s[1], Length(s));
+      StartofLine := False;
+    end;
+  end;
+
+  procedure TTopic.WriteLn(const s : String);
+    { Writes, then adds a newline }
+  const
+    CRLF : array[1..2] of Char = ^M^J;
+  begin
+    Write(s);
+    Text^.Write(CRLF, 2);
+    StartofLine := True;
+  end;
+
+  procedure TTopic.WriteKeyWord(const s : String; Crossref : Longint);
+    { Writes the string with a marker that it's a cross-reference }
+  begin
+    Abstract;
+  end;
+
+  procedure TTopic.HighLight(On : Boolean);
+  begin
+    if On then
+      inc(highlighting)
+    else
+      dec(highlighting);
+  end;
+
+  procedure TTopic.ResetHighLight;
+  begin
+    while highlighting > 0 do
+      HighLight(false);
+    while highlighting < 0 do
+      HighLight(true);
+  end;
+
+  procedure TTopic.BlankLine;
+  begin
+    if not StartofLine then
+      WriteLn('');
+    WriteLn('');
+  end;
+
+  procedure TTopic.StartXrefList(const s : String);
+  begin
+    BlankLine;
+    HighLight(True);
+    Write(s);
+    HighLight(False);
+    WriteLn('');
+    BlankLine;
+  end;
+
+  procedure TTopic.WriteXref(const s : String; Len:word; Crossref : Longint);
+  begin
+    WriteKeyWord(s, Crossref);
+    WriteLn(Pad('', Len+1-Length(s)));
+  end;
+
+  procedure TTopic.EndXrefList;
+  begin
+  end;
+
+  procedure TTopic.ToggleFixed;
+  begin
+    FixedLines := not FixedLines;
+  end;
+
+  procedure TTopic.ToggleMarked;
+  begin
+    Marked := not Marked;
+  end;
+
+  {$ifdef debug}
+  function TTopic.IntegrityCheck(const msg:string):boolean;
+  begin
+    IntegrityCheck := false;
+    if text = nil then
+      system.writeln(msg,': nil text')
+    else if text^.status <> stOK then
+      system.writeln(msg,': text status ',text^.status)
+    else
+      IntegrityCheck := true;
+  end;
+  {$endif}
+
+  procedure TIndex.FreeItem(Item : Pointer);
+  begin
+    Dispose(PIndexItem(Item));
+  end;
+
+  function TIndex.Compare(Item1, Item2 : Pointer) : Integer;
+  var
+    i1 : PIndexItem absolute Item1;
+    i2 : PIndexItem absolute Item2;
+    s1, s2 : String;
+    Result : Integer;
+  begin
+    case Sortby of
+      ByContext :
+        begin
+          s1 := HexW(i1^.Context);
+          s2 := HexW(i2^.Context);
+        end;
+      ByToken :
+        begin
+          s1 := Tokens.Num2Pstr(i1^.Token)^+#0+HexW(i1^.Context);
+          s2 := Tokens.Num2Pstr(i2^.Token)^+#0+HexW(i2^.Context);
+        end;
+      BySubTitle : { Sort by context number within subtitle }
+        begin
+          s1 := Tokens.Num2Pstr(i1^.Subtitle)^+#0+HexW(i1^.Context);
+          s2 := Tokens.Num2Pstr(i2^.Subtitle)^+#0+HexW(i2^.Context);
+        end;
+    end;
+    Result := ord(CompString(stLoCase(s1), stLoCase(s2))) - 1;
+    if (Result = 0) and BreakTies then
+      if i1^.Inserted < i2^.Inserted then
+        Result := -1
+      else
+        Result := 1;
+    Compare := Result;
+  end;
+
+  procedure TIndex.Insert(Item : Pointer);
+  var
+    i : Longint;
+    Key : Pointer;
+  begin
+    Key := KeyOf(Item);
+    if Search(Key, i) then
+    repeat
+      Inc(i);
+    until (i >= Count) or (Compare(Key, KeyOf(At(i))) <> 0);
+    AtInsert(i, Item);
+  end;
+
+  procedure TIndex.AddItem(const ATitle, ASubtitle : String; Atopicnum : Longint);
+  begin
+    if ASubtitle <> '' then
+      AddTokens(Tokens.Str2Num(ATitle), Tokens.Str2Num(ASubtitle),
+        Atopicnum)
+    else
+      AddTokens(Tokens.Str2Num(ATitle), NoToken, Atopicnum)
+  end;
+
+  procedure TIndex.AddTokens(ATitle, ASubtitle : TToken; Atopicnum : Longint);
+  var
+    Item : PIndexItem;
+  begin
+    New(Item);
+    if Item <> nil then
+    begin
+      with Item^ do
+      begin
+        Token := ATitle;
+        Context := Atopicnum;
+        Subtitle := ASubtitle;
+        Inserted := succ(Count);
+        {$ifdef debug}
+        if (Token < NoToken) or (Token >= Tokens.Count) then
+          inline($cc);
+        if (Subtitle < NoToken) or (Subtitle >= Tokens.Count) then
+          inline($cc);
+        {$endif}
+      end;
+      Insert(Item);
+      {$ifdef debug}
+      LastEntry := At(Count-1);
+      {$endif}
+    end;
+  end;
+
+  procedure TIndex.DelLastInserted;
+    function IsLast(item:PIndexItem):boolean; far;
+    begin
+      IsLast := item^.Inserted = Count;
+    end;
+  begin
+    Free(FirstThat(@IsLast));
+  end;
+
+  {$ifdef debug}
+  function TIndex.IntegrityCheck(const msg:string):boolean;
+  var
+    foundNil : boolean;
+
+    Procedure CheckNil(Item:PIndexItem); far;
+    begin
+      foundNil := foundNil or (Item = Nil);
+    end;
+
+    function BadItem(Item:PIndexItem):boolean; far;
+    begin
+      BadItem := true;
+      if (Item^.SubTitle < NoToken) or (Item^.Subtitle >= tokens.count) then
+        writeln(msg,': bad subtitle on item')
+      else if (Item^.Token < NoToken) or (Item^.Token >= tokens.count) then
+        writeln(msg,': bad token on item')
+      else
+        BadItem := false;
+    end;
+
+  begin
+    IntegrityCheck := false;
+    foundNil := false;
+    ForEach(@CheckNil);
+    if FoundNil then
+      writeln(msg,':  contains nil items')
+    else if FirstThat(@BadItem) <> nil then
+      { Message already printed }
+    else
+      IntegrityCheck := true;
+  end;
+  {$endif}
+
+  constructor THelpFile.Init;
+  begin
+    inherited Init;
+    Index := nil;
+  end;
+
+  destructor THelpFile.Done;
+  begin
+    if Index <> nil then
+      Dispose(Index, Done);
+    inherited Done;
+  end;
+
+  function THelpFile.NumTopics : Longint;
+  begin
+    Abstract;
+  end;
+
+  function THelpFile.GetTitle(TopicNum : Longint) : String;
+    { Constructs a topic title }
+  var
+    i : longint;
+    dummyitem : TIndexItem;
+  begin
+    GetTitle := '';
+    if Index^.SortBy = ByContext then
+    begin
+      dummyitem.context := topicnum;
+      if Index^.Search(@dummyitem,i) then
+        with PIndexItem(Index^.At(i))^ do
+          GetTitle := Tokens.Num2Pstr(Token)^;
+    end
+    else
+      for i := 0 to Pred(Index^.Count) do
+        with PIndexItem(Index^.At(i))^ do
+          if TopicNum = Context then
+          begin
+            GetTitle := Tokens.Num2Pstr(Token)^;
+            Exit;
+          end;
+  end;
+
+  function THelpFile.GetSubTitle(TopicNum : Longint) : String;
+    { Constructs a topic subtitle }
+  var
+    i : longint;
+  begin
+    for i := 0 to Pred(Index^.Count) do
+      with PIndexItem(Index^.At(i))^ do
+        if TopicNum = Context then
+        begin
+          GetSubTitle := Tokens.Num2Pstr(Subtitle)^;
+          Exit;
+        end;
+    GetSubTitle := '';
+  end;
+
+  function THelpFile.GetTopic(Context : Longint) : PTopic;
+  begin
+    Abstract;
+  end;
+
+  function THelpFile.NewTopic(Context : Longint; Someinfo : Pointer) : PTopic;
+  begin
+    Abstract;
+  end;
+
+  procedure THelpFile.AddTopic(ATopic : PTopic);
+  begin
+    with ATopic^ do
+    begin
+      if highlighting <> 0 then
+        ResetHighlight;
+      if FixedLines then
+        ToggleFixed;
+      if Marked then
+        ToggleMarked;
+    end;
+  end;
+
+  procedure THelpFile.DisplayTopic(var Where : Text; TopicNum : Longint);
+    { Displays the given topic number }
+  begin
+    Abstract;
+  end;
+
+  procedure THelpFile.SetMainTopic(TopicNum : Longint);
+  begin
+    Abstract;
+  end;
+
+  procedure THelpFile.Rewrite(s : PStream);
+  begin
+    Abstract;
+  end;
+
+  procedure THelpfile.WriteError(const msg:string;var S:TStream);
+  begin
+    writeln('WRITE ERROR:  ',msg);
+    S.Error(stWriteError,0);
+  end;
+
+  procedure THelpFile.RewriteNotify(num:Longint);
+  begin
+    if @NotifyProc <> Nil then
+      NotifyProc(num);
+  end;
+
+  function THelpFile.TextSize:longint;
+  begin
+    Abstract;
+  end;
+
+  {$ifdef debug}
+  function THelpFile.IntegrityCheck(const msg:string):boolean;
+  begin
+    IntegrityCheck := False;
+    if Index = nil then
+      writeln(msg,': nil index')
+    else
+      IntegrityCheck := Index^.IntegrityCheck(msg+':index');
+  end;
+  {$endif}
+
+begin
+  @NotifyProc := Nil;
+end.

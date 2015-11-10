@@ -3,6 +3,7 @@
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
 {define a_ff} {do kanalu alpha davat vzdy ff}
+{$N+} {jedine misto v CiA vyzadujici koprocesor je quick hack v _Resize}
 
 Unit      Vga;
 Interface {$i define.inc}
@@ -83,6 +84,15 @@ ResList je seznam podporovanych modu. K cemu je dobry?
     Mody ktere nejdou nastavit se z ResListu smazou.
  2) V ResListu se pro kazdy mod ukladaji nektere udaje namerene pri jeho
     prvnim nastaveni, pri dalsich nastavenich se usetri cas.
+
+Od verze CiA 2.10 pribyla uzitecna globalni promenna.
+ avoidBadGfx=false ... Pracuje se vsemi mody, ocekava korektni vesa bios.
+ avoidBadGfx=true  ... Vyhyba se chybam (v ovadacich grafickych karet)
+                       ktere jsou zdetekovatelne jen podle jmen karet!
+                       tim ze nepouzije mody ktere ovladace nezvladaji.
+                       Nevyhoda: mody pak nepouzije ani pokud vyrobce karty
+                       vyda opravene ovladace.
+Defaultni je bezpecnejsi nastaveni true.
 
 Pri kazdem nastaveni textmodu se zavola uzivatelska procedura UserFont,
 ktera unite rekne jaky font ma pouzit. Defaultne je volen ROM font,
@@ -646,13 +656,14 @@ Type
    amodel             :word;   {vzdy nastaveno}
    ax,ay              :word;   {vzdy nastaveno}
    amode              :word;   {vzdy nastaveno}
+   adangerous         :boolean;{je mod nebezpecny?}
    optional           :boolean;{jsou nasledujici udaje platne?}
    aretracelen        :word;
    as_irq2_enabled    :boolean;{stav pri mereni retracelen}
    ascreenfreq        :integer;
    avesasetvissyncuje :boolean;
    atimerscrsync      :word;
-   constructor Init(model,x,y,mode:word);
+   constructor Init(model,x,y,mode:word;dangerous:boolean);
  end;
 
  TResCollection=object(TSortedCollection)
@@ -662,6 +673,8 @@ Type
 
 Var   ResList:TResCollection;
       maxByPP:shortint;{ModeDoplnInfo i nastaveni modu se budou snazit neprekrocit toto ByPP}
+      avoidBadGfx:boolean;{nepouzivat mody nebezpecne (=dana karta mela nekdy drivery ktere je kazily)}
+      detectedBadGfx:boolean;{byly nalezeny nebezpecne mody}
 
 FUNCTION  ModeSupported(mode:word):boolean;
 FUNCTION  Mode2Supported(model,mode:word):boolean;
@@ -708,12 +721,12 @@ Procedure WhiteBorder(b:PAbstractMap;ax,ay,sir,vys,power:word);
 {---------------------------------------------------------------------------
  Zbytky...
  ---------------------------------------------------------------------------}
-var       CurScreen:PScreen;{aktualni screena, nemenit, jen cist}
-          debugpal:boolean; {zapina debug mod v palete}
+var       CurScreen:PScreen;  {aktualni screena, nemenit, jen cist}
+          debugpal:boolean;   {zapina debug mod v palete}
           UserFont:procedure(var name:PathStr;var p:pointer;var vyska:byte);
-          userDirty:boolean;{nastavenim vynulujes TimeFromLastEvent}
-          higherSux:integer;{jak moc vadi kdyz vybere vetsi rozliseni, 0=nekonecne}
-          lowerSux:integer; {jak moc vadi kdyz vybere mensi rozliseni, 0=nekonecne}
+          userDirty:boolean;  {nastavenim vynulujes TimeFromLastEvent}
+          higherSux:integer;  {jak moc vadi kdyz vybere vetsi rozliseni, 0=nekonecne}
+          lowerSux:integer;   {jak moc vadi kdyz vybere mensi rozliseni, 0=nekonecne}
           retrace_clock:PLong;{hodiny odtikavajici neco jako retrace}
 
 FUNCTION  screen:PScreen;
@@ -2016,7 +2029,7 @@ begin
    if (x<0) or (x>255) or (y<0) or (y>255)
     then BiosWriteln('TScreen.Gotoxy('+stri(x)+','+stri(y)+')');
    {$endif}
-   bios_GotoXY(x,y);
+   bios_GotoXY(byte(x),byte(y));
    end;
 end;
 
@@ -7095,14 +7108,15 @@ end;
 
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß RES LIST ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
 
-constructor TResItem.Init(model,x,y,mode:word);
+constructor TResItem.Init(model,x,y,mode:word;dangerous:boolean);
 begin
  inherited Init;
- amodel  :=model;
- ax      :=x;
- ay      :=y;
- amode   :=mode;
- optional:=false;
+ amodel    :=model;
+ ax        :=x;
+ ay        :=y;
+ amode     :=mode;
+ adangerous:=dangerous;
+ optional  :=false;
 end;
 
 procedure TResCollection.Insert(Item:Pointer);
@@ -7148,7 +7162,7 @@ end;
 {---------------------------------------------------------------------------
  Inicializuje VGA mody v ResListu.
  ---------------------------------------------------------------------------}
-PROCEDURE InitVga;
+PROCEDURE InitVga(danger:boolean);
 var   i,lines:integer;
 begin
  with ResList do begin
@@ -7159,15 +7173,15 @@ begin
     if lines<150 then lines:=400;
     end;
   for i:=minCharYres to maxCharYres do begin
-    Insert(New(PResItem,Init(model_text,80,lines div i,lines div i)));
-    Insert(New(PResItem,Init(model_text,40,lines div i,lines div i+$1000)));
+    Insert(New(PResItem,Init(model_text,80,lines div i,lines div i      ,danger)));
+    Insert(New(PResItem,Init(model_text,40,lines div i,lines div i+$1000,danger)));
     end;
   for i:=1 to XModes do begin
     {vlozi vga unchained}
-    Insert(New(PResItem,Init(model_unchained,XModeRes[i,1],XModeRes[i,2],i)));
+    Insert(New(PResItem,Init(model_unchained,XModeRes[i,1],XModeRes[i,2],i,danger)));
     {vlozi vga packed}
     if longint(XModeRes[i,1])*XModeRes[i,2]<=65536 then
-     Insert(New(PResItem,Init(model_packed,XModeRes[i,1],XModeRes[i,2],i)));
+     Insert(New(PResItem,Init(model_packed,XModeRes[i,1],XModeRes[i,2],i,danger)));
     end;
   end;
 end;
@@ -7185,7 +7199,8 @@ var   i,mza:word;
   procedure TestSimilarity(p:PResItem);far;
   begin
    with p^ do
-    if ( (amodel=mm)
+    if ( not adangerous or (not avoidBadGfx and not safemode)) and
+       ( (amodel=mm)
          or ((mm=model_8      ) and (amodel in models_8      ))
          or ((mm=model_15     ) and (amodel in models_15     ))
          or ((mm=model_16     ) and (amodel in models_16     ))
@@ -7244,6 +7259,16 @@ begin
  mm:=mm and $00ff;{zadane presne cislo modelu}
  if (mm<>0) or (mza=0) then
    ResList.ForEach(@TestSimilarity);{nejdriv zkusi presny model}
+
+ {pokud jsme chteli [pck|unch]+[gfx|scrol], zkusi prednostne este druhy 8bit
+  lze odkomentovat jestli se to nekomu hodi
+ if (not found) and (mm in models_8) and ((mza=model_gfx) or (mza=model_scrol)) then begin
+   if mm=model_packed
+     then mm:=model_unchained
+     else mm:=model_packed;
+   ResList.ForEach(@TestSimilarity);
+   end;}
+
  if (not found) and (mza<>0) then begin
    mm:=mza;
    ResList.ForEach(@TestSimilarity);{pote modely z mnoziny}
@@ -7261,7 +7286,8 @@ FUNCTION ModeDoplnInfo(var model:word;var sir,vys,mode:integer):boolean;
   function Matching(p:PResItem):boolean;far;
   begin
    with p^ do
-    if amode=mode then begin
+    if ( not adangerous or (not avoidBadGfx and not safemode)) and
+       ( amode=mode ) then begin
       model         :=amodel;
       sir           :=ax;
       vys           :=ay;
@@ -7577,6 +7603,7 @@ var   VesaInfo:PVesaInfoBlock;
       {$ifdef dpmi}
       RealModeRegs:dpmiRealCallRegs;
       {$endif}
+      danger:boolean;{nalezene mody necht jsou oznaceny za nebezpecne}
 
  procedure TestMode(mode:integer);
  var i:integer;
@@ -7611,14 +7638,14 @@ var   VesaInfo:PVesaInfoBlock;
                 end;
          {pokud se podarilo upresnit model a je z podporovanych, da mod do reslistu}
          if BiPPlist[m]<>0
-          then ResList.Insert(new(PResItem,Init(m,x,y,mode)));
+          then ResList.Insert(new(PResItem,Init(m,x,y,mode,danger)));
          end
        else
          {neni rozsirene info, hleda informace v seznamu modu vesa 1.2}
          for i:=0 to ModesSupported-1 do
           with ModeInfoConst[i] do
            if VMode=mode then
-            ResList.Insert(new(PResItem,Init(MModel,XSize,YSize,mode)));
+            ResList.Insert(new(PResItem,Init(MModel,XSize,YSize,mode,danger)));
  end;
 
  procedure Analyza;
@@ -7626,7 +7653,7 @@ var   VesaInfo:PVesaInfoBlock;
        sz,sc,ss:string[70];
        app:string[20];
        limit:longint;
-       modu0:word;
+       {modu0:word;}
        pokusu:word;
  label nodpmierr;
  begin
@@ -7660,6 +7687,13 @@ var   VesaInfo:PVesaInfoBlock;
      for i:=1 to length(VesaID) do
       if (VesaID[i]<' ') then VesaID[i]:=' ';
      app:=' ('+stri(vesa_BanksTotal*64)+')';
+
+     {na matrox+win vyhodi vesa mody, u kombajna(w2k) je ve vese cerno, u vikkinga(w2k) rozsynclo}
+     if (vesaID='Matrox Graphics Inc.') then begin
+       detectedBadGfx:=true;
+       danger:=true;{pridane mody budou oznaceny za nebezpecne}
+       end;
+
      if VideoModePtr^=-1 {"stub" vbe} then begin
        {$ifdef testvga}bioswriteln('Je to jen "stub VBE", je nutne nahrat plne VBE.');{$endif}
        VesaVersion:=0;
@@ -7676,7 +7710,7 @@ var   VesaInfo:PVesaInfoBlock;
        {$ifdef testvga}BiosWriteln('---mody za modelistem---');{$endif}
        inc(VideoModePtr);
        inc(VideoModePtr);
-       modu0:=ResList.count;
+       {modu0:=ResList.count;}
        pokusu:=0;
        {$ifdef dpmi}
        {v protektu musime hlidat abysme nehrabli mimo limit}
@@ -7731,6 +7765,8 @@ var   VesaInfo:PVesaInfoBlock;
 
 label freee;
 Begin
+ danger:=false;{zatim vse ok, zadna badgfx, zadne nebezpeci}
+
  {nejprve nastavi neuspech}
  VesaVersion:=0;
  vesa_BanksTotal:=0;
@@ -7815,7 +7851,7 @@ Const ll=1;{Let Lower than this}
       le=2;{Let Equal to this}
       lh=4;{Let Higher than this}
 
-Procedure FilterReslist(xy:char;let:byte;limi:word;onlybypp:byte);
+Procedure FilterReslist(xy:char;let:byte;limi:word;onlybypp,onlybipp:byte;dangerous:boolean);
 var i:word;
     res:word;
 begin
@@ -7823,7 +7859,8 @@ begin
   if Count>0 then
    for i:=Count-1 downto 0 do
     with PResItem(Items^[i])^ do
-     if (onlybypp=0) or (ByPPlist[amodel]=onlybypp) then begin
+     if (onlybypp=0) or (ByPPlist[amodel]=onlybypp) then
+     if (onlybipp=0) or (BiPPlist[amodel]=onlybipp) then begin
        if xy in ['x','X'] then res:=ax else
         if xy in ['y','Y'] then res:=ay else
          continue;
@@ -7832,7 +7869,9 @@ begin
        or (((let and lh)=0) and (res>limi))
         then begin
          {$ifdef testvga}bioswriteln(' rkill '+stri(ax)+'x'+stri(ay)+'/mdl='+stri(amodel));{$endif}
-         AtFree(i);
+         if dangerous
+          then adangerous:=true{nastavi jen ze mod je nebezpecny}
+          else AtFree(i);{mod uplne smaze}
          end;
        end;
 end;
@@ -7840,19 +7879,31 @@ end;
 
  var   killvga,
        killvesa   :boolean;
+       kill4,
+       kill8,
+       kill15,
+       kill16,
+       kill24,
+       kill32     :boolean;
+
+       {zde si zapamatuje jaky filtry vyparsoval z commandlajny}
+       _filters   :byte;
+       _xy        :array[1..10] of char;
+       _let       :array[1..10] of byte;
+       _limit     :array[1..10] of word;
 
 Procedure CmdlinePass1;
 
  var   killed     :boolean;
 
- procedure initkill;
+ procedure initkill;{init-vse necha zit}
  begin
   killed  :=false;
   killvga :=false;
   killvesa:=false;
  end;
 
- procedure kill;
+ procedure kill;{pokud jeste nevrazdil,zabije vse}
  begin
   if not killed then begin
     killvga :=true;
@@ -7882,12 +7933,6 @@ End;
 Procedure CmdlinePass2;
 
  var   killed     :boolean;
-       kill4,
-       kill8,
-       kill15,
-       kill16,
-       kill24,
-       kill32     :boolean;
 
  procedure initkill;
  begin
@@ -7911,26 +7956,6 @@ Procedure CmdlinePass2;
     kill32:=true;
     killed:=true;
     end;
- end;
-
- procedure KillModels;
- var i:word;
- begin
-  with ResList do
-   if Count>0 then
-    for i:=Count-1 downto 0 do
-     with PResItem(Items^[i])^ do
-      if
-       ((amodel = model_text) and kill4 ) or
-       ((amodel in models_8 ) and kill8 ) or
-       ((amodel in models_15) and kill15) or
-       ((amodel in models_16) and kill16) or
-       ((amodel in models_24) and kill24) or
-       ((amodel in models_32) and kill32)
-       then begin
-         {$ifdef testvga}bioswriteln(' mkill '+stri(ax)+'x'+stri(ay)+'/mdl='+stri(amodel));{$endif}
-         AtFree(i);
-         end;
  end;
 
  var   i,e:word;
@@ -7958,14 +7983,7 @@ Procedure CmdlinePass2;
  label 0,1;
 Begin
  InitKill;
- {na voodoo3, banshee a bohuzel asi i na par jinejch kartach
-  vyhodi ty mody co na voodoo3 padaj}
- if (VesaID='3dfx Interactive, Inc. (16384)')
- or (VesaID='3Dfx Interactive, Inc. (16384)') then begin
-   FilterReslist('x',lh,320,1{8bit});
-   FilterReslist('x',lh,320,2{15/16bit});
-   FilterReslist('x',lh,640,3{24bit});
-   end;
+ _filters:=0;
  for i:=1 to paramcount do
   if not paramUsed[i] then begin
     st:=locased(paramstr(i));
@@ -7993,7 +8011,14 @@ Begin
               delete(st,1,length(s));
               limit:=valu(st);
               if limit<>0 then begin
-                FilterReslist(xy,let,limit,0);
+                {FilterReslist(xy,let,limit,0);}
+                {nechame filtrovani na pozdejc - az po initvga/vesa}
+                if _filters<10 then begin
+                  inc(_filters);
+                  _xy[_filters]:=xy;
+                  _let[_filters]:=let;
+                  _limit[_filters]:=limit;
+                  end;
                 goto 0;
                 end;
               end;
@@ -8005,7 +8030,65 @@ Begin
     paramUsed[i]:=true;
     1:
     end;
- KillModels;
+End;
+
+{---------------------------------------------------------------------------
+ Inicializuje reslist - naplni ho seznamem podporovanych modu.
+ ---------------------------------------------------------------------------}
+PROCEDURE InitReslist;
+
+ procedure KillModels;
+ var i:word;
+ begin
+  with ResList do
+   if Count>0 then
+    for i:=Count-1 downto 0 do
+     with PResItem(Items^[i])^ do
+      if
+       ((amodel = model_text) and kill4 ) or
+       ((amodel in models_8 ) and kill8 ) or
+       ((amodel in models_15) and kill15) or
+       ((amodel in models_16) and kill16) or
+       ((amodel in models_24) and kill24) or
+       ((amodel in models_32) and kill32)
+       then begin
+         {$ifdef testvga}bioswriteln(' mkill '+stri(ax)+'x'+stri(ay)+'/mdl='+stri(amodel));{$endif}
+         AtFree(i);
+         end;
+ end;
+
+var i:integer;
+    vgadanger:boolean;
+Begin
+ if not killvesa then InitVesa;{nejdriv nahraje vesa mody}
+
+ vgadanger:=false;
+ {na geforce+win vyhodi vga mody, u d.menta po nastaveni vesa uz nejde nastavit vga}
+ if (pos('NVidia',vesaID)>0) then begin
+   detectedBadGfx:=true;
+   vgadanger:=true;
+   end;
+
+ {na cirrusu vyhodi 15 a 24bit, 15 ma jinak organizovany rgb slozky a 24 spatne bankuje}
+ if (vesaID='Cirrus Logic GD-54xx VGA (1024)') then begin
+   detectedBadGfx:=true;
+   FilterReslist('x',lh,0,0,15,true);
+   FilterReslist('x',lh,0,0,24,true);
+   end;
+
+ {na voodoo3, banshee a bohuzel asi i na par jinejch kartach
+  vyhodi ty mody co na voodoo3 padaj. obe ID byly spatreny}
+ if (VesaID='3dfx Interactive, Inc. (16384)')
+ or (VesaID='3Dfx Interactive, Inc. (16384)') then begin
+   detectedBadGfx:=true;
+   FilterReslist('x',lh,320,1{8bit}    ,0,true);
+   FilterReslist('x',lh,320,2{15/16bit},0,true);
+   FilterReslist('x',lh,640,3{24bit}   ,0,true);
+   end;
+
+ if not killvga then InitVga(vgadanger); {pak uz pridava jen ty vga mody, ktere vesa neumi}
+ KillModels;                   {filtruje podle prikazu z commandlajny}
+ for i:=1 to _filters do FilterReslist(_xy[i],_let[i],_limit[i],0,0,false);{filtruje podle prikazu z commandlajny}
 End;
 
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
@@ -8039,6 +8122,8 @@ procedure UserInit;
   updateHead       :=0;
   updateAll        :=255;
   maxByPP          :=4;
+  avoidBadGfx      :=true;
+  detectedBadGfx   :=false;
   retrace_clock    :=ptr(Seg0040,$6c);
   OldShutDown      :=ShutDownInts;
   ShutDownInts     :=ShutDown;
@@ -8048,9 +8133,10 @@ procedure UserInit;
     onepixmap.StaticMem(@onepix,4);
     if ResList.Init(100,100) then begin
       CmdlinePass1;
-      if not killvesa then InitVesa;{nejdriv nahraje vesa mody}
-      if not killvga then InitVga; {pak uz pridava jen ty vga mody, ktere vesa neumi}
+      {if not killvesa then InitVesa;{nejdriv nahraje vesa mody}
+      {if not killvga then InitVga; {pak uz pridava jen ty vga mody, ktere vesa neumi}
       CmdlinePass2;
+      InitReslist;
       exit;
       end;
     end;

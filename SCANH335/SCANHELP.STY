@@ -1,0 +1,65 @@
+%  SCANHELP.STY - style file to work with SCANHELP generated LaTeX files
+
+% Keyword references are italicized and indexed
+% Args:  name, enclosing name, reference label (for use with a \label command,
+%        but unused in this style
+
+\newcommand{\keyword}[3]{%
+{\it #1}%
+\index{#1!#2}}
+
+% The helptopic environment takes 4 arguments:
+% the name, the subtitle, the reference label, the tag (to go in the margin)
+
+\newenvironment{helptopic}[4]{\item[\hfill{\bf #4}]%
+%\label{#3}            %  Define this if you need cross-refs
+\index{#1!#2|bb}}{}
+
+% The reftopic command is used to mark "See also" topics.  The arguments
+% are name, subtitle, reference label
+
+\newcommand{\reftopic}[3]{\index{#1!#2|bb}}
+
+% The bb command is used to give special emphasis to the index
+% entry for a definition
+
+\newcommand{\bb}[1]{{\bf #1}}
+
+% The newgroup command starts a new group of fields or methods
+
+\newcommand{\newgroup}[1]{{\pagebreak[3]\large\hspace{-1.2in}\raisebox{-0.5ex}{#1}\ %
+\hrulefill\nopagebreak\\ \vspace{0.5ex}}}
+
+% The helpgrouping environment takes the name of the grouping as an
+% argument, plus the unit it's found in
+
+\newenvironment{helpgrouping}[2]%
+{%
+\markright{{\bf #1 \hfill}}%
+\nopagebreak%
+{\large #1 \hfill #2}\\%
+\nopagebreak%
+\rule{\textwidth}{0.2ex}\\%
+\begin{list}{}{%
+\setlength{\leftmargin}{1.3in}%
+\setlength{\itemindent}{0in}%
+\setlength{\labelwidth}{1.0in}%
+\setlength{\labelsep}{0.3in}%
+\raggedright%
+}}{\end{list}\pagebreak[3]}
+
+\setlength{\parindent}{0in}
+
+\setlength{\parskip}{1ex}
+
+% The \hatsymb command defines the caret symbol
+
+\newcommand{\hatsymb}{{\scriptsize \raisebox{0.5ex}{$\wedge$}}}
+
+% The markedblock environment holds things that are marked by the #M directive
+
+\newenvironment{markedblock}{\item[\hfill{\bf Example}]}{}%
+
+% The \fs command defines a fixed space
+
+\newcommand{\fs}{\makebox[0.5em]{}}

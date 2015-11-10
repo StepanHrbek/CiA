@@ -1,0 +1,815 @@
+SCANHELP - Utility to produce help files from TP source code.
+
+    Version 3.35 - update by D.J. Murdoch to TurboPower's utility.
+
+    This update is copyright (c) 1991,1995 D.J. Murdoch.  It contains
+    public domain code written by TurboPower Software, and code licensed
+    from TurboPower and Borland.
+
+SYNTAX
+
+    SCANHELP [options] filespec [filespec...] [@commandfile] [<commandfile]
+
+     Parses the interface section of Turbo Pascal 4.0 to 7.0 units to
+     produce a help file summarizing the public methods, procedures, and
+     functions.
+
+     SCANHLPX (available to registered users) uses the same syntax, but
+     runs in DOS protected mode.
+
+    Filespec:  list of input files.  May contain wildcards.  If
+    non-units are included, they'll be scanned for Uses statements to
+    use in conjunction with the /U option.
+
+    Commandfile:  If you give the name of a file after an @ sign,
+    SCANHELP will switch to reading command line arguments from that
+    file.  Similarly, you can take input from a file using input
+    redirection with <.
+
+    Options:
+       /D sym       define symbol for conditional compilation
+       /FB          write Borland .TPH format
+       /FH          write HELPC .HDF format
+       /FP          write MAKEHELP .TXT format
+       /FT          write TeX .TEX format
+       /FW          write Windows HC31 .RTF format
+       /I dirs      search list for include files
+       /L           set temporary topic buffer to disk
+       /O filename  output filename
+       /S           sort the "See also" tables
+       /T nn        set tabs to nn columns (default 8)
+       /U dirs      search list for used units
+       /V size      set virtual memory swap file size in Kbytes
+                    (SCANHLPX only)
+       /$A+, etc    compiler switches for conditional compilation
+
+SUMMARY
+
+    SCANHELP is designed to produce help files from Turbo Pascal source
+    code.  These are good enough to use for your own reference, and
+    should serve as a good base for help files that you write for
+    others.
+
+    Version 3.3x can produce five kinds of help files:  *.TXT files, for
+    use as input to TurboPower Software's MAKEHELP utility; *.TPH files,
+    for use with Borland's THELP 3.0 or Pascal 7.0+ IDE; *.TEX files,
+    for input to Knuth's TeX text processor (using the LaTeX macro
+    package); *.RTF files, for input to Microsoft's HC31 help compiler
+    to produce Windows 3.1 help files, and *.HDF files, for use with
+    version 10 or higher of Ron Loewy's Help Development Kit. The first
+    two give you instantaneous keyword searches; the third gives a
+    professional-looking indexed manual, and the last gives you input
+    files that will work with help compilers for Windows 3.0 and 3.1,
+    OS/2, and DESQview/X, among others.
+
+REQUIREMENTS
+
+    *.TXT:  The TurboPower MAKEHELP utility is needed to compile the
+    help file, and their POPHELP utility is needed to view them.
+    Contact TurboPower Software at 800-333-4160 or 719-260-9136 for
+    details on how to obtain these.
+
+    *.TPH:  These files work directly with the version 7.0 Borland
+    Pascal IDEs, and may work with current BC++ IDEs.  You can also use
+    version 3.0 (or later?) of the THELP utility for access outside the
+    IDE.
+
+    *.TEX:  You'll need a copy of the TeX text processor, the LaTeX
+    macro package, and if you want an index, the MakeIndex (or MAKEINDX)
+    utility.  There are several good free implementations of this; I
+    recommend emTeX, by Eberhard Mattes.  It comes with drivers for
+    screen previewers and Postscript, Laserjet, or dot-matrix output.
+
+    *.RTF:  You'll need Microsoft's Windows 3.1 help compiler, HC31.EXE.
+    The version 3.0 help compiler HC.EXE will also work, but will
+    produce several warning messages because of a different format in
+    the .HPJ project file.
+
+    *.HDF:  This format is designed for use with version 10.0 of Ron
+    Loewy's Help Development Kit, HDK10?.ZIP.  For most of the target
+    formats, you'll also need a separate help compiler:  HC or HC31 for
+    Windows, the IPFC compiler for OS/2, DVXHLP10.ZIP for DESQview/X.
+
+    SCANHLPX requires a DPMI server and Borland's run-time manager.
+    These are supplied as the files DPMI16BI.OVL and RTM.EXE with
+    Borland Pascal 7.0; I'll include them on the disk I send if you
+    register SCANHELP.
+
+AIMS
+
+    SCANHELP version 1 was one of TurboPower's Help Tools, released to
+    the public domain in January 1990.  It was designed to create an
+    outline for a help database describing the interface to a Turbo
+    Pascal unit; the assumption was that the user would make major
+    modifications to the outline to produce a polished help system.
+
+    I wanted something different:  I wanted documentation for myself,
+    and I wanted it to be easy to produce.  I've found that it's too
+    easy for printed documentation to get out of synch with the source
+    code when the code is under development; even my online
+    documentation kept falling behind, because it was just too much
+    trouble to go to the *.TXT file and correct the documentation when I
+    made a small change.
+
+    The design aim for SCANHELP 2 was thus to produce complete *.TXT
+    files, suitable for input to MAKEHELP.  These were to be good enough
+    for internal use without any manual editing.  It was possible to
+    customize them by working within the original *.PAS source code;
+    duplicate documentation was not necessary.
+
+    SCANHELP 3 had the same aim, but I added *.TPH capability to give
+    it a wider audience.  The *.TEX capability makes it much easier to
+    proofread help screens; you don't have to hope that you go through
+    every topic, you can print them as a book and read through.  Later
+    versions added HDK output and RTF output for more flexibility.
+
+    Some other things I've attempted to do, with varying success:
+
+     - produce documentation for *every* interfaced symbol
+
+     - have a minimal impact on the source code, i.e. existing source
+     code should produce reasonable help files without substantial
+     changes
+
+     - handle multiple source files, so cross references to other units
+     are possible
+
+     - work with Pascal scoping rules, so that cross references are
+     easy.
+
+DETAILS of TOPIC CREATION
+
+    SCANHELP is used to create help systems for program libraries. The
+    input is one or more Turbo Pascal source code files; the output is
+    some form of help file.  This section defines the source files and
+    generalities applying to all help file types; below the specifics of
+    each are given.
+
+    SCANHELP creates help topics for every interfaced identifier in a
+    program: object, method, procedure, function, variable, constant.
+    The text of each help topic has several parts:
+
+      - the declaration of the identifier
+
+      - the comments following the declaration, up until the next
+      declaration begins.
+
+      - (for identifiers that define a scope, e.g. record or object
+      types), abbreviated copies of the declarations of the identifiers are
+      added to the help topic to serve as cross-references.
+
+      - a "See also" list, if you use the #X directive (see below).
+
+    Most references to other identifiers in the declaration are also
+    used to form cross references; for example, if a function has
+    declaration
+
+      function MyFunc(a: MyType):MyOtherType;
+
+    it will generally be given cross-references on both the MyType and
+    MyOtherType identifiers.  It's also possible to create
+    cross-references within the text of a comment by surrounding a name
+    with "#" marks.
+
+    Often there will be several different uses of the same identifier in
+    a program.  For example, "Init" is commonly used as an object
+    constructor name.  SCANHELP uses approximately Pascal scoping rules
+    in determining what you're referencing:
+
+      - in a record or object declaration, the local fields/methods are
+      in scope
+
+      - if the name isn't found there, then the interfaced identifiers
+      are searched
+
+      - if it's still not found, the uses list is searched (in reverse
+      order, just like TP does)
+
+      - if not found here, TP would give a compiler error, but SCANHELP
+      continues on for one more step:  other units in the library are
+      also searched, even if the unit doesn't use them.
+
+    The other difference between the TP search and SCANHELP's search is
+    that SCANHELP can resolve forward references.  You can have things
+    like
+
+      function FirstFunction:Integer;
+      { This is the first function; you should see #SecondFunction#! }
+
+      function SecondFunction:Integer;
+      { This is the second function; you should see #FirstFunction#! }
+
+    and SCANHELP will know what both # references are talking about.
+    This will occasionally lead to errors, if you have such abominations
+    as
+
+      type
+        integer = word;
+        word = integer;
+
+    which are likely to confuse SCANHELP (and you!).
+
+    If you want to override the search possibility, then you can use a
+    qualified name.  For example, #TBase.Init# is fine as a
+    cross-reference, provided the usual search rules can find TBase.
+
+DIRECTIVES
+
+    SCANHELP has several directives for customizing its behaviour.
+    Directives are placed in the source code before running SCANHELP.
+
+    All directives have the format {#L...} where:
+      {  }   are normal comment braces
+      #      signals that this is a SCANHELP directive
+      L      is a command letter
+      ...    are one or more parameters for the directive
+
+    #F
+
+     This directive toggles fixed format mode.  In fixed format mode,
+     word wrapping doesn't apply to comments.  Note that word wrapping
+     always applies to the declaration of the object.
+
+    #M
+
+     This directive toggles "marked text mode".  The behaviour of this
+     depends on the particular help format chosen, but generally
+     speaking, it should be used to mark examples of usage.  Note that
+     #F can be used to start fixed format within marked text, but text
+     marking shouldn't be started within fixed format.
+
+    #T Topic [comment]
+
+     This directive creates a new topic and a new identifier in the
+     current scope.  SCANHELP parses it as a new declaration.
+     For example:
+
+      type Myrec = record
+        { this comment will go into the Myrec topic }
+        a : word;
+        { this comment will go into the Myrec.a topic }
+        {#T about_myrec}
+        { this comment will go into a Myrec.about_myrec topic, with
+          an embedded cross-reference to #a#. }
+        b : word;
+        { this comment will go into the Myrec.b topic, with cross
+          references to the other two topics. }
+        {#X about_myrec a}
+      end;
+
+     You can use #X directives after #T; this will create See Also
+     entries in the #T topic.  Other #X directives can refer to the #T
+     topic, using the topic name, as shown after the Myrec.b comment
+     above.
+
+    #X [Object.]Topic [[Object.]Topic...]  Include cross-reference
+
+     This directive specifies that Topic is to be included in the "See
+     also" list for the current symbol.
+
+     You can have as many topics in one #X directive as you like. Or,
+     you can specify multiple #X directives.  For example, the following
+     are equivalent:
+
+       {#X TopicA TopicB TopicC}
+
+     and
+
+       {#X TopicA}
+       {#X TopicB}
+       {#X TopicC}
+
+    #Z+ / #Z-   Toggle Private
+
+     This directive controls what symbols are included in the help text.
+     The default is all interfaced objects, methods, procedures and
+     functions. If you want to exclude one or more these symbols, then
+     place a {#Z+} directive in front of them and a {#Z-} directive
+     following. The Z+ signals that all following symbols are private
+     and should not be included in the help text. The Z- turns off the
+     "private" attribute.
+
+
+
+COMMAND LINE OPTIONS
+
+    Some of SCANHELP's behavior is customized from the command line.
+    Here is the command line format:
+
+    SCANHELP [options] filespec [filespec...] [@commandfile] [<commandfile]
+
+    Commandfile:  If you give the name of a file after an @ sign,
+    SCANHELP will switch to reading command line arguments from that
+    file.  You can give a several command files on the command line, and
+    can nest commandfile calls within command files.  Similarly, if
+    you redirect input from a file using "<commandfile", the lines in
+    the file will be taken as additional command line arguments just as
+    if you put "@commandfile" at the end of the command line.  This is
+    useful for building large command lines using the Borland MAKE
+    utility's << directive.
+
+    Options:
+
+      /D sym   Define symbol for conditional compilation
+
+        This option is the equivalent of placing {$D sym} at the start
+        of the source code of each unit being parsed.  SCANHELP will
+        use the $IFDEF and $IFNDEF directives to select which parts of
+        the text to parse.
+
+      /FB  Make Borland .TPH database [default]
+      /FH  Make HELPC .HDF format
+      /FP  Make POPHELP database
+      /FT  Make TeX help file
+      /FW  Make Windows HC31 RTF format
+
+        By default, SCANHELP will produce a compiled .TPH file.  If you
+        want to use a different format, specify it with one of these
+        options.
+
+      /I dirs    Search list for include files
+
+        If your files have $I directives to include other source,
+        SCANHELP will use the directories specified here to find it.
+
+      /L   Set link buffer to disk
+
+        SCANHELP normally writes an uncompressed version of the helpfile
+        to expanded or extended memory.  Use this option to force it to
+        write the buffer to disk, if you find it runs out of memory on
+        large runs.
+
+      /O file   Output filename
+
+        SCANHELP normally names the output filename the same as the
+        first unit it scans.  Use this directive to override that
+        behaviour.  The default extension is .TXT for a MAKEHELP input
+        file, .TPH for Borland help files, .TEX for a TeX file, .RTF for
+        an HC31 input file and .HDF for a HELPC source file.  The HC31
+        project file is always named with the extension .HPJ.
+
+      /S  sort cross-references
+
+        The default behavior for the cross-reference table (the See
+        also's) is to present the cross-references in the same order
+        they appear in the #X directives in the source code. The /S
+        options gives the list in sorted order.
+
+      /T nn  set tab size to nn columns
+
+        By default, SCANHELP expands tab characters to every 8 columns.
+        This option changes the tab size; e.g. "/T 3" sets the tab size
+        to 3 columns.  Use "/T 0" to suppress tab expansion.
+
+      /U dirs  set search list for used units
+
+        SCANHELP will always scan any files you list explicitly, and by
+        default, will also scan files listed in Uses clauses (in either
+        the interface or implementation section) of any scanned files,
+        provided they're found in the same directory.  If you use this
+        option, it will also use Uses statements to find other units in
+        other directories.  For example,
+
+            /U \bp\rtl\dos;\bp\rtl\common
+
+        will pull in the DOS unit, the OBJECTS unit, and the VALIDATE
+        unit if any of the explicitly mentioned source files use them.
+        If no /U option is given, "." is assumed, so used files in the
+        current directory will be included.  To scan *only* the explicitly
+        listed files, use /U-, or mark the Uses clauses as "private"
+        with the #Z+ directive in the source file.
+
+      /V size  set virtual memory swap to size kilobytes (SCANHLPX only)
+
+        For large projects, SCANHELP may run out of memory.  If you have
+        lots of extended memory, SCANHLPX is likely to go further, but
+        on a very large project, it too will run out of memory.  The
+        first thing to try is the /D option, but if that doesn't work,
+        try both the /D and /V options.  For example,
+
+          SCANHLPX /D /V 4096 /O bighelp *.pas
+
+        will set up 4 megabytes of virtual memory on disk.  This
+        "memory" is *very* slow, so it's always worthwhile using the /L
+        option first.  The maximum allowed virtual memory is 16
+        megabytes; if "/L /V 16384" didn't work for your project, you'd
+        be out of luck.  However, I've never found a project that even
+        required the /V option on my 4 Meg machine, so I doubt this will
+        be a real problem.
+
+      /$A+ etc compiler switches for conditional compilation
+
+        This option is the equivalent of placing compiler switch
+        directives like {$A+} at the start of the source code of each
+        unit being parsed.  SCANHELP will use the $IFOPT directives in
+        the source code to select which parts of the text to parse.
+
+
+BORLAND .TPH SPECIFICS
+
+    The help file created by SCANHELP will create an index entry for
+    every identifier, with a subtitle from the enclosing scope (i.e. the
+    unit name, record type, or object type).  The subtitles will only
+    show up in the IDE (THELP ignores them) when there are collisions
+    between the names---then there will be a single index entry, with
+    multiple subtitles shown below.
+
+    The .TPH will have hypertext links for jumping between all
+    cross-references.  Only record and object displays will have fixed
+    width unless the #F directive is used; the IDE or THELP will re-wrap
+    all other lines to fit in the visible window. A single topic called
+    Contents will be created, with a list of all documented units.  It
+    will be the first topic that THELP displays.
+
+    The #F directive will stop comment lines from wrapping, and will
+    preserve any leading spaces in the comments.
+
+    The #M directive will mark text as a code example, so that the IDE
+    will insert it into your text.  Use the Help window local menu
+    (Alt-F10 brings this up) to get the option to copy the text to your
+    clipboard, then use the usual Shift-Insert command to insert it into
+    your edit buffer.
+
+    The standard process for creating a Borland help file is as
+    follows:
+
+     1. Annotate source listings with # directives.
+
+     2. Run SCANHELP on all files (wildcards ok) with the /FB (or no /F)
+     option, and probably a /O option to give the output filename.
+
+     3.(a) Run THELP with the /Ffilename option to load the database as a
+     TSR, or
+
+     3.(b) Load the help database into the IDE by using the /Help Files New
+     dialog.  Be sure to hit the OK button (or type K); if you hit Esc, your
+     request will be ignored.
+
+    For example:
+
+         SCANHELP *.pas /Omyhelp
+         THELP myhelp
+
+
+HelpDK Specifics
+
+    SCANHELP will produce one indexed help topic for each identifier.
+    While HelpDK does produce input files for both Borland's help
+    compiler and TurboPower's, you'll probably get better results using
+    those specific options (/FB and /FP) rather than this generic one.
+
+    Both #F and #M directives are supported.  #F makes every line into a
+    separate paragraph, and #M marks text by putting it in font 8, which
+    is normally a fixed width Courier style.
+
+    The general procedure to use is as follows.
+
+     1. Annotate your source listings with # directives.
+
+     2. Run SCANHELP on all files (wildcards ok) with the /FH option,
+        and probably a /O option to give the output filename.
+
+     3. Run HELPC with the option specific to your target database:
+
+         /PX+ or /MT+ - for HelpDK's own help engine
+         /W30 or /W31 - for Windows 3.0/3.1 source
+         /TH+         - for Borland THELP source
+         /QH+         - for Microsoft QuickHelp source
+         /TV+         - for Borland TVHC source
+         /PH+         - for TurboPower POPHELP source
+         /XD+         - for DESQview/X source
+         /OS2         - for OS/2-IPF Source
+         /TXT         - Generate printable .TXT file
+         /RTF         - for RTF output
+         /MMV         - for Microsoft MultiMedia Viewer 2.0 source
+
+     4. See the instructions in the HelpDK file HLPDK.DOC for the final
+        compile step suitable to each target.
+
+    For example, for OS/2 the steps would be:
+
+       In a DOS session:
+         SCANHELP *.pas /Omyhelp /FH
+         HELPC /OS2 myhelp
+       In an OS/2 session:
+         IPFC /INF myhelp
+         Use the VIEW command to browse the help file.
+
+
+MAKEHELP/POPHELP SPECIFICS
+
+    The help file created by SCANHELP will create an index entry for
+    every identifier, and will have hypertext links for jumping between
+    all cross-references.  The text width will be set to 78 characters
+    by a directive at the beginning of the file; when MAKEHELP compiles
+    it, all line breaks will be fixed in place at that width.  A single
+    topic called Contents will be created in the first place in the
+    index, with a list of all documented units.
+
+    The #F directive will stop MAKEHELP from word wrapping, and the #M
+    directive will mark the block with ^C characters.  In the default
+    POPHELP colour scheme, this changes the text colour to dark blue
+    from black.
+
+    The standard process for creating a MAKEHELP help text is as
+    follows:
+
+     1. Annotate source listings with # directives.
+
+     2. Run SCANHELP on all files (wildcards ok) with the /FP option,
+     and probably a /O option to give the output filename.
+
+     3. Run MAKEHELP to compile the output file into a POPHELP database.
+
+     4. Run POPHELP to load itself as a TSR to use the database.
+
+    For example:
+
+         SCANHELP *.pas /Omyhelp /FP
+         MAKEHELP myhelp
+         POPHELP myhelp
+
+
+TeX SPECIFICS
+
+    The output file produced with the /OT option is meant to be run as a
+    single document under the LaTeX macro package.  The SCANHELP.STY
+    file is used to define the appearance of the document.  If you make
+    no changes to it, then the style will be very similar to the style
+    used in the Reference sections of Borland manuals:  major topics
+    will be set off with lines, and fields and methods will be shown
+    within the major topic defining their type. The index will contain a
+    bold face index entry for the definition of every identifier, and a
+    standard entry for all cross-references. TeX will fill lines to fit
+    your page width.
+
+    The #F directive tells LaTeX to put a line break after every line.
+    The #M directive marks a block as an example, with a note in the
+    margin the way the Borland manuals do it.
+
+    The standard process for creating a TeX help document is as follows:
+
+     1. Annotate source listings with # directives.
+
+     2. Run SCANHELP on all files (wildcards ok) with the /FT
+     option, and probably a /O option to give the output filename.
+
+     3. Run TeX with LaTeX on the output file.  How to do this will
+     depend on your local installation; on mine, it's just
+
+        LATEX filename
+
+     4. Run the MakeIndex program to compile the document index.  With
+     the emTeX version of TeX, this is done by
+
+        MAKEINDX filename
+
+     where the filename is your help filename *without the extension*.
+
+     5. Run LATEX again on your file; this time the index will be
+     incorporated into the document.
+
+     6. Print the .DVI file using a driver suitable for your printer;
+     for example,
+
+        lpr -d filename.dvi
+
+     is the method that works on our network or on many Unix machines.
+
+    For example:
+
+         SCANHELP *.pas /Omyhelp /FT
+         LATEX myhelp
+         MAKEINDX myhelp
+         LATEX myhelp
+         LPR -d myhelp.dvi
+
+
+Windows HC31 Specifics
+
+    SCANHELP will produce one indexed help topic for each identifier.
+    The name of the identifier will be used for keyword searches.
+
+    Both #F and #M directives are supported.  #F makes every line into a
+    separate paragraph, and #M marks text by putting it in a fixed width
+    Courier style.
+
+    The general procedure to use is as follows.
+
+     1. Annotate your source listings with # directives.
+
+     2. Run SCANHELP on all files (wildcards ok) with the /FW option,
+        and probably a /O option to give the output filename.
+
+     3. Run HC31 on the .HPJ file.
+
+    For example,
+
+         SCANHELP *.pas /Omyhelp /FW
+         HC31 myhelp
+
+    where SCANHELP is in this package, and HC31 is in Microsoft's SDK,
+    or other Windows programming packages like Borland Pascal or Turbo
+    Pascal for Windows.
+
+
+FILES
+
+    SCANHELP.EXE    The executable
+    SCANHELP.DOC    This file
+    SCANHELP.STY    The TeX style file for help documents
+    SAMPLE.SRC      One of the source files to SCANHELP, to show
+                    comment formatting.  This is Pascal source code, but
+                    you won't be able to recompile it without several
+                    support units.  SCANHELP can process it without
+                    those units.
+    HELPDEFS.INC    A file needed to process SAMPLE.SRC.
+    SAMPLE.PS       Postscript copy of TeX output from
+                      SCANHELP sample.src /u- /ft
+                    Print this if you want to see whether it's worth
+                    getting TeX.
+    SAMPLE.HLP      Windows 3.1 help file produced by
+                      SCANHELP sample.src /u- /fw
+                      HC31 sample
+                    Browse through this in Windows if you want to see
+                    whether it's worth getting HC31.
+    CONTENTS.TXT    A list of other utilities sent to registered users.
+
+    With the registered version, the following files are also included:
+
+    SCANHLPX.EXE    The protected mode executable, for huge help files.
+    DPMIUSER.DOC    Documentation for using the programs below.
+    RTM.EXE         The protected mode run time manager.
+    RTMRES.EXE      A small program to force RTM loading.
+    DPMI16BI.OVL    A DPMI server.
+    DPMIINST.EXE    Install program for DPMI16BI.OVL.
+    DPMILOAD.EXE    Borland's DPMI loader.
+
+CHANGE HISTORY
+
+    1.01  10-8-90
+        SCANHELP - Changed .Z to #Z to agree with documentation
+
+    1.02  3-7-91
+        SCANHELP - Fixed "xref line too long" bug
+
+    2.00Alpha  1-Dec-91
+          Major changes by DJM.
+
+    2.00Alpha2 Added /O option.
+
+    2.00Alpha3 Added embedded cross-references.
+
+    2.03  2.00Alpha3 with a more reasonable name. :-)
+
+    2.04  Fixed bug - #Z+ was being ignored by comment saver
+
+    3.00  Added Borland .TPH file and TeX support, changed a lot of the
+          formatting, internal structure, and symbol table methods, and
+          deleted a lot of the old options.
+
+    3.10  Added .HDF file support, and #F and #M directives, and fixed
+          bugs:  SCANHELP no longer asks for a numeric coprocessor; long
+          identifiers don't cause trouble.
+
+    3.12:  Fixed bug on #Z+, increased speed for .TPH files.
+
+    3.13:  Fixed bug in fixed line handling.
+
+    3.14:  Fixed bugs in read-only files and in POPHELP format output.
+
+    3.15:  Fixed bugs in long lines of special characters in TeX mode,
+           handling of "export" modifier
+
+    3.16:  Fixed handling of directives as names
+
+    3.17:  Fixed cross-reference bug in Pophelp file creation; added
+           DPMI capability and /D and /V options; changed memory
+           management; can now create *gigantic* help files
+
+    3.21:  Changed record and object output format; allowed nested variant
+           records
+
+    3.23:  Fixed handling of directives and dynamic methods; fixed error
+           messages; added "overrides" line to method topics.
+
+    3.26:  Added tab expansion, object descendant lists, /D option,
+           ability to handle non-units, /U option, improved TeX and HDK
+           output formats, fixed $ifdef bug, fixed nested record
+           handling, added /$A+ etc.
+
+    3.27:  Fixed bug when comment was followed immediately by a token,
+           improved .TPH compression
+
+    3.28:  Fixed bug in handling filesets like "c:*.pas"
+
+    3.29:  Fixed bugs in #Z handling, increased speed in text output
+           formats (FH, FP, FT)
+
+    3.30:  Added handling of implementation Uses clause, changed #Z so
+           that it would apply during Uses processing, added command
+           file processing, fixed /D handling, added Windows RTF output
+           format, fixed bug which made /S always active, added quotes
+           to keyword for Contents so it sorts first.
+
+    3.32:  Fixed bugs in handling constant procedural types, constants
+           in #Z sections, formatting of constants, formatting of RTF
+           topics, increased max line length for comments to 127 chars,
+           fixed various spacing problems.
+
+    3.33:  Changed sort order to match BP 7 (avoids disappearing index
+           entries); fixed parsing of object heritage
+
+    3.34:  Increased max number of comments from 50 to 1600, fixed more
+           #Z bugs, made TPH generation more robust
+
+    3.35:  Bug fixes:   Fixed blank lines between paragraphs in RTF output,
+           extra text at start of #T topic, extra blank lines in #F+
+           mode, bad handling of xref lists
+
+LICENSE
+
+    This program is shareware, not public domain.  It contains public
+    domain code written by TurboPower Software, and makes use of
+    copyright libraries by Borland International and TurboPower
+    Software, but the majority of the code is written by and belongs to
+    Duncan Murdoch.
+
+    You are licensed to distribute this program unchanged, provided you
+    charge no more than reasonable distribution costs, and in no case
+    more than $10 (US) for it.
+
+    You are also licensed to use it personally at no charge.  This means
+    that you may compile and use help files on any number of computers,
+    but only if you are their only reader:  you may not distribute them
+    to other people.  (Of course, if you distribute your source code to
+    other people, you can give them instructions on how to use SCANHELP
+    to produce their own personal help files.)
+
+    If you want to distribute help files produced by SCANHELP, you must
+    register the program with me.  Registered users will receive
+    SCANHLPX, the protected mode version of SCANHELP.  Depending on how
+    much RAM you have installed on your system (it can use up to 32
+    megabytes), you can process truly colossal help files with SCANHLPX.
+    I've yet to hit the limit, though the files it produces through
+    HELPC may be too large for Microsoft's Windows help compiler to
+    handle.
+
+    An additional benefit of registration is that I will send you a
+    diskette containing a number of other utilities I've written to help
+    with Turbo Pascal programming, DOS and Windows.  One of them that is
+    not currently available elsewhere is FINDHELP; it searches Borland
+    help files for keywords that aren't indexed.  Please tell me your
+    preferred diskette format.  A sample listing is included in the
+    CONTENTS.TXT file.
+
+    Registration costs $25.  You can register directly with me by
+    sending a cheque or money order for that amount to
+
+      Duncan Murdoch
+      337 Willingdon Ave.
+      Kingston, Ontario, Canada.
+      K7L 4J3
+
+    I accept cheques in either US dollars drawn on a US bank or Canadian
+    dollars drawn on a Canadian bank (at par).  Cheques in UK pounds
+    drawn on a UK bank are also acceptable, at the equivalent of $US 25.
+
+    Source code to SCANHELP is available to registered users for an
+    additional $25 (i.e. $50 total).  Recompiling SCANHELP will require
+    TurboPower's Object Professional library together with their Turbo
+    Analyst package; however, the Borland help file unit requires only
+    simple data manipulation routines from Object Professional.
+
+    You can also register or order source code from the Public
+    (software) Library (PsL) using MC, Visa, AmEx, or Discover card:
+     - by calling 800-242-4775 (US only)
+     - by calling 713-524-6394
+     - by faxing your order to 713-524-6398
+     - by sending your order by Compuserve to 71355,470.
+     - by sending your order by Internet to 71355.470@compuserve.com
+    PsL only accepts payment in US dollars.  If you register by email,
+    please include your credit card expiry date and your name exactly as
+    it appears on your credit card.
+
+    The PsL numbers are for ordering only.  I *cannot* be reached at the
+    PsL numbers.  To contact me for information about dealer pricing,
+    volume discounts, site licensing, the status of shipment of the
+    product, the latest version number or for technical information
+    write to me at the address above or at one of the email addresses
+    below.  I'd especially like to hear any suggestions for
+    improvements.
+
+     Fidonet:    DJ Murdoch at 1:249/99.5
+     Internet:   dmurdoch@mast.queensu.ca
+     Compuserve: 71631,122
+
+UPDATES
+
+    If you would like to be informed of updates to ScanHelp, send me
+    your email address and I'll send a notice whenever I release one.
+    Registered users are entitled to one free update by email. For
+    further updates or updates on disk, an additional registration fee
+    of $25 is required.
+
+
