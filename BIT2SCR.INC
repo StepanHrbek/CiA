@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -7,11 +7,18 @@
  Zkopci obdelnikovy blok mezi bitmapou a videopameti.
  ---------------------------------------------------------------------------}
 {$ifdef smer1}
-Procedure TScreen.BtB2Box(p:PBitmap;srcX,srcY,Sirka,Vyska,destX,destY:word);
+Procedure TScreen.BtB2Box(p:PBitmap;srcX,srcY,Sirka,Vyska,destX,destY:word);assembler;
+var ramX:word absolute srcX;
+    ramY:word absolute srcY;
+    vramX:word absolute destX;
+    vramY:word absolute destY;
 {$else}
-Procedure TScreen.Box2BtB(p:PBitmap;srcX,srcY,Sirka,Vyska,destX,destY:word);
+Procedure TScreen.Box2BtB(p:PBitmap;srcX,srcY,Sirka,Vyska,destX,destY:word);assembler;
+var vramX:word absolute srcX;
+    vramY:word absolute srcY;
+    ramX:word absolute destX;
+    ramY:word absolute destY;
 {$endif}
-assembler;
 
  {
  procedure print;
@@ -42,33 +49,29 @@ assembler;
 
      les di,self
      mov ax,[es:di+lineOffset];mov local_lineOffset,ax
-     mov al,[es:di+MapModel];mov local_vgamodel,al
+     mov al,byte ptr [es:di+MapModel];mov local_vgamodel,al
 
 
      {FS:BX=srcBitmap^.tab}
      les di,p
-     mov al,[es:di+MapModel];mov local_btmmodel,al
+     mov al,byte ptr [es:di+MapModel];mov local_btmmodel,al
 {$ifdef smer1}
      mov al,[es:di+tbitmap.transparent]
      mov local_transparent,al
-     mov ax,srcY
- {$else}
-     mov ax,destY
 {$endif}
+     mov ax,ramY
      db 26h,0fh,0b4h,9dh;dw tbitmap.tab{LFS BX,[es:di+Bitmap.tab]}
      shl ax,2
      add bx,ax
 
      {ES:DI=DestAdr.start, DX=bank      ..resp DS:SI=SrcAdr.start}
      les di,self
-{$ifdef smer1}
-     mov ax,destY
+     mov ax,vramY
      mul local_lineOffset
+{$ifdef smer1}
      mov es,[es:di+SegVram]
      mov di,ax
  {$else}
-     mov ax,srcY
-     mul local_lineOffset
      mov ds,[es:di+SegVram]
      mov si,ax
 {$endif}
@@ -78,9 +81,23 @@ assembler;
       a bud nedelat nic nebo realtime konvertovat :)}
      mov al,local_vgamodel
      mov ah,local_btmmodel
+
+     cmp al,model_packed   ;jz @PACKED
      cmp al,model_unchained;jz @UNCHAINED
-     cmp al,model_packed;jz @PACKED
-     cmp al,model_text;jz @TEXT
+     cmp al,model_text     ;jz @TEXT
+
+     {direct modely pohlidame tady...}
+     cmp al,ah
+     jne @BAD_MODEL
+
+     cmp al,model_BGR15    ;jz @MODEL_2
+     cmp al,model_RGB15    ;jz @MODEL_2
+     cmp al,model_BGR16    ;jz @MODEL_2
+     cmp al,model_RGB16    ;jz @MODEL_2
+     cmp al,model_BGR24    ;jz @MODEL_3
+     cmp al,model_RGB24    ;jz @MODEL_3
+     cmp al,model_BGRA32   ;jz @MODEL_4
+     cmp al,model_RGBA32   ;jz @MODEL_4
      jmp @BAD_MODEL
 
 
@@ -119,6 +136,31 @@ assembler;
 
 
    {------}
+   @MODEL_3:
+   {------}
+      push ax
+      mov ax, srcX;add ax,ax;add  srcX,ax
+      mov ax,destX;add ax,ax;add destX,ax
+      mov ax,Sirka;add ax,ax;add Sirka,ax
+      pop ax
+      jmp @okpacked
+
+   {------}
+   @MODEL_4:
+   {------}
+      shl srcX,1
+      shl destX,1
+      shl Sirka,1
+
+   {------}
+   @MODEL_2:
+   {------}
+      shl srcX,1
+      shl destX,1
+      shl Sirka,1
+      jmp @okpacked
+
+   {------}
    @PACKED:
    {------}
       cmp ah,model_packed;jz @okpacked
@@ -132,11 +174,11 @@ assembler;
 {$endif}
       adc dx,0
       push dx
-      db 66h;push word ptr self;call VesaSetBank
+      db 66h;push word ptr self;call vesa_SetBank
       jmp @packed_main
 
      @packed_IncBank:
-      db 66h;push word ptr self;call VesaIncBank
+      db 66h;push word ptr self;call vesa_IncBank
      @packed_Main:
       {spocita do AX kolik radek muze kreslit bez bankingu, snizi Vyska}
       xor dx,dx
@@ -197,7 +239,7 @@ assembler;
       neg cx
       call near ptr @REP_MOVSB_di {65536-di}
       push ax
-      db 66h;push word ptr self;call VesaIncBank
+      db 66h;push word ptr self;call vesa_IncBank
       pop ax
       pop cx
       add cx,Sirka
@@ -217,7 +259,7 @@ assembler;
       neg cx
       call REP_MOVSB_si {65536-si}
       push ax
-      db 66h;push word ptr self;call VesaIncBank
+      db 66h;push word ptr self;call vesa_IncBank
       pop ax
       pop cx
       add cx,Sirka
@@ -242,7 +284,7 @@ assembler;
       retn
      @Ptransparent:
       push ax
-      call REP_TransparentMOVSB_nz
+      call REP_MOVS_1_nz_t
       pop ax
       retn
 
@@ -333,14 +375,16 @@ assembler;
    @BAD_MODEL:
    {---------}
       {$ifdef beta}
+      push seg @data
+      pop ds
       push cs
       push offset @msg1
       call chyby.erBetaMsg
       @msg1:
        {$ifdef smer1}
-       db 9,'btb2box 1'
+       db 27,'btb2box(mapmodel<>scrmodel)'
        {$else}
-       db 9,'box2btb 1'
+       db 27,'box2btb(mapmodel<>scrmodel)'
        {$endif}
       {$endif}
 

@@ -10,10 +10,10 @@
  Tu priste nacte a mys se objevi tam kdes ji posledne nechal.
 }
 
-{$M 10000,100000,100000}
+{$M 10000,20000,20000}
 {$i define.inc}
 
-Uses Chyby,Objects,Strings,Sys,Ini,Vga,Cache,Fonty,Key;
+Uses Chyby,Memo,Objects,Strings,Sys,Ini,Vga,Cache,Fonty,Key,Lang1;
 
 Var s      :TScreen;{obrazovka}
     ahoj   :PBitmap;{nejaka bitmapka}
@@ -32,9 +32,9 @@ Procedure Vars;assembler;
  SYNTAXE: nazev malymi pismeny,0,flags,typ,offset promenne v datasegmentu;
           uplne na konci nula}
  asm
-  db 'mys.x'     ,0,i_wral,i_intg;dw offset mx         {mistni promenne}
-  db 'mys.y'     ,0,i_wral,i_intg;dw offset my
-  db 'mousespeed',0,     0,i_word;dw offset MouseSpeed {globalni promenna z vga}
+  db 'mys.x'     ,0,0,i_intg;dw offset mx         {mistni promenne}
+  db 'mys.y'     ,0,0,i_intg;dw offset my
+  db 'mousespeed',0,0,i_byte;dw offset MouseSpeed {globalni promenna z vga}
   db 0
  end;
 
@@ -44,34 +44,33 @@ Begin
  kSetHandler(true);
 
  {cte promenne z ini}
- iniSetup(nil,nil,@vars);
+ iniSetup(nil,@vars);
  iniRead('priklad.ini');
 
  {nahraje si do pameti nejaky font}
  {v teto ukazce kvuli vypsani Ahoj!}
  f:=caFontGet(fnDefault);
- if f=nil then erFile(fnDefault);
+ if f=nil then Halt(erMsgWritten);
 
- {nastavi nejaky mod s 256 barvami (nejblizsi k tomuto rozliseni)}
- if not s.Init(model_256,640,480,0) then Halt(erBadMode);
- {muzes si zkusit i jine mody}
- {kdybys chtel nastavit konkretni mod a zadny jiny, volej init takto:
-  if not s.Init(model_packed,0,0,P640x480) then Halt(erBadMode);}
+ {nastavi nejblizsi graficky mod, vyzkousej si ruzna rozliseni a modely}
+ if not s.Init(model_gfx,640,480,0) then Halt(erBadMode);
+ {kdybys chtel nastavit konkretni mod a zadny jiny, volej init treba takto:
+  if not s.Init(model_packed,0,0,P640x480) then Halt(erBadMode);
+  viz seznam modelu a modu na zacatku vga.pas}
 
  {nastavi polohu mysi tak, jak ji nacet z priklad.ini}
  s.MouseSetPos(mx,my);
 
  {vygeneruje bitmapku s napisem}
- {pouziva barvy standardni palety}
- New(ahoj,Init(model_packed,50,50));    {alokuje malou bitmapku}
- if ahoj=nil then Halt(erLowMem);       {pri neuspechu skonci}
- ahoj^.Col2Ful(20);                     {vyplni ji jednou barvou}
- ahoj^.Col2Box(1,1,47,47,31);           {vnitrek vyplni jinou}
- ahoj^.Col2Box(2,2,44,44,32);           {vnitrek vyplni jinou}
- OutStr(napis,ahoj,7,27,f,0,31);        {pise napis}
+ New(ahoj,Init(s.MapModel,50,50));                {alokuje malou bitmapku}
+ if ahoj=nil then Halt(erLowMem);                 {pri neuspechu skonci}
+ ahoj^.Col2Ful(s.Color(255,255,255));             {vyplni ji jednou barvou}
+ ahoj^.Col2Box(1,1,47,47,s.Color(0,0,0));         {vnitrek vyplni jinou}
+ ahoj^.Col2Box(2,2,44,44,s.Color(0,0,210));       {vnitrek vyplni jinou}
+ OutStr(napis,ahoj,7,27,f,0,s.Color(255,255,255));{pise napis}
 
- {nastavi na karte paletu sipky}
- s.mousePal^.Show;
+ {rozsviti paletu}
+ s.Fade(+0);
 
  {inicializace pohybu}
  dx:=1000;
@@ -97,9 +96,8 @@ Begin
 
    end;
 
- {uvolni bitmapku}
- {btw, zde neni nutne, po skonceni programu se pamet odalokuje automaticky}
- ahoj^.Free;
+ {uvolni bitmapku "ahoj"}
+ KillObj(ahoj);
 
  {nastavi polohu mysi do promennych, ktere pote ulozi do INI}
  mx:=s.mouse.X;
@@ -109,7 +107,6 @@ Begin
  s.Done;
 
  {zahodi font}
- {btw, zde neni nutne, po skonceni programu se pamet odalokuje automaticky}
  caLeave(f);
 
  {zapise promenne do ini}
@@ -119,7 +116,6 @@ Begin
  {btw, neni nutne, odpojeni je v autodone}
  kSetHandler(false);
 
- {vyprazdni buffer klavesnice, vypise hlasku a skonci}
- FlushKey;
+ {rozlouci se}
  writeln('Bye!');
 End.

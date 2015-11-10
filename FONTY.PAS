@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -6,7 +6,7 @@
 Unit      Fonty;
 Interface {$i define.inc}
 Uses      Chyby,Memo, Dos,Objects,Strings, Stringy,Cache,Fajly,Vga;
-Function  Init:word;
+Function  Init:TError;
 Procedure Done;
 
 {
@@ -15,8 +15,8 @@ Procedure Done;
 ---------------------------------------------------------------------------
 
 Unita obsahuje podporu pro bitmapove fonty ukladane ve formatu FN,
-a zaklady psani temito fonty do bitmap.
-Pozn: primo na obrazovku psat nelze.
+a zaklady psani temito fonty do bitmap. Primo na obrazovku psat nelze.
+Balik ceskych fontu najdes na www.ms.mff.cuni.cz/~shrb5163.
 
 
 ---------------------------------------------------------------------------
@@ -24,7 +24,21 @@ Pozn: primo na obrazovku psat nelze.
 ---------------------------------------------------------------------------
 
 Jako pocatecni souradnice jsou pozadovany X=levy kraj prvniho pismene,
-Y=uroven linky, na ktere pismena sedi. Po vykresleni jednoho pismene
+Y=linka, na ktere pismena sedi.
+
+   ____
+  |    | Y=0
+  |    |
+  |    |          <- levy horni pixel(v textmodu znak) bitmapy
+  |____| Y=1
+
+ X=0  X=1
+
+V textmodu jsou pismena vysoka 1 jednotku. Kdyz chces nakreslit pismeno
+do leveho horniho znaku, zadas souradnice X=0 a Y=1 (viz nacrt).
+Tedy ne Y=0, jak to omylem fungovalo drive.
+
+Po vykresleni jednoho pismene
 se ukazatel X posune o sirku pismene (nemusi byt presne rovna sirce bitmapy
 pismene). Mezi dvema pismeny se navic posune o addspace (mezi vzdelanci
 se tomu tusim rika rozpal), u malych fontu obvykle 1 pixel. Vsechny tyto
@@ -56,7 +70,7 @@ TYPE
       PFontTable = ^TFontTable;
       TFontTable = array[#0..#255] of TCharInfo;
 
-      PFont = ^TFont;{pointer na font, nil = prazdny font}
+      PFont = ^TFont;
       TFont = object(TObject)
                      all         :PLine;     {pointer na naloadovany cely soubor}
                      allsize     :word;      {velikost souboru}
@@ -88,9 +102,6 @@ const fnmagic:pchar='ëmÕonç ';
       fnDefault    ='modern.fn';{nejaky font, ktery urcite bude po ruce}
       fnDefaultNp  ='moder_np.fn';{nejaky neproporcionalni font}
 
-      erBadFont    = 84;
-      erTooBigFont = 92;
-
 
 {---------------------------------------------------------------------------
  Cache.
@@ -104,15 +115,20 @@ function  caFontGet(hledamfilename:PathStr):PFont;
 
 {---------------------------------------------------------------------------
  Prime psani textu do bitmapy.
-  OutText - univerzalni verze pro tisk pcharu
+  OutText - univerzalni verze pro tisk textu ulozeneho kdekoliv v pameti
   OutStr  - zjednodusena verze pro tisk stringu
+  OutPc   - zjednodusena verze pro tisk pcharu
  ---------------------------------------------------------------------------}
 
-FUNCTION  OutText({co }delka:word;src:Pchar;var mezer,sirmez:word;
+FUNCTION  OutText({co }delka:word;src:pchar;var mezer,sirmez:word;
                   {kam}map:PBitmap;x,y:word;
                   {jak}font:PFont;proporc:byte;barva:longint):word;
 
 FUNCTION  OutStr ({co }src:string;
+                  {kam}map:PBitmap;x,y:word;
+                  {jak}font:PFont;proporc:byte;barva:longint):word;
+
+FUNCTION  OutPc  ({co }pc:pchar;
                   {kam}map:PBitmap;x,y:word;
                   {jak}font:PFont;proporc:byte;barva:longint):word;
 
@@ -196,8 +212,7 @@ begin
  p:=nil;
  datasize:=0;
  freesize:=0;
- result:=LoadFile(hledamfilename,p,datasize,freesize);
- if result=erOk then begin
+ if not fileLoad(hledamfilename,nil,p,datasize,freesize) then result:=erFileLoad else begin
    result:=LoadFromMem(p,datasize);
    if result<>erOk then FreeMem(p,datasize+freesize);
    end;
@@ -213,7 +228,7 @@ begin
  {opravi offsety v tablu}
  for c:=firstchar to lastchar do dec(tablo^[c].ofsb,ofs(all^));
  {zapise all}
- Save:=SaveFile(dest,all,allsize);
+ if fileSave(dest,all,allsize) then Save:=erOk else Save:=erFileSave;
  {opravi offsety v tablu}
  for c:=firstchar to lastchar do inc(tablo^[c].ofsb,ofs(all^));
 end;
@@ -263,7 +278,7 @@ var   p         :pointer;
 begin
  er:=GetFnt(p,charsize);
  if er=erOk then begin
-   er:=SaveFile(dest,p,256*charsize);
+   if not fileSave(dest,p,256*charsize) then er:=erFileSave;
    FreeMem(p,256*charsize);
    end;
  SaveFnt:=er;
@@ -411,13 +426,20 @@ end;
  Mezer a sirmez snizi o spotrebovane mnozstvi.
  Vraci souradnici X za prave vypsanym textem (=zadane X + sirka textu).
  ---------------------------------------------------------------------------}
+{$ifdef beta}
+procedure e1;begin erBetaMsg('outtext src=nil');end;
+procedure e2;begin erBetaMsg('outtext map=nil');end;
+procedure e3;begin erBetaMsg('outtext proporc/textmode');end;
+{$endif}
+
 FUNCTION  OutText({co }delka:word;src:Pchar;var mezer,sirmez:word;
                   {kam}map:PBitmap;x,y:word;
                   {jak}font:PFont;proporc:byte;barva:longint):word;
 assembler;
 
-var   UseModel      :byte;
+var   ByPP          :word;
       sirka_pismene :byte;
+      {vyska_pismene :byte;}
       shift         :integer;
       local_addspace:word;
       local_mezer   :word;
@@ -428,6 +450,7 @@ var   UseModel      :byte;
       pom1          :byte;
       oldds         :word;
       oldX          :word;
+      expand        :pointer;
 asm
      {
       DS:SI-src text
@@ -441,22 +464,8 @@ asm
      {checks}
      cmp delka,0;jz @farend
      {$ifdef beta}
-     db 66h;cmp word ptr src,0;jz @bad1
-     db 66h;cmp word ptr map,0;jz @bad1
-     jmp @oke
-     @bad1:
-      push cs
-      push offset @msg1
-      call chyby.erBetaMsg
-      @msg1:
-      db 29,'outtext se ¨patn˜mi parametry'
-     @bad2:
-      push cs
-      push offset @msg2
-      call chyby.erBetaMsg
-      @msg2:
-      db 38,'pokus ps t neproporcion lnˆ v textm¢du'
-     @oke:
+     db 66h;cmp word ptr src,0;jnz @nobug1;call e1;@nobug1:
+     db 66h;cmp word ptr map,0;jnz @nobug2;call e2;@nobug2:
      {$endif}
 
      {prevede nektere parametry do lokalnich promennych}
@@ -464,11 +473,15 @@ asm
      shr ax,1;mov total_counter,ax
      les di,sirmez;mov ax,[es:di];mov local_sirmez,ax;mov total_sirmez,ax
 
-     {pouzije model podle bitmapy, za unchained dosadi packed}
+     {nastavi ByPP podle bitmapy}
      les di,map
-     mov al,[es:di+tbitmap.MapModel]
-     cmp al,model_unchained;jnz @notunch;mov al,model_packed;@notunch:
-     mov UseModel,al
+     mov bl,[es:di+TBitmap.ByPP]
+     mov bh,0
+     mov ByPP,bx
+     {do 'expand' nastavi pointer na expandovaci funkci}
+     shl bx,2;add bx,offset @expand-4
+     db 66h;mov bx,[cs:bx]
+     db 66h;mov word ptr expand,bx
 
      {map:=map.tab+4*y}
      db 66h;mov bx,word ptr [es:di+tbitmap.tab]
@@ -477,12 +490,9 @@ asm
      add bx,cx
      db 66h;mov word ptr map,bx{pozor: do MAP si ulozi MAP.TAB, MAP uz nebude ptrebovat}
 
-     mov al,UseModel
-     cmp al,model_text;jz @TEXT
-     cmp al,model_packed;jz @GRAPHIX
-     {*dalsi modely}
-     jmp @END
-
+     {vetveni podle modelu - TEXT a GRAFIKA zvlast}
+     cmp [es:di+TBitmap.MapModel],model_text
+     jnz @GRAPHIX
 
  {==========}
     @TEXT:
@@ -490,11 +500,13 @@ asm
 
      {$ifdef beta}
      {kontrola zda do model_text pise neproporcionalne}
-     cmp proporc,1
-     jnz @bad2
+     cmp proporc,1;jz @nobug3;call e3;@nobug3:
      {$endif}
      db 0fh,0b4h,5eh,offset map{LFS BX,tab}
      lds si,src
+     sub bx,4{fix: pismeno sedi na 0pixelu vysoke lince Y,
+                   ovsem kresli se do 1pixelu vysoke radky Y-1!
+                   viz uvodni komentar unity}
      db 64h,0c4h,3fh{LES DI,[FS:BX]}
      add di,X
      add di,X
@@ -515,8 +527,12 @@ asm
       jnz @nemezera
        push ax
        call near ptr @DistribuujMezeryDoX
-       add di,ax
-       add di,ax
+       {vycisti prostor mezi slovy}
+       push cx
+       mov cx,ax
+       mov al,' '
+       rep stosw
+       pop cx
        pop ax
       @nemezera:
       stosw
@@ -529,7 +545,7 @@ asm
       or ax,ax
       jz @ret
        xor dx,dx
-      {pekne optimalni rutina, ale mezery se hromadej u konce radky
+      {pekne optimalni rutina, ale mezery se hromadej u konce radky:
         div local_mezer}
       {delsi rutina, ale mezery distribuuje rovnomerne}
       {total_mezer krat prijde mezera a ja musim total_sirmez pridat.
@@ -617,15 +633,7 @@ asm
      mov ax,X
      mov oldX,ax
 
-     {vetveni podle modelu}
-     mov al,UseModel
-     cmp al,model_packed;jz @PACKED
-     jmp @DONE
-
- {----------}
-   @PACKED:
- {----------}
-
+     {nacita z fontu udaje o znaku}
      lodsb
      cbw
      {mov relX,ax}
@@ -636,11 +644,9 @@ asm
      shl ax,2
      add bx,ax{zapocita relY}
 
-     lodsb
+     lodsw
      mov sirka_pismene,al{loadne sirb}
-
-     lodsb
-     mov dh,al{loadne dh=vysb}
+     mov dh,ah{mov vyska_pismene,ah}{loadne vysb}
 
      lodsb
      cbw
@@ -662,11 +668,21 @@ asm
      cmp sirka_pismene,0
      jz @skipOUTCHAR{nekresli nic kdyz je znak sirokej 0}
 
-   {$IFDEF DEMENT} {ruzne modifikace vystupu, kvuli zpetne kompatibilite P.}
+{$IFDEF DEMENT}
+  {ruzne modifikace vystupu, kvuli zpetne kompatibilite P.}
+  {------------------}
+    @SPECIAL:
+  {------------------}
+     cmp ByPP,1
+     jne @normal{model_direct -> psat normalne mono}
+
      mov dl,byte ptr barva+3
      dec dl
-     js @normal
-     jz @bardak
+     js @normal{nejvyssi bajt barvy=0 -> psat normalne mono}
+     jz @bardak{nejvyssi bajt barvy=1 -> psat bardem}
+
+{     cmp dl,8
+     jz @buttonak{nejvyssi bajt barvy=9 -> psat na button}
 
    {vystup odstinovany podle vzdalenosti od okraje bitmapy}
    @bumpos:
@@ -676,7 +692,7 @@ asm
       push ds{push adresa monobitmapy}
       push si
       mov al,sirka_pismene;mov ah,0;push ax{push sirka}
-      shr dx,8;push dx{push vyska}
+      mov al,dh{vyska_pismene};mov ah,0;push ax{push vyska}
       mov ds,oldds
       call totalnialefaktuplnetotalnibagr{vygeneruje ve freesegu 256color znak}
      popa
@@ -704,7 +720,7 @@ asm
        dec al;jz @method2
        dec al;jz @method4{skoro totez co 6}
        @method1:
-        call REP_TransparentMOVSB_nz
+        call REP_MOVS_1_nz_t
         jmp @linedone
        @method2:
         lodsb;or al,al;jz @vynech2
@@ -722,7 +738,7 @@ asm
         jmp @linedone
        @method7:
         push bx;mov bl,pom1;and bl,7;cmp bl,4;jc @low;neg bl;add bl,8;@low:
-        mov bh,0;add di,bx;call REP_TransparentMOVSB_nz;sub di,bx;pop bx
+        mov bh,0;add di,bx;call REP_MOVS_1_nz_t;sub di,bx;pop bx
         jmp @linedone
        @method8:
         push ax;mov ah,pom1;add ah,40;shr ah,4
@@ -734,7 +750,7 @@ asm
 
      inc si
      add bx,4
-     dec dh
+     dec dh{vyska_pismene}
      jnz @8x_NEXT_LINE
      pop cx
 
@@ -744,7 +760,7 @@ asm
    {vystup odstinovany podle y}
    @bardak:
      mov pom1,4{pom1=cislolajny+4}
-     @08:
+   @bardak_params:
      inc pom1;mov al,pom1;shr al,2;cmp al,8;jc @07;mov al,8;@07:
      pusha
      CALL near ptr @ExpandLine_AL
@@ -752,25 +768,25 @@ asm
      add bx,4
      mov al,1
      CALL near ptr @ExpandLine_AL
-     dec dh
+     dec dh{vyska_pismene}
+     jnz @bardak_params
+     jmp @DONE
+
+(*   {varianta bardaku vyladena pro buttony}
+   @buttonak:
+     mov pom1,8*18
+     @08:
+     dec pom1;mov al,pom1;shr al,3;cmp al,16;jb @11;mov al,16;@11:
+     pusha
+     CALL near ptr @ExpandLine_AL
+     popa
+     add bx,4
+     mov al,13
+     CALL near ptr @ExpandLine_AL
+     dec dh{vyska_pismene}
      jnz @08
      jmp @DONE
-   {$ENDIF}
-
-   {normalni mono vystup}
-   @normal:
-     mov al,byte ptr barva{al=barva}
-     @09:
-     CALL near ptr @ExpandLine_AL
-     add bx,4
-     dec dh
-     jnz @09
-     jmp @DONE
-
- {----------
-    UTILS:
- {----------}
-
+*)
      {sirka_pismene bitu z DS:SI expanduje barvou AL
       do souradnice X linky v FS:BX (pres ES:DI)}
      @ExpandLine_AL:
@@ -795,6 +811,46 @@ asm
       dec dl
       jnz @next
       retn
+{$ENDIF}
+
+  {-----------}
+    @NORMAL:
+  {-----------}
+     push cx
+     push X
+
+     push dx
+     mov ax,ByPP
+     mul X
+     mov X,ax
+     pop dx
+
+     db 66h;mov ax,word ptr barva{eax=barva}
+     mov cl,byte ptr barva+2{ch=barva}
+
+     @nextline:
+      db 64h,0c4h,3fh{LES DI,[FS:BX]}
+      add di,X
+      mov dl,sirka_pismene
+      @nextbyte:
+       mov ch,[si]
+       call EXPAND
+       inc si
+       sub dl,8
+       ja @nextbyte
+      add bx,4
+      dec dh{vyska_pismene}
+      jnz @nextline
+
+     pop X
+     pop cx
+     jmp @DONE
+
+    @EXPAND:
+      dd ExpandCH_AL
+      dd ExpandCH_AX
+      dd ExpandCH_CLAX
+      dd ExpandCH_EAX
 
  {----------}
     @DONE:
@@ -828,6 +884,13 @@ asm
 end;
 
 
+FUNCTION  OutPc(pc:pchar;map:PBitmap;x,y:word;font:PFont;proporc:byte;barva:longint):word;
+const mezer:word=0;
+      sirmez:word=0;
+begin
+ OutPc:=OutText(StrLen(pc),pc,mezer,sirmez,map,x,y,font,proporc,barva);
+end;
+
 FUNCTION  OutStr(src:string;map:PBitmap;x,y:word;font:PFont;proporc:byte;barva:longint):word;
 const mezer:word=0;
       sirmez:word=0;
@@ -838,22 +901,13 @@ end;
 
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
-const unita='fonty';
-var result:integer;
-
-procedure UserInit;
+function Init:TError;
  begin
-  BugList.Register(erBadFont,'Vadn˜ font.');
-  BugList.Register(erTooBigFont,'Pokus o nastaven¡/konverzi fontu pro tyto ‡innosti p©¡li¨ velk‚ho.');
+  Init:=erOk;
  end;
 
-procedure UserDone;
+procedure Done;
  begin
  end;
 
-{$i initdone.inc}
-{$ifdef autoinit}
-BEGIN
- erCheck(Init);
-{$endif}
 END.

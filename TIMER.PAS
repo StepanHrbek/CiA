@@ -1,14 +1,13 @@
-{* Subset of TIMER unit form MIDAS Sound System 0.40
- *
- * TempoTimer, originally v1.20
- *
- * Copyright 1995 Petteri Kangaslampi and Jarno Paananen
- *}
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+ ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
+ ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
+ ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
 
-unit Timer;
-
-
-interface
+Unit      Timer;
+Interface {$i define.inc}
+Uses      Chyby;
+Function  Init:TError;
+Procedure Done;
 
 
 type
@@ -36,36 +35,6 @@ const
 \****************************************************************************}
 
 function tmrGetScrSync(scrSync : Pword) : integer;
-
-
-
-
-{****************************************************************************\
-*
-* Function:     tmrInit : integer;
-*
-* Description:  Initializes TempoTimer.
-*
-* Returns:      MIDAS error code
-*
-\****************************************************************************}
-
-function tmrInit : integer;
-
-
-
-
-{****************************************************************************\
-*
-* Function:     tmrClose : integer
-*
-* Description:  Uninitializes TempoTimer.
-*
-* Returns:      MIDAS error code
-*
-\****************************************************************************}
-
-function tmrClose : integer;
 
 
 
@@ -123,11 +92,31 @@ implementation
 
 
 function tmrGetScrSync(scrSync : Pword) : integer; external;
-function tmrInit : integer; external;
-function tmrClose : integer; external;
+function tmrInit : integer; far; external;
+function tmrClose : integer; far; external;
 function tmrSyncScr(sync : word; preVR, immVR, inVR : pointer) : integer; external;
 function tmrStopScrSync : integer; external;
 {$L TIMER.OBJ}
 
 
+{°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
+
+const unita='timer';
+var result:TError;
+
+procedure UserInit;
+ begin
+  result:=TError(tmrInit);
+ end;
+
+procedure UserDone;
+ begin
+  tmrClose;
+ end;
+
+{$i initdone.inc}
+{$ifdef autoinit}
+BEGIN
+ erCheck(Init);
+{$endif}
 END.

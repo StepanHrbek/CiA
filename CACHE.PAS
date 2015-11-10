@@ -1,12 +1,12 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
 
 Unit      Cache;
 Interface {$i define.inc}
-Uses      Chyby,Memo, Objects;
-Function  Init:word;
+Uses      Chyby,Memo, Objects, Stringy;
+Function  Init:TError;
 Procedure Done;
 
 {
@@ -40,7 +40,8 @@ zcela zlikviduji puvodni obsluhu chyb a to natrvalo. Proto si pred volanim
 (resp.po volani) TurboVision stav HeapErroru zapamatuj (resp.obnov).
 Pro lepsi orientaci se muzes podivat na mista kde je HeapError pouzit:
  memory.pas .. InitMemory, HeapNotify
- memo.pas   .. UserInit, NewHeapError, UserDone
+ memo.pas   .. GetMem
+ cache.pas  .. UserInit, NewHeapError, UserDone
 }
 
 Type
@@ -55,16 +56,13 @@ Function  caGet(id:PCacheId;priority:integer):PObject;
 Procedure caLeave(var p);{p musi byt PObject nebo potomek}
 Function  caMakeRoom:boolean;far;
 
+var debugC:boolean;
+var caching:boolean; {je cache zapnuta?}
+
 
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
                           IMPLEMENTATION
 {ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ}
-
-{---------------------------------------------------------------------------
- Nekolik kousku zkopirovanych z jinych unit za ucelem snizeni poctu
- unit v uses.
- ---------------------------------------------------------------------------}
-  FUNCTION MaxI(x,y:integer):integer;inline($58/$5b/$3b/$d8/$7e/$01/$93);
 
 
 Type
@@ -100,6 +98,9 @@ end;
  ---------------------------------------------------------------------}
 Destructor TCacheCell.Done;
 begin
+ {$ifdef beta}
+ if fixes<>0 then ReportErr('Killing '+stri(fixes)+'x used cache cell.');
+ {$endif}
  KillObj(thing);
  KillObj(identif);
  inherited Done;
@@ -125,6 +126,11 @@ var   mycell:PCacheCell;
 begin
  caGet:=nil;
  if id=nil then EXIT;{bad-nedostal jsem identifikator}
+ if not caching then begin
+   caGet:=id^.Load;
+   KillObj(id);
+   EXIT;{no caching}
+   end;
  mycell:=caList.FirstThat(@CompareIdsOk);
  if mycell<>nil then
   with mycell^ do begin
@@ -191,6 +197,9 @@ begin
  caMakeRoom:=minpr<32767;
 end;
 
+{---------------------------------------------------------------------
+ HeapError volajici MakeRoom.
+ ---------------------------------------------------------------------}
 type
  THeapError=function(Size:Word):Integer;
 var
@@ -200,18 +209,20 @@ var
 function NewHeapError(Size:Word):Integer;far;
 begin
  if caMakeRoom then NewHeapError:=2 else
-  if OldHeapError=nil then NewHeapError:=1 else
-   NewHeapError:=MaxI(OldHeapErrorFunc(size),1{1 aby nikdy nehazel runtimy});
+  if OldHeapError=nil then NewHeapError:=0 else
+   NewHeapError:=OldHeapErrorFunc(size);
 end;
 
 
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
 const unita='cache';
-var result:integer;
+var result:TError;
 
 procedure UserInit;
  begin
+  debugC:=false;
+  caching:=true;
   if caList.Init(100,100) then begin
     OldHeapError:=HeapError;
     HeapError:=@NewHeapError;

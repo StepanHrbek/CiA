@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -6,7 +6,7 @@
 Unit      Ini;
 Interface {$i define.inc}
 Uses      Chyby,Memo, Dos,Objects, Stringy,Fajly,Texty,Sys;
-Function  Init:word;
+Function  Init:TError;
 Procedure Done;
 
 {
@@ -25,10 +25,8 @@ Procedure Done;
    (vsechny promenne musi lezet v datasegmentu)
    (jsou podporovany jen nektere typy (promennych), dalsi si muzes doplnit)
 
- Pokrocilejsi programatori si mohou navic vytvorit vlastni
- - Reporter (hlaseni nefatalnich chyb, deklarace je v unite chyby)
-            (defaultne zpusobi kazda chyba ukonceni programu)
- - SecSelector (prace se sekcemi INI souboru)
+ Pokrocilejsi programatori si mohou navic vytvorit vlastni SecSelector
+ pro praci se sekcemi INI souboru.
 
  Poznamka: tato unita pouziva freeseg (viz memo.pas).
  Diky tomu nemusi alokovat zadnou pamet.
@@ -36,6 +34,8 @@ Procedure Done;
  V INI souboru lze kdeco, zatim ale pozor na:
   -tabelatory jsou povazovany za normalni znaky jako treba X
   -komentar nesmi byt za nazvem sekce (na stejne radce)
+ Pri nacitani cisel i INI se nehlida prekroceni mezi, v betaverzi to hodi
+  runtime error, v ostre se cislo orizne.
 
 ---------------------------------------------------------------------------
  SecSelector.
@@ -54,7 +54,7 @@ Procedure Done;
        iniModeD     =#250;{what sections to Dopy..he?}
  {
  Promenna sekce neobsahuje hranate zavorky, pouze nazev sekce.
- Promennou varstab muzes pokazde nastavit stejnˆ, mas-li jen jeden
+ Promennou varstab muzes pokazde nastavit stejne, mas-li jen jeden
   seznam promennych, nebo ruzne, mas-li jich vic.
  Hlavnim ukolem SecSelectoru je rozdelit sekce na dobre a spatne.
   U spatnych predej result='', u dobrych result<>''.
@@ -102,11 +102,12 @@ const i_bool =0;   {boolean   (Ano=true,Ne=false)}
       i_word =3;   {word}
       i_hexw =4;   {hexa word}
       i_intg =5;   {integer}
-      i_stri =6;   {string}
-      i_lost =7;   {lostring  (po nacteni ho automaticky locasne)}
-      i_upst =8;   {upstring  (po nacteni ho automaticky upcasne)}
-      i_8sho =9;   {pole osmi shortintu}
-      i_2wor =10;  {dva wordy}
+      i_long =6;   {longint}
+      i_stri =7;   {string}
+      i_lost =8;   {lostring  (po nacteni ho automaticky locasne)}
+      i_upst =9;   {upstring  (po nacteni ho automaticky upcasne)}
+      i_8sho =10;   {pole osmi shortintu}
+      i_2wor =11;  {dva wordy}
 
 {---------------------------------------------------------------------------
  Priznaky jednotlivych promennych.
@@ -119,16 +120,15 @@ const i_bool =0;   {boolean   (Ano=true,Ne=false)}
       i_renz =32;  {REad Nothing as Zero}
                    {Normalne kdyz neni zadano nic, promennou nemodifikuje.}
                    {S flagem i_renz ale interpretuje <nic> jako 0,'',false,unsure.}
-      i_wral =64;  {WRite ALl}
-                   {Normalne pri hodnotach 255/65535/-1 nezapisuje nic.}
-                   {S flagem i_wral zapisuje vsechny hodnoty.}
+      i_dwrf =64;  {Dont WRite FFFF}
+                   {Pri hodnotach 255/65535/-1 nezapisuje nic.}
       i_neup =128; {Neupgradovat hodnotu pri iniUpgrade.}
 
 
 {---------------------------------------------------------------------------
  Cteni, psani, upgrade INI souboru.
  ---------------------------------------------------------------------------}
-PROCEDURE iniSetup(reporter:TReporter;selektor:TSecSelector;varstab:pointer);
+PROCEDURE iniSetup(selektor:TSecSelector;varstab:pointer);
 FUNCTION  iniRead(Ini:PathStr):boolean;
 FUNCTION  iniWrite(Ini:PathStr;flags:byte):boolean;
 FUNCTION  iniUpgrade(OldIni,VzorIni,NewIni:PathStr):boolean;
@@ -145,7 +145,6 @@ var   SelectSec           :TSecSelector;{aktualni selektor dobrych sekci}
       {$ifdef beta}
       SelectSecPtr        :pointer absolute SelectSec;
       {$endif}
-      ReportErr           :TReporter;{aktualni hlasic chyb}
       olda,vzor,news,extr :TText2;{pomocne virtualni textfajly ve freesegu}
       vars                :pointer;{pointer na tabulku tvych promennych}
       typprom             :byte;{typ posledne hledane promenne}
@@ -193,26 +192,17 @@ end;
 
  Nejjednodussi varianta je zadat nil,nil,@seznam_promennych.
 
- Reporter je procedura(st:string), ktera by mela ohlasit zadanou chybu
- a nechat program dal bezet. Ale neni problem udelat ji takovou,
- ze pri prvni chybe ukonci program. K tomu staci zadat nil,
- a na hlaseni chyb se pouzije standardni procedura erMsg.
-
  Selektor je v uvodnim komentari popsana specialni funkce.
  Zadas-li nil, bude pouzit nahradni minimalizovany selektor.
 
  Vars je vyuzito jen pri selektor=nil, jindy nema vyznam.
  ---------------------------------------------------------------------------}
-PROCEDURE iniSetup(reporter:TReporter;selektor:TSecSelector;varstab:pointer);
-var   reporterPtr:pointer absolute reporter;
-      selektorPtr:pointer absolute selektor;
+PROCEDURE iniSetup(selektor:TSecSelector;varstab:pointer);
+var   selektorPtr:pointer absolute selektor;
 begin
  {$ifdef beta}
  if (selektorPtr=nil) and (varstab=nil) then erBetaMsg('iniInit1');
  {$endif}
- if reporterPtr=nil
-  then ReportErr:=erMsg
-  else ReportErr:=reporter;
  if selektorPtr=nil then begin
    SelectSec:=miniSecSelector;
    minivars:=varstab;
@@ -273,6 +263,8 @@ FUNCTION FindVariable(name:string80):boolean;assembler;
      mov ah,1
      @badkonec:
      mov al,ah
+    {kvuli NTckum FS=0}
+     push 0;db 0fh,0a1h
  end;
 
 {---------------------------------------------------------------------------
@@ -308,7 +300,7 @@ begin
  t^.Reset;
  while not t^.eof do begin
    st:=t^.nlRead;                     {st=" var = value ; comment "}
-   core:=GetCore(GetString(';',st,1));{st= "var = value"}
+   core:=GetCore(GetString(st,';',1));{st= "var = value"}
    {je na radku neco zajimaveho ?}
    if core='' then goto notvar;
    {je to [sekce] ?}
@@ -323,12 +315,12 @@ begin
    if not dobrasekce then goto notvar;
    {je to var=data ?}
    if pos('=',core)=0 then goto bug;
-   pass_name:=LoCased(GetCore(GetString('=',st,1)));
+   pass_name:=LoCased(GetCore(GetString(st,'=',1)));
    {je to good var ?}
    if SelVar(pass_name) then goodvars(st) else goodstaff(st);
    continue;
   bug:
-   ReportErr('Chybna syntaxe v INI na radce: '+st);
+   ReportErr(_(_msgChybnaSyntaxIni)+' '+st);
   notvar:
    if dobrasekce then goodstaff(st) else bad(st);
    end;
@@ -344,16 +336,14 @@ end;
   {loadne text z disku}
   function LoadText(st:PathStr;txt:PText2):boolean;
   var   datasize,freesize:longint;
-        loaded:boolean;
+        loaded:TError;
   begin
    txt^.Rewrite;
    datasize:=txt^.maxkonec-txt^.start;
    freesize:=0;
-   loaded:=LoadFile(st,pointer(txt^.pos),datasize,freesize)=erOk;
-   if not loaded then begin
-     ReportErr('Nelze na‡¡st soubor '+st+'.');
-     LoadText:=false;
-     end
+   if not fileLoad(st,nil,pointer(txt^.pos),datasize,freesize)
+    then
+     LoadText:=false
     else begin
      txt^.konec:=txt^.start+datasize;
      txt^.EndPtr^:=#0;{EndNewline;}
@@ -363,21 +353,9 @@ end;
 
   {ulozi text na disk}
   function SaveText(st:PathStr;txt:PText2):boolean;
-  var   f:file;
-        written:word;
-  label bad;
+  var   written:TError;
   begin
-   SaveText:=false;
-   assign(f,st);
-   rewrite(f,1);
-   if ioresult<>0 then goto bad;
-   blockwrite(f,mem[PtrRec(txt^.pos).Seg:txt^.start],txt^.FileSize,written);
-   if (ioresult<>0) or (written<>txt^.FileSize) then goto bad;
-   close(f);
-   SaveText:=true;
-   exit;
-   bad:
-    ReportErr('Nelze ulo‘it soubor '+st+'.');
+   SaveText:=fileSave(st,txt^.startPtr,txt^.FileSize);
   end;
 
   {v radce st ("var=value;comment") zmeni value na newvalue}
@@ -470,7 +448,7 @@ end;
   var i:word;
   begin
    i:=pos('=',st);
-   if i>0 then GoodValue:=GetCore(GetString(';',copy(st,i+1,255),1));
+   if i>0 then GoodValue:=GetCore(GetString(copy(st,i+1,255),';',1));
   end;
 
   {reporter: radek nahradi stejnym ze stejne sekce oldy}
@@ -493,7 +471,7 @@ end;
   begin
    {*bug: odsud vola Replace, Replace by si pak mel do UserSec nastavit to co
           JE TED v pass_sekce, ne co tam BUDE az se Replace zavola
-   chyba se projevuje jen pri upgradu, opravim to jindy}
+   chyba se projevuje jen pri upgradu a opravovat ji nebudu}
    if pass_result<>'' then begin
      if LoadText(pass_result,@extr)
       then PassThruIni(@extr,SelAllSec,#0,SelAllVar,Skip,WriteUnmodified,Replace);
@@ -512,9 +490,27 @@ end;
       someintg        :integer;
       somelong        :longint;
       somepstring     :^string;
+
+   function DecodeNumber(was,min,max:longint):longint;
+   var decoded:longint;
+   begin
+    if udaj='' then begin
+      DecodeNumber:=0;
+      exit;
+      end;
+    val(udaj,decoded,code);
+    if code>0 then begin
+      DecodeNumber:=was;
+      ReportErr(_(_msgChybneCisloVIni)+#13#10+st);
+      exit;
+      end;
+    if (decoded<min) or (decoded>max) then ReportErr(_2(___msgMimoRozsahVIni,stri(min),stri(max))+#13#10+st);
+    DecodeNumber:=Bounded(decoded,min,max);
+   end;
+
   label bug;
   begin
-   st:=GetString(';',st,1);{odstrani komentar}
+   st:=GetString(st,';',1);{odstrani komentar}
    i:=pos('=',st);
    if i=0 then goto bug;
    name:=GetCore(LoCased(copy(st,1,i-1)));
@@ -524,67 +520,49 @@ end;
      case typprom of
               i_bool:begin
                        if udaj='' then somebool:=false else
-                        if udaj='ne' then somebool:=false else
-                         if udaj='ano' then somebool:=true else
+                        if udaj='no' then somebool:=false else
+                         if udaj='yes' then somebool:=true else
                           goto bug;
                        mem[dseg:ofsprom]:=byte(somebool);
                      end;
               i_fuzz:begin
-                       if udaj='' then somefuzz:=unsure else
-                        if udaj='ne' then somefuzz:=bad else
-                         if udaj='ano' then somefuzz:=okay else
+                       if udaj='' then somefuzz:=dunno else
+                        if udaj='no' then somefuzz:=no else
+                         if udaj='yes' then somefuzz:=yes else
                           goto bug;
                        mem[dseg:ofsprom]:=byte(somefuzz);
                      end;
-              i_byte:begin
-                       if udaj='' then somebyte:=0 else begin
-                         val(udaj,somebyte,code);
-                         if code>0 then goto bug;
-                         end;
-                       mem[dseg:ofsprom]:=somebyte;
-                     end;
-              i_word:begin
-                       if udaj='' then someword:=0 else begin
-                         val(udaj,someword,code);
-                         if code>0 then goto bug;
-                         end;
-                       memw[dseg:ofsprom]:=someword;
-                     end;
+              i_byte:mem [dseg:ofsprom]:=DecodeNumber(mem [dseg:ofsprom],minByte,maxByte);
+              i_word:memw[dseg:ofsprom]:=DecodeNumber(memw[dseg:ofsprom],minWord,maxWord);
+              i_intg:integer(memw[dseg:ofsprom]):=DecodeNumber(integer(memw[dseg:ofsprom]),minInt,maxInt);
+              i_long:meml[dseg:ofsprom]:=DecodeNumber(meml[dseg:ofsprom],minLong,maxLong);
               i_hexw:begin
                        somelong:=Dehexed(udaj);
                        if (somelong=-1) or (somelong>65535)
-                        then ReportErr('Chybne hexadecimalni cislo v radce: '+st)
+                        then ReportErr(_(_msgChybneHexaVIni)+#13#10+st)
                         else memw[dseg:ofsprom]:=somelong;
-                     end;
-              i_intg:begin
-                       if udaj='' then someintg:=0 else begin
-                         val(udaj,someintg,code);
-                         if code>0 then goto bug;
-                         end;
-                       memw[dseg:ofsprom]:=word(someintg);
                      end;
               i_stri,
               i_lost,
               i_upst:begin
                        somepstring:=ptr(dseg,ofsprom);
                        case typprom of i_upst:upcasni(udaj);{stringy prevede na upcase}
-                                       i_stri:udaj:=copy(st,i+1,255);{nacte puvodni zneni stringu}
+                                       i_stri:udaj:=GetCore(copy(st,i+1,255));{nacte puvodni zneni stringu}
                                        end;
-                       somepstring^:=udaj;
+                       {somepstring^:=udaj;}
+                       move(udaj,somepstring^,length(udaj)+1);
                      end;
-              i_8sho:for i:=1 to 8 do begin
-                       if CutLong(',',udaj,somelong)
-                        then shortint(mem[dseg:ofsprom+i-1]):=somelong;
-                       end;
-              i_2wor:for i:=1 to 2 do begin
-                       if CutLong('x',udaj,somelong)
-                        then memw[dseg:ofsprom+2*(i-1)]:=somelong;
-                       end;
-              else ReportErr('Interni chyba INI readeru.');
+              i_8sho:for i:=1 to 8 do
+                      if udaj<>''
+                       then shortint(mem[dseg:ofsprom+i-1]):=CutNum(udaj);
+              i_2wor:for i:=1 to 2 do
+                      if udaj<>''
+                       then memw[dseg:ofsprom+2*(i-1)]:=CutNum(udaj);
+              else ReportErr(_(_msgInterniChybaIni));
               end;
    exit;
   bug:
-   ReportErr('Chybna syntaxe v INI na radce: '+st);
+   ReportErr(_(_msgChybnaSyntaxIni)+' '+st);
   end;
 
   {reporter: radek updatne podle stavu promenne v pameti a zapise}
@@ -607,40 +585,46 @@ end;
      case typprom of
               i_bool:begin
                        somebool:=boolean(mem[dseg:ofsprom]);
-                       case somebool of false:udaj:='Ne';
-                                        true:udaj:='Ano';
+                       case somebool of false:udaj:='no';
+                                        true:udaj:='yes';
                                         end;
                      end;
               i_fuzz:begin
                        somefuzz:=fuzzy(mem[dseg:ofsprom]);
-                       case somefuzz of bad:udaj:='Ne';
-                                     unsure:udaj:='';
-                                       okay:udaj:='Ano';
+                       case somefuzz of no:udaj:='no';
+                                     dunno:udaj:='';
+                                       yes:udaj:='yes';
                                      end;
                      end;
               i_byte:begin
                        somebyte:=mem[dseg:ofsprom];
-                       if (somebyte=255) and ((promflags and i_wral)=0)
+                       if (somebyte=255) and ((promflags and i_dwrf)>0)
                         then udaj:=''
                         else str(somebyte,udaj);
                      end;
               i_word:begin
                        someword:=memw[dseg:ofsprom];
-                       if (someword=65535) and ((promflags and i_wral)=0)
+                       if (someword=65535) and ((promflags and i_dwrf)>0)
                         then udaj:=''
                         else str(someword,udaj);
                      end;
               i_hexw:begin
                        someword:=memw[dseg:ofsprom];
-                       if (someword=65535) and ((promflags and i_wral)=0)
+                       if (someword=65535) and ((promflags and i_dwrf)>0)
                         then udaj:=''
                         else udaj:=Hexed(someword);
                      end;
               i_intg:begin
                        someintg:=integer(memw[dseg:ofsprom]);
-                       if (someintg=-1) and ((promflags and i_wral)=0)
+                       if (someintg=-1) and ((promflags and i_dwrf)>0)
                         then udaj:=''
                         else str(someintg,udaj);
+                     end;
+              i_long:begin
+                       somelong:=meml[dseg:ofsprom];
+                       if (somelong=-1) and ((promflags and i_dwrf)>0)
+                        then udaj:=''
+                        else str(somelong,udaj);
                      end;
               i_stri,
               i_lost,
@@ -662,14 +646,14 @@ end;
                          udaj:=udaj+Stri(memw[dseg:ofsprom+2*(i-1)]);
                          end;
                      end;
-              else ReportErr('Interni chyba INI readeru.');
+              else ReportErr(_(_msgInterniChybaIni));
               end;
      ChangeValue(st,udaj);
      end;
    news.Writeln(st);
    exit;
   bug:
-   ReportErr('Chybna syntaxe v INI na radce: '+st);
+   ReportErr(_(_msgChybnaSyntaxIni)+' '+st);
   end;
 
 
@@ -679,7 +663,7 @@ end;
 FUNCTION  iniRead(Ini:PathStr):boolean;
 begin
  {$ifdef beta}
- if SelectSecPtr=nil then erBetaMsg('ini not setup');
+ if SelectSecPtr=nil then erBetaMsg('iniRead before iniSetup');
  {$endif}
  iniRead:=false;
  news.Rewrite;
@@ -699,12 +683,12 @@ FUNCTION iniWrite(Ini:PathStr;flags:byte):boolean;
 var   st,sekce:string80;
 begin
  {$ifdef beta}
- if SelectSecPtr=nil then erBetaMsg('ini not setup');
+ if SelectSecPtr=nil then erBetaMsg('iniWrite before iniSetup');
  {$endif}
  iniWrite:=false;
  {v readonly modu ini nezapise}
  if ReadOnlyMod then begin
-   ReportErr('Zapis '+Ini+' vynechan, jsi v ReadOnly modu.');
+   ReportErr(_(_msgReadOnlyVynech)+' '+Ini+'.');
    exit;
    end;
  {rewritne vystup}
@@ -741,12 +725,12 @@ var   dobrasekce      :boolean;
       sekce,name,udaj :string80;
 Begin
  {$ifdef beta}
- if SelectSecPtr=nil then erBetaMsg('ini not setup');
+ if SelectSecPtr=nil then erBetaMsg('iniUpgrade before iniSetup');
  {$endif}
  iniUpgrade:=false;
  {v readonly modu ini nezapise}
  if ReadOnlyMod then begin
-   ReportErr('Upgrade '+NewIni+' vynechan, jsi v ReadOnly modu.');
+   ReportErr(_(_msgReadOnlyVynech)+' '+NewIni+'.');
    exit;
    end;
  {rewritne vystup}
@@ -771,7 +755,7 @@ End;
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
 const unita='ini';
-var result:integer;
+var result:TError;
 
 procedure UserInit;
  const a=freesize div 4;

@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -6,7 +6,7 @@
 Unit      Key;
 Interface {$i define.inc}
 Uses      Chyby;
-Function  Init:word;
+Function  Init:TError;
 Procedure Done;
 
 {define printkey}
@@ -23,6 +23,9 @@ tim se kazda zaseknuta klavesa nejdele za 1-2 vteriny vypne.
 Nevyhoda je, ze kdyz umyslne dlouho drzis stisklou klavesu,
 automaticky ji to za chvili vypne. Takze se rozhodni a volani
 kDecPressed pripadne odstran ze scrol.pas.
+
+Pozn: vim o jednom pocitaci, na kterem kdyz behem nebo i kdykoliv po pouziti
+tohoto handleru stisknes Alt, vytuhnou Windows... nechapu
 }
 
 var       kHandler:boolean;                 {je na int9 povesen nas handler?}
@@ -120,6 +123,9 @@ const
  kkTecka    =83;
  kF11       =87;
  kF12       =88;
+ kWin1      =91;
+ kWin2      =92;
+ kWin3      =93;
  kkEnter    =128+28;
  kRCtrl     =128+29;
  kkSlash    =128+53;
@@ -137,10 +143,70 @@ const
  kDelete    =128+83;
  kMacro     =128+111;
 
+function  num:boolean;   {Indikator Num locku}
+function  caps:boolean;  {Indikator CAPS locku}
+function  scroll:boolean;{Indikator Scroll locku}
+
+function  ReadKeyboardLocks:byte;
+procedure SetKeyboardLocks(n:byte);
 
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
                           IMPLEMENTATION
 {ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ}
+
+
+function num:boolean;
+begin  num:=boolean(mem[seg0040:$17] and 32) end; {num}
+
+function caps:boolean;
+begin  caps:=boolean(mem[seg0040:$17] and 64) end; {caps}
+
+function scroll:boolean;
+begin  scroll:=boolean(mem[seg0040:$17] and 16) end; {scroll}
+
+function ReadKeyboardLocks:byte; assembler;
+{Precte stav 'locku'. Vrati nasledujici cislo:
+ bit:     vyznam:
+  0  (&1) SCROLL Lock
+  1  (&2) NUMeric Lock
+  2  (&4) CAPitalS Lock}
+asm {ReadKeyboardLocks}
+ mov  ah,2
+ int  16h
+ shr  al,4
+ and  al,7
+end;{ReadKeyboardLocks}
+
+procedure SetKeyboardLocks(n:byte); assembler;
+{Rozsviti prislusnou LEDku na klavesnici.
+ Zadejte nulu, chcete-li, aby vsechny LEDky zhasly.
+ Prictete k cislu jednicku, chcete-li, aby se rozsvitil SCROLL Lock.
+ Prictete k cislu dvojku, chcete-li, aby se rozsvitil NUM Lock.
+ Prictete k cislu ctyrku, chcete-li, aby se rozsvitil CAPS Lock.}
+asm {SetKeyboardLocks}
+ mov  dx,064h
+ in   al,dx
+ mov  al,0EDh
+ out  dx,al
+ mov  cx,1000h
+@wait:
+ nop
+ loop @wait
+ mov  al,n
+ and  al,7
+ out  dx,al
+ shl  al,4
+ push es
+ xor  dx,dx
+ mov  es,dx
+ mov  di,0417h
+ mov  ah,es:[di]
+ and  ah,10001111b
+ add  al,ah
+ stosb
+ pop  es
+end;{SetKeyboardLocks}
+
 
 {$ifdef printkey}
 procedure debugprint(b:byte);
@@ -224,7 +290,7 @@ PROCEDURE kSetHandler(b:boolean);assembler;
      cmp al,kExtended
      jz @extendedstart
      cmp al,kExtendedpause
-     jz @extendedpausestart
+     jz @pausestart
 
     @singlestart:
      test al,128
@@ -241,7 +307,7 @@ PROCEDURE kSetHandler(b:boolean);assembler;
      mov waitforextended,true
      jmp @endhandler
 
-    @extendedpausestart:
+    @pausestart:
      mov skip,2            {klavesu pause ignoruje}
      jmp @endhandler
 
@@ -297,7 +363,7 @@ PROCEDURE kDecPressed;assembler;
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
 const unita='key';
-var result:integer;
+var result:TError;
 
 procedure UserInit;
  begin

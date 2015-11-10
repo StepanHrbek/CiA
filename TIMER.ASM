@@ -1,11 +1,8 @@
-;*
-;* Subset of TIMER.ASM from MIDAS Sound System 0.40
-;* Compile "tasm timer -ut310"
-;*
-;* TempoTimer, originally v1.20
-;*
-;* Copyright 1995 Petteri Kangaslampi and Jarno Paananen
-;*
+;ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+;³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
+;³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
+;ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+; Compile "tasm -ut310 timer"
 
 IDEAL
 P386
@@ -355,7 +352,11 @@ LOCAL	tmrVal : word
 
 	cli				; disable interrupts for maximum
 					; accuracy
+	mov cx,10			; try to read max 10x
 @@read:
+	dec	cx
+	jz	@@badtimer		; 10x bad -> timer is not precise
+
 	WaitNextVR			; wait for next Vertical Retrace
 
 	mov	al,36h
@@ -403,6 +404,7 @@ LOCAL	tmrVal : word
 	jg	@@read			; values read was >2, read again.
 	cmp	dx,-2
 	jl	@@read
+@@badtimer:
 
         sti                             ; enable interrupts
 
@@ -410,6 +412,11 @@ LOCAL	tmrVal : word
         mov     [es:bx],ax
 
         xor     ax,ax                   ; success
+
+	or	cx,cx
+	jnz	@@succ
+	mov	ax,1			; or failure, timer is not precise
+@@succ:
 
 	ret
 ENDP

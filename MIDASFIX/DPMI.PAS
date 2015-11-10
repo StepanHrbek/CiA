@@ -1,7 +1,26 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
- ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
- ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
- ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
+{*      DPMI.PAS
+ *
+ * DPMI functions for protected mode MIDAS
+ *
+ * Copyright 1995 Petteri Kangaslampi and Jarno Paananen
+ *
+ * by D.Ment:
+ *  dpmiRealCallRegs.clr added
+ *  dpmiRealModeIntStack added
+ *
+ * This file is part of the MIDAS Sound System, and may only be
+ * used, modified and distributed under the terms of the MIDAS
+ * Sound System license, LICENSE.TXT. By continuing to use,
+ * modify or distribute this file you indicate that you have
+ * read the license and understand and accept it fully.
+*}
+
+
+ {$ifdef dpmi}
+  {$define __BPPROT__}
+ {$else}
+  {$define __BPREAL__}
+ {$endif}
 
 unit DPMI;
 
@@ -346,6 +365,10 @@ function dpmiRealModeIntStack(intNum : byte; registers : PdpmiRealCallRegs;
 
 
 implementation
+
+{$ifdef DEBUG}
+uses Errors;
+{$endif}
 
 
 {---------------------------------------------------------------------------

@@ -1,0 +1,312 @@
+
+Undefined error.
+Out of memory.
+Conventional memory heap corrupted.
+Invalid conventional memory block.
+Out of EMS memory.
+EMS memory heap corrupted.
+Invalid EMS memory block.
+Expanded Memory Manager failure.
+Out of soundcard memory.
+Soundcard memory heap corrupted.
+Invalid soundcard memory block.
+Out of instrument handles.
+Unable to open file.
+Unable to read file.
+Invalid module file.
+Invalid instrument in module.
+Invalid pattern data in module.
+Invalid channel number.
+Invalid instrument handle.
+Sound Device channels not open.
+Sound Device hardware failure.
+Invalid function arguments.
+File does not exist.
+Invalid file handle.
+Access denied.
+File exists.
+Too many open files.
+Disk full.
+Unexpected end of file.
+Invalid path.
+Unable to write file.
+Unable to lock Virtual DMA buffer.
+Unable to use Virtual DMA Services.
+Invalid Virtual DMA Service version.
+DPMI failure.
+Invalid segment descriptor.
+Out of system resources.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Not enough conventional memory.
+I need DOS version at least
+Invalid disc
+Unable to select fantom disc
+Failed to test fantom disc
+You killed a cat, lives had she
+Unable to create file.
+Unable to close file.
+Too big file.
+Unable to write to disk in ReadOnly mode.
+Event Wait busy.
+Dialog window is bigger than screen, try higher resolution.
+There wasn't found any file
+matching mask
+Not enough memory for shell command
+Unsuccessful shell call
+FileLoad failed.
+FileSave failed.
+Calling shell failed.
+Address
+Unable to set video mode.
+Bad VESA BIOS. Get a better one or use VGA resolution.
+Screen=nil. You should set a video mode first.
+Incorrect font.
+It's not possible to set/convert so big font.
+Error in INI file, line:
+Bad hexadecimal number on following line of INI file:
+INI reader internal error.
+Number out of range $..$ on following line of INI file:
+Variable should be number on following line of INI file:
+ReadOnly mode, skipping job with
+You alloc too many conv.mem.blocks. For author: increase maxDosBlocks.
+conv.mem.blocks not freed.
+Nobody sets ret, internal error.
+Bios sux, service 'load user font' changes doublescanning.
+There is no mouse bitmap for this model.
+Unable to save bitmap.
+last mode forgot to free timer
+no bitmap on input.
+too big bottom map.
+
+- GRAPHICS CARD TEST -
+Proceed according to instructions on screen.
+If you are in window, go to fullscreen!
+...ENTER - continue...
+If text moves, press ENTER.
+Otherwise ESC.
+ENTER if text flicks, otherwise ESC.
+Press ENTER.
+Press ESC.
+If you see only halfcircle, press ESC.
+Press ENTER if you see whole circle.
+If this column is in the middle of screen, press ENTER. If it is aside, press ESC.
+If cursor moves vertically (in one column), press ENTER. Otherwise ESC.
+If text moves smoothly, press ENTER. Otherwise ESC.
+If text moves
+smoothly,
+press ENTER.
+Otherwise ESC.
+
+Missing file
+File $ already exists.
+Directory $ doesn't exist.
+Unable to open file
+Unable to read file
+Unable to read whole file
+Unable to create file
+Unable to write file
+perhaps low diskspace.
+Unable to close file
+Unable to rename file
+Unable to delete file
+to
+Unable to get size of file
+Unable to get attributes of file
+Unable to set attributes of file
+Unable to create directory
+Unable to enter directory
+Unable to delete directory
+Error occured during action.
+Continue;Ignore all;Stop
+Bad numeral base.
+Bad digit on input.
+Stream access error
+Cannot initialize stream
+Read beyond end of stream
+Cannot expand stream
+Get of unregistered object type
+Put of unregistered object type
+Write protected disc.
+Drive
+Drives
+NOT READY
+No files
+2 MANY FILES
+TOO MANY
+FILES!
+Wait,
+please
+Sorting..
+Division by zero
+Range check error
+Stack overflow error
+Out of memory
+Invalid pointer operation
+Floating point overflow
+Floating point underflow
+Invalid floating point operation
+Overlay manager not installed
+Overlay file read error
+Object not initialized
+Call to abstract method
+Stream registration error
+Collection index out of range
+Collection overflow error
+Arithmetic overflow error
+General Protection fault, hehe :)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Break, you rule.
+
+Usage: FN [options] [source [destination]]
+  -i show informations about source fonts, nothing more
+  -f show formats description, nothing more
+  -p convert font to proportional
+  -r rename font (name in header, not a filename)
+  -first-last tells that font contains only chars first..last (eg. -32-255)
+  -wnumber sets char width in FNT in pixels, implicitly 8
+  -snumber shifts all chars up (to create superscript)
+  -k some conversion meaningful only for Czechs
+  -v work out all fonts from a multifont file (.fon)
+  -cword word found in each font header in multifont file, implicitly (c)
+   (I have no .FON description, I detect subfonts by searching this word)
+  :lang language selection (:eng or :cz)
+  If you enter only source, font is set up on screen.
+  If you enter also destination, program tries to convert.
+  Both source and destination may contain * and ? (eg. FN *.fnt *.fn).
+
+Formats (sorted by complexity):
+  FNT - unpacked bitmaps, width 8 pixels, height autodetected
+  FNP - as FNT but with byte width(1-24) before each bitmap
+  RIF - magic "af"; pchar copyright; word height(0-24),lastchar (firstchar=32);
+        table[word ofs_from_bitmaps_start,width(0-16)]; bitmaps heap
+  FN  - magic "ëmÕonç "; pchar name; char firstchar,lastchar; short sizeover,
+        sizeunder; byte addspace,future; table[short relx,rely; byte sir,vys,
+        shift; word ofs_from_file_start]; bitmaps heap
+  FON - copyright, copyright, copyright, chaos, copyright...
+
+Too many parameters.
+FON chaos 1, I can't code more without format description.
+FON chaos 2, I can't code more without format description.
+Fonts:
+Use font number
+Font
+Height
+Size
+doesn't match parameters - it's not multiple of
+Too big font.
+Internal error, bad size of generated fn.
+Expand failed.
+Shrink failed.
+Write to format .
+is not supported.
+Rename (enter unlimited-length fontname, will be stored in font header):
+Proporc.
+Superscript.
+Show.
+Save
+
+There is no loader for such format.
+There is no writer for such format.
+Unsupported monochromatic image!
+Unsupported compression type!
+Unsupported bitdepth!
+Palette was not found!
+Unexpected palette!

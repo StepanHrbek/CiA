@@ -1,12 +1,12 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
 
 Unit      Texty;
 Interface {$i define.inc}
-Uses      Chyby,Memo, Objects,Strings, Sys;
-Function  Init:word;
+Uses      Chyby,Memo, Objects,Strings;
+Function  Init:TError;
 Procedure Done;
 
 {
@@ -46,6 +46,7 @@ type  PText1 = ^TText1;
                      function     Eof:boolean;
                      function     Oof:boolean;
                      function     FileSize:longint;
+                     procedure    Skip(l:longint);
                      function     GetChar:char;
                      function     ReadChar:char;
                      function     GetCif:byte;
@@ -56,11 +57,12 @@ type  PText1 = ^TText1;
 
                       Pripona:
                         From - vyjdi od zadane odresy
-                        zadna- vyjdi od Pos
+                        <nic>- vyjdi od Pos (soucasna pozice)
 
                       Predpona:
                         ch   - skonci az na n-tem vyskytu znaku   (cti do nej, skoc za nej)
                         nl   - skonci az na n-tem vyskytu newline (cti do newline, skoc za newline)
+                        st   - skonci az na n-tem vyskytu stringu (cti do nej, skoc na nej)
 
                       Koren:
                         Adr  - vrat adresu
@@ -74,6 +76,9 @@ type  PText1 = ^TText1;
                      function     nlAdrFrom (       adr:word;n:integer):word;    {vraci length(newln)-1 za nulou}
                      function     nlAdr     (                n:integer):word;    {vraci ^^}
                      procedure    nlGoto    (                n:integer);         {jde na ^^}
+                     function     stAdrFrom (st:string;adr:word       ):word;
+                     function     stAdr     (st:string                ):word;
+                     procedure    stGoto    (st:string                );
                      function     chGetFrom (c:char;adr:word          ):string;
                      function     chGet     (c:char                   ):string;
                      function     chRead    (c:char                   ):string;
@@ -84,7 +89,7 @@ type  PText1 = ^TText1;
 {
 co kdyz nektera z prohledavacich funkci narazi na konec souboru?
 
-chAdrFrom  vraci adresu nuly
+chAdrFrom  vraci adresu nuly na konci souboru
 chAdr      vraci adresu nuly
 chGoto     jde na nulu
 nlAdrFrom  vraci length(newln) za nulou
@@ -113,7 +118,7 @@ type  PText2 = ^TText2;
                      function     InsStr(adr,space:word;st:string):integer;
                      procedure    Write(st:string);
                      procedure    WriteLn(st:string);
-                     procedure    Konverze(konfig:PText2;oddelovac:char);
+                     procedure    Konverze(konfig:PText1;oddelovac:char);
                    end;
 
 
@@ -122,6 +127,11 @@ type  PText2 = ^TText2;
                           IMPLEMENTATION
 {ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ}
 
+
+{---------------------------------------------------------------------------
+ Nekolik kousku zkopirovanych z jinych unit za ucelem snizeni poctu uses.
+ ---------------------------------------------------------------------------}
+FUNCTION MaxW(x,y:word):word;inline($58/$5b/$3b/$c3/$77/$01/$93);{pop ax;pop bx;cmp ax,bx;ja +1;xchg ax,bx}
 
 
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßß TEXT 1 ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
@@ -133,9 +143,10 @@ type  PText2 = ^TText2;
 Constructor TText1.Init(p:pchar);
 begin
  inherited Init;
+ if p=nil then Fail;
  newln:=default_newln;
- start:=word(p);
- konec:=word(p)+StrLen(p);{hleda konec textu - nejblizsi nulu}
+ start:=PtrRec(p).Ofs;
+ konec:=start+StrLen(p);{hleda konec textu - nejblizsi nulu}
  pos:=p;
 end;
 
@@ -172,7 +183,7 @@ begin
 end;
 
 {---------------------------------------------------------------------------
- Vraci jestli je pos na konci textu nebo dokonce mimo text.
+ Eof=EndOfFile. Vraci jestli je pos na konci textu nebo dokonce mimo text.
  ---------------------------------------------------------------------------}
 Function TText1.Eof:boolean;
 begin
@@ -180,11 +191,19 @@ begin
 end;
 
 {---------------------------------------------------------------------------
- Jako jestli je pos mimo text (na konci textu byt muze).
+ Oof=OutOfFile. Vraci jestli je pos mimo text (na konci textu byt muze).
  ---------------------------------------------------------------------------}
 Function TText1.Oof:boolean;
 begin
  Oof:=(word(pos)>konec) or (word(pos)<start)
+end;
+
+{---------------------------------------------------------------------------
+ Popsune ukazatel o zadany pocet znaku.
+ ---------------------------------------------------------------------------}
+Procedure TText1.Skip(l:longint);
+begin
+ inc(word(pos),l);
 end;
 
 {---------------------------------------------------------------------------
@@ -248,8 +267,8 @@ end;
 Function TText1.chAdrFrom(c:char;adr:word;n:integer):word;assembler;
  asm
      les di,self
-     mov cx,[es:di+konec];sub cx,adr;inc cx{tolik znaku do konce textu}
-     mov dx,adr;sub dx,[es:di+start];inc dx{tolik znaku do zacatku textu?}
+     mov ax,[es:di+konec];mov cx,ax;sub cx,adr;jc @end;inc cx{tolik znaku do konce textu}
+     mov ax,[es:di+start];mov dx,adr;sub dx,ax;jc @end;inc dx{tolik znaku do zacatku textu?}
      mov es,[es:di+offset pos+2]
      mov di,adr
      mov al,c
@@ -273,6 +292,7 @@ Function TText1.chAdrFrom(c:char;adr:word;n:integer):word;assembler;
       cld
      @done:
      mov ax,di
+     @end:
  end;
 
 {---------------------------------------------------------------------------
@@ -322,13 +342,20 @@ Function TText1.nlAdrFrom(adr:word;n:integer):word;assembler;
      call chAdrFrom
      inc ax
 
-     {pokud se zarazil o konec souboru, pricte length(newln)-1}
+     {pokud se zarazil o jeden z koncu souboru...}
      or cx,cx
      jnz @no_eof
      les di,self
+     dec n
+     jns @o_konec
+     {o zacatek, nastavi ax na zacatek}
+     mov ax,[es:di+start]
+     jmp @no_eof
+     {o konec, pricte length(newln)-1}
+     @o_konec:
      dec ax
      add al,byte ptr [es:di+newln]
-     add ah,0
+     adc ah,0
      @no_eof:
  end;
 
@@ -498,6 +525,32 @@ Function TText1.nlRead:string;assembler;
  end;
 
 
+{---------------------------------------------------------------------------
+ Nasledujici metody na vyhledavani stringu by sly prinejmensim desetinasobne
+ zrychlit, kdyby bylo treba. Ale zatim neni, takze optimalizuji
+ na jednoduchost.
+ ---------------------------------------------------------------------------}
+function TText1.stAdrFrom(st:string;adr:word):word;
+ var oldpos:pchar;
+ begin
+  oldpos:=pos;
+  word(pos):=adr;
+  stGoto(st);
+  stAdrFrom:=word(pos);
+  pos:=oldpos;
+ end;
+
+function TText1.stAdr(st:string):word;
+ begin
+  stAdr:=stAdrFrom(st,word(pos));
+ end;
+
+procedure TText1.stGoto(st:string);
+ begin
+  while not Eof and not CmpBlock(@st[1],Pos,length(st)) do inc(pos);
+  {* CmpBlock saha za konec pridelene pameti}
+ end;
+
 
 
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßß TEXT 2 ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
@@ -508,8 +561,8 @@ Function TText1.nlRead:string;assembler;
  ---------------------------------------------------------------------------}
 Constructor TText2.Init(p:pchar;maxlen:word);
 begin
- inherited Init(p);
- maxkonec:=PtrRec(p).Ofs+(maxlen-1);
+ if not inherited Init(p) then Fail;
+ maxkonec:=start+(maxlen-1);
  insert:=true;
 end;
 
@@ -519,11 +572,12 @@ end;
  ---------------------------------------------------------------------------}
 Constructor TText2.InitEmpty(p:pchar;maxlen:word);
 begin
+ if p=nil then Fail;
  p^:=#0;{nastavi hned na zacatek nulu ocnacujici konec textu}
  {ted bych chtel zavolat prvni konstruktor, ale kvuli chybe pascalu nemuzu}
  {musim ho opsat}
  {jinak by se potomkum TText2 volajicim InitEmpty nastavila VMT TText2}
- inherited Init(p);
+ if not inherited Init(p) then Fail;
  maxkonec:=PtrRec(p).Ofs+(maxlen-1);
  insert:=true;
 end;
@@ -678,7 +732,7 @@ end;
  Na kazde radce konfigu ocekava dva stringy oddelene oddelovacem,
  pricemz v textu prevadi levy string na pravy.
  ---------------------------------------------------------------------------}
-Procedure TText2.Konverze(konfig:PText2;oddelovac:char);
+Procedure TText2.Konverze(konfig:PText1;oddelovac:char);
 var   st,st2:string;
 label 1;
 begin
@@ -702,7 +756,7 @@ end;
 
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
-function Init:word;
+function Init:TError;
  begin
   Init:=erOk;
  end;

@@ -1,49 +1,106 @@
-{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 0.50ƒƒƒø
+{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 1.00ƒƒƒø
  ≥S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi≥
  ≥v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.≥
  ¿ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒŸ}
 
 Unit      Sys;
 Interface {$i define.inc}
-Uses      Chyby,Memo, Dos {$ifdef dpmi},Dpmi{$endif};
-Function  Init:word;
+Uses      Chyby,Memo, Dos {$ifdef dpmi},Dpmi{$endif},Key,Stringy;
+Function  Init:TError;
 Procedure Done;
-
 
 {---------------------------------------------------------------------------
  Uzitecna makra.
  ---------------------------------------------------------------------------}
 
+{minima, maxima}
 FUNCTION MinW(x,y:word):word;inline($58/$5b/$3b/$c3/$72/$01/$93);{pop ax;pop bx;cmp ax,bx;jb +1;xchg ax,bx}
 FUNCTION MaxW(x,y:word):word;inline($58/$5b/$3b/$c3/$77/$01/$93);{pop ax;pop bx;cmp ax,bx;ja +1;xchg ax,bx}
 FUNCTION MinI(x,y:integer):integer;inline($58/$5b/$3b/$c3/$7e/$01/$93);{pop ax;pop bx;cmp ax,bx;jle +1;xchg ax,bx}
 FUNCTION MaxI(x,y:integer):integer;inline($58/$5b/$3b/$d8/$7e/$01/$93);{pop ax;pop bx;cmp bx,ax;jle +1;xchg ax,bx}
 FUNCTION MinL(x,y:longint):longint;inline($66/$58/$66/$5b/$66/$3b/$c3/$7e/$02/$66/$93/ $66/$50/$59/$5a);{jako MaxI/MinI,}
 FUNCTION MaxL(x,y:longint):longint;inline($66/$58/$66/$5b/$66/$3b/$d8/$7e/$02/$66/$93/ $66/$50/$59/$5a);{ale s hi(eax)->dx}
+
+{rozklad vetsich cisel na mensi}
 FUNCTION HiWord(l:longint):word;inline($58/$58);{pop ax;pop ax}
 FUNCTION LoWord(l:longint):word;inline($66/$58);{pop eax}
 FUNCTION HiInt(l:longint):integer;inline($58/$58);{pop ax;pop ax}
 FUNCTION LoInt(l:longint):integer;inline($66/$58);{pop eax}
 FUNCTION HiByte(w:word):byte;inline($58/$8a/$c4);{pop ax;mov al,ah}
 FUNCTION LoByte(w:word):byte;inline($58);{pop ax}
+
+{skladani mensich cisel ve vetsi cislo}
 FUNCTION MakeLong(hi,lo:word):longint;inline($58/$5a);{pop ax;pop dx}
 FUNCTION MakeWord(hi,lo:byte):word;inline($58/$5a/$8a/$e2);{pop ax;pop dx;mov ah,dl}
 FUNCTION MakeInt(hi,lo:byte):integer;inline($58/$5a/$8a/$e2);{pop ax;pop dx;mov ah,dl}
-FUNCTION Bi2By(w:word):word;inline($58/5/7/0/$c1/$e8/3);{pop ax;add ax,7;shr ax,3}
-FUNCTION Long2Word(n:longint):word;
-FUNCTION Long2Int(n:longint):integer;
-FUNCTION Bounded(base,bot,top:longint):longint;
 
-{if length(st)=1 then vrat st[1] else vrat #0}
-FUNCTION Str2Char(st:string):char;
+{rotace o 1 nebo n bitu}
+FUNCTION RolB(a:byte):byte;inline($58/$d0/$c0);{pop ax;rol al,1}
+FUNCTION RorB(a:byte):byte;inline($58/$d0/$c8);{pop ax;ror al,1}
+FUNCTION RolS(a:shortint):shortint;inline($58/$d0/$c0);{pop ax;rol al,1}
+FUNCTION RorS(a:shortint):shortint;inline($58/$d0/$c8);{pop ax;ror al,1}
+FUNCTION RolI(a:integer):integer;inline($58/$d1/$c0);{pop ax;rol ax,1}
+FUNCTION RorI(a:integer):integer;inline($58/$d1/$c8);{pop ax;ror ax,1}
+FUNCTION RolW(a:word):word;inline($58/$d1/$c0);{pop ax;rol ax,1}
+FUNCTION RorW(a:word):word;inline($58/$d1/$c8);{pop ax;ror ax,1}
+FUNCTION RolBn(a:byte;n:byte):byte;inline($59/$58/$d2/$c0);{pop cx;pop ax;rol al,cl}
+FUNCTION RorBn(a:byte;n:byte):byte;inline($59/$58/$d2/$c8);{pop cx;pop ax;ror al,cl}
+FUNCTION RolSn(a:shortint;n:byte):shortint;inline($59/$58/$d2/$c0);{pop cx;pop ax;rol al,cl}
+FUNCTION RorSn(a:shortint;n:byte):shortint;inline($59/$58/$d2/$c8);{pop cx;pop ax;ror al,cl}
+FUNCTION RolIn(a:integer;n:byte):integer;inline($59/$58/$d3/$c0);{pop cx;pop ax;rol ax,cl}
+FUNCTION RorIn(a:integer;n:byte):integer;inline($59/$58/$d3/$c8);{pop cx;pop ax;ror ax,cl}
+FUNCTION RolWn(a:word;n:byte):word;inline($59/$58/$d3/$c0);{pop cx;pop ax;rol ax,cl}
+FUNCTION RorWn(a:word;n:byte):word;inline($59/$58/$d3/$c8);{pop cx;pop ax;ror ax,cl}
+
+FUNCTION Str2Char(st:string):char;{if length(st)=1 then vrat st[1] else vrat #0}
  inline($5f   /$07   /$26/$8b/$05   /$3c/$01 /$b0/$00 /$75/$02/$8a/$c4);
        {pop di;pop es;mov ax,[es:di];cmp al,1;mov al,0;jnz +2;mov al,ah}
 
-{bezpecnostni opatreni pri nahlem ukonceni programu}
-PROCEDURE FixInts;
- inline($b0/$0  /$e6/$21   /$b0/$20   /$e6/$20   /$fb);
-       {mov al,0;out 21h,al;mov al,20h;out 20h,al;sti}
+{---------------------------------------------------------------------------
+ Dalsi funkce na praci s cisly.
+ ---------------------------------------------------------------------------}
 
+{konverze cisel}
+FUNCTION  Bi2By(w:word):word;inline($58/5/7/0/$c1/$e8/3);{pop ax;add ax,7;shr ax,3}
+FUNCTION  Long2Word(n:longint):word;
+FUNCTION  Long2Int(n:longint):integer;
+
+{napasovani cisla do zadaneho intervalu}
+FUNCTION  Bounded(n,min,max:longint):longint;
+PROCEDURE Bound(var n:longint;min,max:longint);
+FUNCTION  Wrapped(n,min,max:longint):longint;
+PROCEDURE Wrap(var n:longint;min,max:longint);
+FUNCTION  RoundedUp(n,step:longint):longint;
+FUNCTION  RoundedDown(n,step:longint):longint;
+
+{dalsi operace s cisly}
+FUNCTION  IsIn(n,min,max:LongInt):boolean;
+FUNCTION  RealPower(base,p:real):real;
+FUNCTION  Epx(zaklad:longint;exponent:shortint):longint;
+FUNCTION  Sgn(a:integer):Integer;
+FUNCTION  Bit(n:longint;b:byte):boolean;
+PROCEDURE Switch(var boo:boolean);
+
+{secte vsechny nenulove bity ve slove}
+FUNCTION BitCount1(n:byte):byte;
+FUNCTION BitCount2(n:word):byte;
+FUNCTION BitCount4(n:LongInt):byte;
+
+{ternarni operatory}
+FUNCTION  either(cond:boolean; res1,res2:LongInt):LongInt;
+FUNCTION  eitherS(cond:boolean; res1,res2:string):string;
+
+Const
+ minbyte =          0;
+ maxbyte =        255;
+ minshort=       -128;
+ maxshort=        127;
+ minword =          0;
+ maxword =      65535;
+ minint  =     -32768;
+ maxint  =      32767;
+ minlong =-2147483647-1;
+ maxlong = 2147483647;
 
 {---------------------------------------------------------------------------
  Klavesnice.
@@ -53,14 +110,18 @@ FUNCTION  KeyPressed:boolean; inline($b4/$0b/$cd/$21);{mov ah,0bh;int 21h}
 FUNCTION  ReadKey:char; inline($b4/$08/$cd/$21);{mov ah,8;int 21h}
 PROCEDURE WaitKey; inline($b8/$0c08/$cd/$21);{mov ax,0c08h;int 21h}
 FUNCTION  AskKey(list:string):char;
+FUNCTION  AskKeyExt(list:string):string2;
 PROCEDURE FlushKey;
+PROCEDURE TypeAsciiCode(zn:char);
+PROCEDURE TypeScanCode(code:byte);
+PROCEDURE TypeWrite(s:string);
 
 
 {---------------------------------------------------------------------------
  Eventy.
 
  Promenna event typu TEvent obsahuje tri udaje:
-   code(event) - kod stisknute klavesy
+   code(event) - scan-code stisknute klavesy
    char(event) - znak vygenerovany stiskem nebo #0 pokud jde o rozsireny znak
    extchar(event) - rozsireny znak nebo #0 pokud jde o normalni znak
  Mas-li kod, znak a rozsireny znak, event vytvoris pomoci
@@ -117,7 +178,7 @@ PROCEDURE RestoreDTA;
 
 
 {---------------------------------------------------------------------------
- Operacni system / Timeslice
+ Operacni system / Timeslice / CPU
  ---------------------------------------------------------------------------}
 
 Const
@@ -131,13 +192,16 @@ Const
   os:array[0..5] of pchar=('DOS','OS/2','Windows','DesqView','NetWare','DoubleDos');
 
 Var
-  Ops            : Byte;    { Operating System OS/2/DOS/WIN/DV}
+  Ops:Byte; {po volani CheckOs je zde zdetekovany operacni system}
 
 PROCEDURE CheckOS;
-FUNCTION  DosVersionMaj:byte; inline($b4/$30/$cd/$21);{mov ah,30h;int 21h}
-FUNCTION  DosVersionMin:byte; inline($b4/$30/$cd/$21/$8a/$c4);{mov ah,30h;int 21h;mov al,ah}
+FUNCTION  DosVersion:word; inline($b4/$30/$cd/$21/$86/$c4);{mov ah,30h;int 21h;xchg al,ah}
+FUNCTION  DosAtLeast(ver:word):boolean;
+FUNCTION  EquipList:word; inline($cd/$11); {fakt dlouha :-)}
 
 PROCEDURE GiveTimeSlice;
+
+FUNCTION  WhatCpu:word;
 
 
 {ﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂ}
@@ -145,43 +209,298 @@ PROCEDURE GiveTimeSlice;
 {‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹}
 
 
-Const {Par konstant zkopcenych z key.pas abysme nemuseli pouzit uses.}
- kExtended  =224;
- kkSlash    =128+53;
- kF11       =87;
- kF12       =88;
-
-
-FUNCTION Bounded(base,bot,top:longint):longint;assembler;
- asm
-  db 66h;mov ax,word ptr base
-  db 66h;mov bx,word ptr bot;db 66h;cmp ax,bx;jle @bx
-  db 66h;mov bx,word ptr top;db 66h;cmp bx,ax;jle @bx
-  mov dx,word ptr base+2
-  jmp @end
-  @bx:
-  mov ax,bx
-  db 66h;shr bx,16
-  mov dx,bx
-  @end:
- end;
-{o 49 bajtu delsi a mnohem pomalejsi ekvivalent:
-begin
- if base<bot then base:=bot else
- if base>top then base:=top;
- Bounded:=base;
+{---------------------------------------------------------------------------
+ Vraci n napasovane do intervalu min..max.
+ Kdyz je mensi nebo vetsi, zarovna ho na min nebo max.
+ ---------------------------------------------------------------------------}
+FUNCTION Bounded(n,min,max:longint):longint; assembler;
+asm
+ db 66h;mov ax,word ptr n
+ db 66h;mov bx,word ptr min; db 66h;cmp ax,bx; jle @bx
+ db 66h;mov bx,word ptr max; db 66h;cmp bx,ax; jle @bx
+ mov dx,word ptr n+2
+ jmp @end
+@bx:
+ mov ax,bx
+ db 66h;shr bx,16
+ mov dx,bx
+@end:
 end;
-to abys vedel co stoji "slusnost" :)}
 
+PROCEDURE Bound(var n:longint;min,max:longint);
+begin
+ n:=Bounded(n,min,max);
+end;
+
+{---------------------------------------------------------------------------
+ Vraci n posunute do intervalu min..max.
+ Pro lepsi pochopeni toho vzorce, je to jako kdyz posouvas n o (max-min+1)
+ nahoru nebo dolu tak dlouho dokud nespadne do intervalu min..max.
+ Je to takove zobecnene modulo.
+
+ Priklad pouziti:
+  k:=wrapped(k+1,0,40) posune k ve smycce 0..40
+ ---------------------------------------------------------------------------}
+FUNCTION Wrapped(n,min,max:longint):longint;
+begin
+ n:=(n-min) mod (max-min+1);
+ if n<0 then wrapped:=n+max+1 else wrapped:=n+min;
+end;
+
+PROCEDURE Wrap(var n:longint;min,max:longint);
+begin
+ n:=wrapped(n,min,max);
+end;
+
+{---------------------------------------------------------------------------
+ Vraci n zaokrouhlene na nasobek step.
+ Priklad pouziti:
+   RoundedDown(799,100)=700, RoundedDown(-61,20)=-80
+   RoundedUp(901,100)=1000, RoundedUp(-61,20)=-60
+ ---------------------------------------------------------------------------}
+FUNCTION RoundedDown(n,step:longint):longint;
+begin
+ if step=0 then RoundedDown:=n {jinak by doslo k chybe #0 - Division by zero}
+ else RoundedDown:=n-n mod step-byte(n<0)*step
+end;
+
+FUNCTION RoundedUp(n,step:longint):longint;
+var hlp:longint;
+begin
+ if step=0 then RoundedUp:=n
+ else RoundedUp:=n-n mod step+byte(n>0)*step
+end;
+
+{---------------------------------------------------------------------------
+ Vraci word nejblizsi zadanemu longintu.
+ ---------------------------------------------------------------------------}
 FUNCTION Long2Word(n:longint):word;
 begin
- Long2Word:=Bounded(n,0,65535);
+ Long2Word:=Bounded(n,minword,maxword);
 end;
 
+{---------------------------------------------------------------------------
+ Vraci integer nejblizsi zadanemu longintu.
+ ---------------------------------------------------------------------------}
 FUNCTION Long2Int(n:longint):integer;
 begin
- Long2Int:=Bounded(n,-32768,32767);
+ Long2Int:=Bounded(n,minint,maxint);
 end;
+
+{---------------------------------------------------------------------------
+ Vraci true, jestli %n lezi mezi %min a %max.
+ Napriklad: IsIn(3,-7,8)=TRUE stejne jako IsIn(3,8,-7)=TRUE
+ ---------------------------------------------------------------------------}
+FUNCTION IsIn(n,min,max:LongInt):boolean; assembler;
+asm   {IsIn}
+ db  66h;mov  ax,word ptr [n]
+ db  66h;mov  bx,word ptr [min]
+ db  66h;mov  cx,word ptr [max]
+ db  66h;cmp  bx,cx
+ jle @cont
+ db  66h;mov  bx,word ptr [max]
+ db  66h;mov  cx,word ptr [min]
+@cont:
+ db  66h;cmp  ax,bx
+ jl  @ne
+ db  66h;cmp  ax,cx
+ jg  @ne
+ mov al,true
+ jmp @end
+@ne:
+ mov al,false
+@end:
+end;  {IsIn}
+(* Kdyby nefungovala, smazte ji a nahradte ji t°mhle:
+FUNCTION IsIn(n,min,max:LongInt):boolean;
+begin
+ isin:=(n>=min) and (n<=max)
+end;*)
+
+{---------------------------------------------------------------------------
+ Vraci mocninu o zakladu a exponentu (neni chranena proti 'preteceni')
+ Pro zaporne exponenty vraci 1.
+ ---------------------------------------------------------------------------}
+FUNCTION Epx(zaklad:longint;exponent:shortint):LongInt;
+var res:LongInt;
+begin {epx}
+ res:=1;
+ for exponent:=exponent downto 1 do res:=res*zaklad;
+ epx:=res
+end;  {epx}
+
+FUNCTION RealPower(base,p:real):real;
+begin {RealPower}
+ if base<=0 then RealPower:=-1 else
+ RealPower:=Exp(p*Ln(base)) {n*ln(x)=ln(x^n);  ln(e^y)=e^(ln y)=y}
+end;  {RealPower}
+
+{---------------------------------------------------------------------------
+ Vraci znamenko: 1 kdyz a>0, -1 kdyz a<0 a 0 kdyz a=0
+ ---------------------------------------------------------------------------}
+FUNCTION Sgn(a:Integer):Integer;assembler;
+asm {Sgn}
+ mov  ax,[a]
+ sar  ax,00Eh
+ and  al,0FEh
+ inc  ax
+end;{Sgn}
+
+{---------------------------------------------------------------------------
+ Vraci jestli je nastaven b-ty bit(pocitano od nuly) cisla n.
+ ---------------------------------------------------------------------------}
+FUNCTION Bit(n:longint;b:byte):boolean;
+begin
+ bit:=boolean((n shr b) and 1);
+end;
+{
+ Mate-li cislo n a chcete vynulovat jeho b-ty bit, pak napiste
+ n:=n and not(1 shl b);  (nebo napr. pro byte:  n:=n and ($FE shl b))
+ chcete-li tento b-ty bit zmenit na jenicku, pak napiste
+ n:=n or 1 shl b;
+ A mate-li cislo n a chcete pouze switchnout b-ty bit, pak napiste
+ n:=n xor (1 shl b);
+}
+
+{---------------------------------------------------------------------------
+ Zneguje boolean.
+ ---------------------------------------------------------------------------}
+PROCEDURE Switch(var boo:boolean);
+begin
+ boo:=not boo;
+end;
+
+{---------------------------------------------------------------------------
+ Vrati cislo prvniho nebo posledniho nenuloveho bitu nebo 0 pro nulu.
+ ---------------------------------------------------------------------------}
+function BsF1(n:byte):byte; assembler;
+{Bit Scan Forward - vrati cislo nejvyznamnejsiho nenuloveho bitu v cisle
+ (1..8) nebo 0 pro nulu.}
+asm
+ mov  ah,n
+ mov  al,8
+ mov  bl,80h
+ mov  cx,8
+@cykl:
+ test ah,bl
+ jnz  @ven
+ dec  al
+ shr  bl,1
+ loop @cykl
+@ven:
+end;  {BsF1}
+
+function BsR1(n:byte):byte; assembler;
+{Bit Scan Reverse - vrati cislo nejmene vyznamneho nenuloveho bitu v cisle
+ (1..8) nebo 0 pro nulu.}
+asm
+ xor  al,al
+ mov  ah,n
+ cmp  ah,0
+ je   @ven
+ mov  bl,1
+ mov  cx,8
+@cykl:
+ inc  al
+ test ah,bl
+ jnz  @ven
+ shl  bl,1
+ loop @cykl
+@ven:
+end;  {BsR1}
+
+{---------------------------------------------------------------------------
+ Spocita nenulove bity slova delky 1,2 nebo 4 byty.
+ ---------------------------------------------------------------------------}
+FUNCTION BitCount1(n:byte):byte; assembler;
+asm
+ mov  al,0
+ mov  bl,[n]
+ mov  bh,1
+ mov  cx,8
+@cykl:
+ test bl,bh
+ jz   @cont
+ inc  al
+@cont:
+ shl  bh,1
+ loop @cykl
+end;  {BitCount1}
+
+FUNCTION BitCount2(n:word):byte; assembler;
+asm
+ mov  al,0
+ mov  bx,[n]
+ mov  dx,1
+ mov  cx,16
+@cykl:
+ test bx,dx
+ jz   @cont
+ inc  al
+@cont:
+ shl  bx,1
+ loop @cykl
+end;  {BitCount2}
+
+FUNCTION BitCount4(n:LongInt):byte; assembler;
+asm
+ mov  al,0
+ mov  bx,word ptr [n]
+ mov  dx,1
+ mov  cx,16
+@cykl:
+ test bx,dx
+ jz   @cont1
+ inc  al
+@cont1:
+ shl  dx,1
+ loop @cykl
+ mov  bx,word ptr [n]+2
+ mov  dx,1
+ mov  cx,16
+@cykl2:
+ test bx,dx
+ jz   @cont2
+ inc  al
+@cont2:
+ shl  dx,1
+ loop @cykl2
+end;  {BitCount4}
+
+{---------------------------------------------------------------------
+ Assemblerovsky ekvivalent "if cond then either:=res1 else either:=res2"
+ ---------------------------------------------------------------------}
+FUNCTION either(cond:boolean; res1,res2:LongInt):LongInt; assembler;
+asm   {either}
+ mov  al,cond
+ cmp  al,0
+ je   @res2
+ mov  ax,word ptr res1
+ mov  dx,word ptr res1+2
+ jmp  @end
+@res2:
+ mov  ax,word ptr res2
+ mov  dx,word ptr res2+2
+@end:
+end;  {either}
+
+FUNCTION eitherS(cond:boolean; res1,res2:string):string; assembler;
+asm   {eitherS}
+ push ds
+ les  di,@result
+ cmp  cond,0
+ je   @1
+ lds  si,res1
+ jmp  @2
+@1:
+ lds  si,res2
+@2:
+ mov  ch,0
+ mov  cl,ds:[si]
+ inc  cx
+ call REP_MOVSB_si_nz
+ pop  ds
+end;  {eitherS}
 
 
 {€€€€€€€€€€€€€€€€ KEYBOARD €€€€€€€€€€€€€€€€}
@@ -198,7 +517,35 @@ begin
 end;
 
 {---------------------------------------------------------------------------
- Vymaze buffer se stiknutymi klavesami.
+ Zde je verze i pro rozsirene klavesy. Napr.: AskKeyExt('abcd'#0'H') bude
+ reagovat na 'a','b','c','d' a sipku nahoru  (nikoli vsak na 'H'!).
+ ---------------------------------------------------------------------------}
+FUNCTION AskKeyExt(list:string):string2;
+var
+ c:string2;
+ j:byte;
+begin {AskKeyExt}
+ AskKeyExt:='';
+ if list='' then 
+  begin
+   waitkey;
+   exit;
+  end;
+ repeat
+  c[1]:=readkey;
+  if c[1]=#0
+  then begin c[0]:=#2; c[2]:=readkey; end
+  else       c[0]:=#1;
+  j:=Pos(c,list);
+  if length(c)=1 then
+   while (j>1) and (list[j-1]=#0) do
+    j:=Pos(c,Copy(list,j+1,$FF));
+ until j<>0;
+ AskKeyExt:=c;
+end;  {AskKeyExt}
+
+{---------------------------------------------------------------------------
+ Vymaze buffer se stisknutymi klavesami.
  ---------------------------------------------------------------------------}
 PROCEDURE FlushKey;
 begin
@@ -212,15 +559,57 @@ end;
  bufferu v biosu). Extended znak (#0,znak) je interpretovan jako 128+znak.
  ---------------------------------------------------------------------------}
 FUNCTION  GuessCode:byte;
-var   code:byte;
+var   i:byte;
+      code,info:byte;
+      infocode:word absolute info;
+const bads=
+       chr(18)+chr(19)+chr(247)+chr(245)+chr(4)+chr(246)+chr(13)+chr(17)+chr(243)+chr(244)+
+       chr(162)+chr(163)+chr(151)+chr(159)+chr(153)+chr(161)+chr(152)+chr(160)+chr(155)+chr(157)+
+       chr(149)+chr(150)+chr(142)+chr(144)+chr(181)+chr(147)+
+       chr(146)+chr(117)+chr(145)+chr(118)+chr(115)+chr(143)+chr(116)+chr(119)+chr(141)+chr(132);
+      goods:array[1..36] of byte=(
+       kInsert,kDelete,kHome,kEnd,kPgUp,kPgDwn,kUp,kDown,kLeft,kRight,
+       kInsert,kDelete,kHome,kEnd,kPgUp,kPgDwn,kUp,kDown,kLeft,kRight,
+       kkSlash,kkMul,kkMinus,kkPlus,kkEnter,kkTecka,
+       kk0,kk1,kk2,kk3,kk4,kk5,kk6,kk7,kk8,kk9);
+      fixes=14;
+      fix:array[1..fixes,1..3] of byte=(
+       (133, 0,kF11   ), {F11}
+       (134, 0,kF12   ), {F12}
+       (135, 0,kF11   ), {Shift-F11}
+       (136, 0,kF12   ), {Shift-F12}
+       (137, 0,kF11   ), {Ctrl-F11}
+       (138, 0,kF12   ), {Ctrl-F12}
+       (139, 0,kF11   ), {Alt-F11}
+       (140, 0,kF12   ), {Alt-F12}
+       (224,47,kkSlash), {/}
+       (149, 0,kkSlash), {Ctrl-/}
+       (164, 0,kkSlash), {Alt-/}
+       (224,13,kkEnter), {Enter}
+       (224,10,kkEnter), {Ctrl-Enter}
+       (166, 0,kkEnter));{Alt-Enter}
 begin
- code:=mem[seg0040:mem[seg0040:$1a]+1];
- if mem[seg0040:mem[seg0040:$1a]]=kExtended then inc(code,128);
- case code of 224:code:=kkSlash;{osetreni chaosu kdesi v biosu?}
-              133:code:=kF11;
-              134:code:=kF12;
-              84..93:dec(code,25);{shift-F1 az shift-F10}
+ infocode:=memw[seg0040:mem[seg0040:$1a]];
+ if info=kExtended then inc(code,128);
+{ writeln('-> ',code,' ',info);
+ {naprava chaotickych kodu vracenych biosem na nejak usporadana cisla}
+ {opravi Shift/Ctrl/Alt-F1..F10, Alt-1..=}
+ if info=0 then
+  case code of 84.. 93:dec(code, 84-kF1);{Shift-F1 az Shift-F10}
+               94..103:dec(code, 94-kF1);{Ctrl-F1 az Ctrl-F10}
+              104..113:dec(code,104-kF1);{Alt-F1 az Alt-F10}
+              120..131:dec(code,120-k1 );{Alt-1 az Alt-=}
               end;
+ {opravi ctrl/alt-midpad/numpad}
+ if (info in [0,224]) and (pos(chr(code),bads)>0)
+  and ((code>127) or (info>0))
+  then code:=goods[pos(chr(code),bads)];
+ {opravi zbyle vyjimky}
+ for i:=1 to fixes do
+  if (code=fix[i,1]) and (info=fix[i,2]) then begin
+    code:=fix[i,3];
+    break;
+    end;
  GuessCode:=code;
 end;
 
@@ -240,6 +629,55 @@ begin
  ReadEvent:=MakeEvent(co,ch,ext);
 end;
 
+{---------------------------------------------------------------------------
+ A nakonec 'vesela' rutinka pro zapsani klaves do
+ buferu klavesnice, emulujici jejich fyzicky stisk.
+ Pozn.: Pouze pro BIOS od roku 1985 a maximalne pro 16 znaku.
+ ---------------------------------------------------------------------------}
+procedure TypeAsciiCode(zn:char); assembler;
+asm   {TypeAsciiCode}
+ mov  ah,5
+ xor  ch,ch
+ mov  cl,zn
+ int  16h
+end;  {TypeAsciiCode}
+
+procedure TypeScanCode(code:byte); assembler;
+asm   {TypeScanCode}
+ mov  ah,5
+ mov  ch,code
+ xor  cl,cl
+ int  16h
+end;  {TypeScanCode}
+
+procedure TypeWrite(s:string);
+{emuluje zapsani kratkeho stringu. #nnn znamena, ze napise znak s
+ascii-kodem nnn a @mmm znamena, ze napise znak se scan-kodem mmm.}
+var
+ i:byte;
+ hlp:char;
+ hlpb:byte absolute hlp;
+ code:word;
+begin {TypeWrite}
+ for i:=1 to length(s) do
+  if s[i]='#' then
+     begin
+      val(copy(s,i+1,3),hlpb,code);
+      TypeAsciiCode(hlp);
+      inc(i,3);
+      if i>ord(s[0]) then break
+     end
+  else
+  if s[i]='@' then
+     begin
+      val(copy(s,i+1,3),hlpb,code);
+      TypeScanCode(hlpb);
+      inc(i,3);
+      if i>ord(s[0]) then break
+     end
+  else
+  TypeAsciiCode(s[i])
+end;  {TypeWrite}
 
 
 {€€€€€€€€€€€€€€€€ STOPKY €€€€€€€€€€€€€€€€}
@@ -263,17 +701,17 @@ begin
    {$ifdef dpmi}
    with RealModeRegs do begin
     {stop previous wait}
-    clr;
+    ClrRegs(RealModeRegs);
     rEAX:=$8301;
-    erCheck(dpmiRealModeInt($15,@RealModeRegs));
+    erCheck(TError(dpmiRealModeInt($15,@RealModeRegs)));
     {start new wait}
-    clr;
+    ClrRegs(RealModeRegs);
     rEAX:=$8300;
     rES:=DelaySeg;
     rEBX:=PtrRec(DelayFlag).Ofs;
     rEDX:=LoWord(mikrosekund);
     rECX:=HiWord(mikrosekund);
-    erCheck(dpmiRealModeInt($15,@RealModeRegs));
+    erCheck(TError(dpmiRealModeInt($15,@RealModeRegs)));
     ok:=(flags and 1{cf})=0;
     end;
    {$else}
@@ -295,7 +733,7 @@ begin
    end;
    {$endif}
    if not ok then begin
-     if not dumb then erMsg('event wait busy');
+     if not dumb then erMsg(_(_erEvWaitBusy));
      DelayFlag^:=true;
      DelayStart:=false;
      end;
@@ -430,6 +868,21 @@ PROCEDURE RestoreDTA;assembler;
 
 {€€€€€€€€€€€€€€€€ TIMESLICE €€€€€€€€€€€€€€€€}
 
+var needDos:word;
+
+FUNCTION DosAtLeast(ver:word):boolean;
+begin
+ if DosVersion<ver then begin
+   if ver>needDos then begin
+     needDos:=ver;
+     ReportErr(_(_erChciDosAspon)+' '+stri(HiByte(ver))+'.'+stri(LoByte(ver))+'.');
+     end;
+   DosAtLeast:=false;
+   end
+ else
+   DosAtLeast:=true;
+end;
+
 Procedure CheckOS;assembler;
 { Currently Supports DesqView, Microsoft Windows and IBM's OS/2 }
 asm
@@ -438,7 +891,6 @@ asm
   int 21h       { dos version }
   cmp al, 14h
   jae @IBMOS2   { Jump if >= to 20 }
-
 
   mov ax,2B01h
   mov cx,4445h
@@ -454,9 +906,8 @@ asm
 
   mov ax,1600h
   int 2Fh       { Windows Install? test2}
-  and al,7fh
-  or  al,al
-  jne @Windows
+  test ax,17fh
+  jnz @Windows
 
   jmp @Finish   { Nothing found, go to the end }
 
@@ -516,20 +967,92 @@ asm
 end;
 
 
+{€€€€€€€€€€€€€€€€ TYP PROCESORU €€€€€€€€€€€€€€€€}
+
+function WhatCpu:word; assembler;
+const
+ cpu8086 =1;
+ cpu80286=2;
+ cpu80386=3;
+ cpu80486=4;
+asm {function whatcpu}
+ mov  dx,cpu8086
+ push sp
+ pop  ax
+ cmp  sp,ax
+ jne  @out
+ mov  dx,cpu80286
+ pushf
+ pop  ax
+ or   ax,4000h
+ push ax
+ popf
+ pushf
+ pop  ax
+ test ax,4000h
+ je   @out
+ mov  dx,cpu80386          {"db 66h" makes '386 extended instruction}
+ db   66h; mov bx,sp       {mov ebx,esp}
+ db   66h, 83h, 0e4h, 0fch {and esp,fffch}
+ db   66h; pushf           {pushfd}
+ db   66h; pop ax          {pop eax}
+ db   66h; mov cx, ax      {mov ecx,eax}
+ db   66h, 35h, 00
+ db   00h, 04h, 00         {xor eax,00040000; switchne 18.bit u eax}
+ db   66h; push ax         {push eax}
+ db   66h; popf            {popfd}
+ db   66h; pushf           {pushfd}
+ db   66h; pop ax          {pop eax}
+ db   66h, 25h,00h
+ db   00h, 04h,00h         {and eax,00040000}
+ db   66h, 81h,0e1h,00h
+ db   00h, 04h,00h         {and ecx,00040000}
+ db   66h; cmp ax,cx       {cmp eax,ecx}
+ je   @not486
+ mov  dx, cpu80486
+@not486:
+ db   66h; push cx         {push ecx}
+ db   66h; popf            {popfd}
+ db   66h; mov sp, bx      {mov esp,ebx}
+@out:
+ mov ax, dx
+end;{function whatcpu}
+
+
+var orig1Bint:procedure;
+{$F+,S-,W-}
+procedure IgnoreBreak; assembler;
+asm
+ iret
+end;
+{$F-,S+}
+procedure EnableBreak;
+begin
+ GetIntVec($1B,@orig1Bint);
+ SetIntVec($1B,@orig1Bint);
+end;
+
+procedure DisableBreak;
+begin
+ GetIntVec($1B,@orig1Bint);
+ SetIntVec($1B,@IgnoreBreak);
+end;
+
 {∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞INIT/DONE∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞}
 
 const unita='sys';
-var result:integer;
+var result:TError;
 
 procedure UserInit;
  begin
   ops          :=MDOS;
   EventWaitOk  :=true;
+  needDos      :=0;
   if GetMemDos(DelaySeg,pointer(DelayFlag),1) then begin
     EventWaitOk:=TestEventWait;
     exit;
     end;
-  result:=erLowMem;
+  result:=erLowDosMem;
  end;
 
 procedure UserDone;
