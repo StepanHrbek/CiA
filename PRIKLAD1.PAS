@@ -2,7 +2,7 @@
  Ukazka prace s nastavenim grafickeho modu, bitmapou, fontem,
  handlerem klavesnice, INI souborem.
  Vyzaduje soubory PRIKLAD.INI, MODERN.FN.
- V souboru define.inc musi byt zapnut autoinit a mel by byt i autodone.
+ V souboru define.inc musi byt zapnut autoinit a autodone.
  ---
  Program nastavi mod 640x480 a necha te hybat mysi. Mezitim
  na pozadi pribyvaji ctverecky. Skonci po stisku libovolne klavesy
@@ -13,19 +13,19 @@
 {$M 10000,100000,100000}
 {$i define.inc}
 
-Uses Chyby,Sys,Mys,Ini,Vga,Cache,Fonty,Key;
+Uses Chyby,Objects,Strings,Sys,Ini,Vga,Cache,Fonty,Key;
 
 Var s      :TScreen;{obrazovka}
-    b      :PBitmap;{nejaka bitmapka}
+    ahoj   :PBitmap;{nejaka bitmapka}
     f      :PFont;  {nejaky font}
     mx,my  :integer;{poloha mysi}
     i      :word;
     x,y,r,dx,dy:real;{promenne pro vypocty pohybu se setrvacnosti}
+    event  :TEvent;
+    pos    :TPoint;
 
 Const
-    napis  :string[6]='Ahoj!';
-    mezer  :word=0;
-    sirmez :word=0;
+    napis  ='Ahoj!';
 
 Procedure Vars;assembler;
 {Seznam promennych v INI souboru.
@@ -52,25 +52,26 @@ Begin
  f:=caFontGet(fnDefault);
  if f=nil then erFile(fnDefault);
 
- {nastavi nejaky mod (nejblizsi k tomuto rozliseni)}
- if not s.Init(model_packed,640,480,0) then Halt(erBadMode);
- {muzes si zkusit jine packed a unchained mody}
+ {nastavi nejaky mod s 256 barvami (nejblizsi k tomuto rozliseni)}
+ if not s.Init(model_256,640,480,0) then Halt(erBadMode);
+ {muzes si zkusit i jine mody}
  {kdybys chtel nastavit konkretni mod a zadny jiny, volej init takto:
- if not s.Init(model_packed,0,0,P640x480) then Halt(erBadMode);}
+  if not s.Init(model_packed,0,0,P640x480) then Halt(erBadMode);}
 
  {nastavi polohu mysi tak, jak ji nacet z priklad.ini}
  s.MouseSetPos(mx,my);
 
  {vygeneruje bitmapku s napisem}
- New(b,Init(model_packed,50,50));    {alokuje malou bitmapku}
- if b=nil then Halt(erLowMem);       {pri neuspechu skonci}
- b^.Col2Ful(20);                     {vyplni ji jednou barvou}
- b^.Col2Box(1,1,47,47,31);           {vnitrek vyplni jinou}
- b^.Col2Box(2,2,44,44,32);           {vnitrek vyplni jinou}
- OutText(length(napis),@napis[1],mezer,sirmez,b,7,27,f,0,31);
+ {pouziva barvy standardni palety}
+ New(ahoj,Init(model_packed,50,50));    {alokuje malou bitmapku}
+ if ahoj=nil then Halt(erLowMem);       {pri neuspechu skonci}
+ ahoj^.Col2Ful(20);                     {vyplni ji jednou barvou}
+ ahoj^.Col2Box(1,1,47,47,31);           {vnitrek vyplni jinou}
+ ahoj^.Col2Box(2,2,44,44,32);           {vnitrek vyplni jinou}
+ OutStr(napis,ahoj,7,27,f,0,31);        {pise napis}
 
  {nastavi na karte paletu sipky}
- s.MousePalShow;
+ s.mousePal^.Show;
 
  {inicializace pohybu}
  dx:=1000;
@@ -79,23 +80,26 @@ Begin
  y:=200;
 
  {dokud nezareagujes, neco dela}
- while not keypressed and (mouseGetPress=0) do begin
+ {btw, kdyz GetEvent skonci uspechem, mas udalost ulozenou v event a pos}
+ while not s.GetEvent(event,pos) do begin
    r:=sqrt(x*x+y*y)+1;                     {vygeneruje nejake souradnice}
    dx:=dx-r/100*x+random(100)-50;
    dy:=dy-r/100*y+random(100)-50;
    x:=x+dx/101;
    y:=y+dy/100;
    s.MouseHide;                            {skryje sipku}
-   s.BtF2Box(b,word(s.Xres div 2+round(x)),{hodi bitmapku na obrazovku}
-               word(s.Yres div 2+round(y)));
+   s.BtF2Box(ahoj,word(s.Xres div 2+round(x)),{hodi bitmapku na obrazovku}
+                  word(s.Yres div 2+round(y)));
    s.MouseShow;                            {zobrazi sipku}
+
    if not kPressed[kLShift]                {neni-li stisknut levy shift}
     then s.Sync;                           {ceka na paprsek a obslouzi mys}
+
    end;
 
  {uvolni bitmapku}
  {btw, zde neni nutne, po skonceni programu se pamet odalokuje automaticky}
- b^.Free;
+ ahoj^.Free;
 
  {nastavi polohu mysi do promennych, ktere pote ulozi do INI}
  mx:=s.mouse.X;

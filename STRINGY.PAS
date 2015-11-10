@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -10,6 +10,8 @@ Procedure Done;
 
 
 TYPE      PString = ^string;
+
+VAR       freeC:array[0..1024] of char;
 
 {---------------------------------------------------------------------------
  Konverze
@@ -33,6 +35,10 @@ FUNCTION  Kamenici2Ascii(var st:openstring):string;{*nestaci jeden zpusob vracen
 FUNCTION  Pc2Str(pc:pchar):string;
 FUNCTION  Str2Pc(var st:openstring):pchar;
 FUNCTION  DeStr2Pc(var st:openstring):pchar;
+FUNCTION  Str2TempPc(st:string):pchar;
+
+{ostatni}
+FUNCTION  Rep(c:char;kolikrat:byte):string;
 
 {---------------------------------------------------------------------------
  Zpracovani strukturovanych stringu.
@@ -246,6 +252,16 @@ FUNCTION DeStr2Pc(var st:openstring):pchar;assembler;
  end;
 
 {---------------------------------------------------------------------------
+ Vytvori docasny PChar. Nemusis ho pak odalokovat, ale za chvili sam zanikne.
+ ---------------------------------------------------------------------------}
+FUNCTION  Str2TempPc(st:string):pchar;
+begin
+ move(st[1],freeC,length(st));
+ freeC[length(st)]:=#0;
+ Str2TempPc:=@freeC[0];
+end;
+
+{---------------------------------------------------------------------------
  Temer nedestruktivne zkonverti openstring na Pchar (st[last+1]=#0)
  a vraci na nej pcharovy pointer. Zadne alokace, pouze prostor stringu.
  U stringu maximalni delky prepise posledni znak nulou!
@@ -264,6 +280,21 @@ FUNCTION Str2Pc(var st:openstring):pchar;assembler;
      xchg ax,di
      mov dx,es
      inc ax
+ end;
+
+
+{---------------------------------------------------------------------------
+ Vygeneruje string ze samych c.
+ ---------------------------------------------------------------------------}
+FUNCTION  Rep(c:char;kolikrat:byte):string;assembler;
+ asm
+     les di,@result
+     mov al,kolikrat
+     stosb
+     mov cl,al
+     mov ch,0
+     mov al,c
+     rep stosb
  end;
 
 
@@ -327,7 +358,7 @@ var i:word;
 begin
  i:=1;
  while (i<=length(st)) and
-  not (st[i] in [' ',',',';','+',':','\','?','*',#0..#31]) do inc(i);
+  not (st[i] in [' ',',',';','+',{':','\',}'?','*',#0..#31]) do inc(i);
  CutName:=copy(st,1,i-1);
  delete(st,1,i);
 end;

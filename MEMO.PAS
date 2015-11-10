@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -76,8 +76,10 @@ TYPE  PByte     = ^byte;
       Fuzzy     = (Bad,Unsure,Okay);
 
 {---------------------------------------------------------------------------
- Trocha pameti komukoliv k dispozici pro docasne pouziti.
- 64K blok muzes bez vetsi ujmy zkratit o 20 bajtu, ty se nikde v CiA
+ Trocha staticke pameti komukoliv k dispozici.
+ Kdyz do ni neco ulozis, nemas zadnou zaruku ze to tam za chvili jeste bude.
+
+ 64K blok muzes bez vetsi ujmy zkratit o 16 bajtu, ty se nikde v CiA
  nepouzivaji (v Masine ale jo). Jediny smysl zkraceni je usnadnit
  zacatecnikum praci s CiA, aby nemuseli do svych realmodovych programu psat
  {$M blablabla k umozneni alokace souvislych 64KB.
@@ -85,20 +87,22 @@ TYPE  PByte     = ^byte;
 Const {$ifdef dement}
       freesize=65536;
       {$else}
-      freesize=65536-20;
+      freesize=65520;
       {$endif}
 
 Var   freeofs:word;
       freeseg:word;
       freeptr:pointer absolute freeofs;{pointer na 64KB blok volne pameti}
 
-VAR   freeL:array[0..256] of longint;
-      freeI:array[0..512] of integer absolute freeL;
-      freeW:array[0..512] of word absolute freeL;
-      freeB:array[0..1024] of byte absolute freeL;
-      freeS:string;
+VAR   freeL:array[0..256] of longint absolute freeC;
+      freeI:array[0..512] of integer absolute freeC;
+      freeW:array[0..512] of word absolute freeC;
+      freeB:array[0..1024] of byte absolute freeC;
+      freeS:string absolute freeC;
 
       debugmem:boolean;          {debugovaci rezim: vypis hlasek o pameti}
+
+      MakeRoom:FBool;
 
 {---------------------------------------------------------------------------
  Nahrada systemovych zdroju pameti.
@@ -129,8 +133,8 @@ PROCEDURE MapBytesCX2DX_nz;
 PROCEDURE TransparentMapBytesCX2DX_nz;
 PROCEDURE ExpandAH_AL;
 PROCEDURE ExpandAH_BX;
-PROCEDURE MoveBack(src,dest:pointer;bytes:word{*predelat na long});
-PROCEDURE MoveForw(src,dest:pointer;bytes:word);
+PROCEDURE Move(var src,dest;bytes:word);
+PROCEDURE Xchg(var src,dest;bytes:word);
 PROCEDURE FillByte(blok:pointer;bytes:longint;value:byte);
 PROCEDURE FillWord(blok:pointer;words:longint;value:word);
 FUNCTION  CmpBlock(blok1,blok2:pointer;bytes:word):boolean;
@@ -142,6 +146,20 @@ FUNCTION  CmpWord(blok:pointer;val:word;words:word):boolean;
  ---------------------------------------------------------------------------}
 PROCEDURE KillObj(var p);{p musi byt PObject nebo potomek}
 
+Type
+      {Vychozi objekt pro flcPlayer, samplePlayer...}
+      PPlayer=^TPlayer;
+      TPlayer=object(TObject)
+        stream         :PStream;
+        constructor    Init(astream:PStream);
+        function       Sync:boolean;virtual;
+        destructor     Done;virtual;
+       end;
+
+      PPlaylist=^TPlaylist;
+      TPlaylist=object(TCollection)
+        procedure      Sync;
+       end;
 
 
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
@@ -285,21 +303,23 @@ begin
  if (bytes<1) then erBetaMsg('getmem 1');
  {$endif}
 
- {$ifdef realdos}
+ repeat
+  {$ifdef realdos}
    p:=ptr(GetConv16((bytes+15) div 16),0);
- {$endif}
+  {$endif}
 
- {$ifdef realpas}
+  {$ifdef realpas}
    if bytes<65536
     then system.GetMem(p,bytes)                  {standardni alokace s pripadnym uvolnenim cache}
     else p:=ptr(GetConv16((bytes+15) div 16),0); {pouze pro vyjmecne situace, bez uvolnovani cache}
- {$endif}
+  {$endif}
 
- {$ifdef protpas}
+  {$ifdef protpas}
    if bytes<65536
     then system.GetMem(p,bytes)                  {standardni alokace s pripadnym uvolnenim cache}
     else p:=GlobalAllocPtr(HeapAllocFlags,bytes);{pouze pro vyjmecne situace, bez uvolnovani cache}
- {$endif}
+  {$endif}
+ until (p<>nil) or not MakeRoom;
 
  if not dumb and (p=nil) then Halt(erLowMem);
  getmem:=p<>nil;
@@ -409,7 +429,7 @@ PROCEDURE REP_STOSW_o;assembler;
 {---------------------------------------------------------------------------
  Optimalizovanej REP STOSW.
  CX libovolne.
- DI nesmi pretect 64KB -> toto omezeni vede ke zvyseni rychlosti.
+ DI nesmi pretect 64KB -> toto omezeni umozni zvyseni rychlosti.
  Meni hornich 16 bitu EAX.
  ---------------------------------------------------------------------------}
 PROCEDURE REP_STOSW_no;assembler;
@@ -735,7 +755,7 @@ PROCEDURE MapBytesCX2DX_nz;assembler;
       div cx
       POP DX
       dec dx
-      {*bx=? ..jsem linej pocitat co by sem sedlo}
+      {*bx=? ..jsem linej pocitat co by sem sedlo}xor bx,bx
       @3:
       movsb
       add bx,ax
@@ -781,7 +801,7 @@ PROCEDURE TransparentMapBytesCX2DX_nz;assembler;
       div cx
       POP DX
       dec dx
-      {*bx=? ..jsem linej pocitat co by sem sedlo}
+      {*bx=? ..jsem linej pocitat co by sem sedlo}xor bx,bx
       jmp @5
       @3:
       add bx,ax
@@ -825,7 +845,7 @@ PROCEDURE TransparentMapBytesCX2DX_nz;assembler;
 
 {---------------------------------------------------------------------------
  Bajt z AH rozepise po bitech do [ES:DI] az [ES:DI+7].
- Nastavene bity barvou AL (resp BL), prazdne bity nemeni (resp BH).
+ Nastavene bity barvou AL, prazdne bity nemeni.
  Po skonceni je DI o 8 vyssi.
  ---------------------------------------------------------------------------}
 PROCEDURE ExpandAH_AL;assembler;
@@ -879,44 +899,54 @@ PROCEDURE ExpandAH_BX;assembler;
 
 {---------------------------------------------------------------------------
  Rychlejsi nahrada Move.
- Pokud se zdroj a cil prekryvaji, musi jit o posun zpet (na nizsi adresu).
+ Porovna jestli je cil na nizsi nebo vyssi adrese a podle toho se rozhodne
+ jestli kopirovat od prvniho nebo od posledniho bajtu.
+ Ale pozor, v ramci optimalizace nema segmentovou aritmetiku,
+ pokud se segmenty zdroje a cile lisi, predpoklada ze se zdroj a cil
+ neprekryvaji. Kdyby se prekryvaly (znacne nepravdepodobne), muze
+ znicit presouvana data.
  ---------------------------------------------------------------------------}
-PROCEDURE MoveBack(src,dest:pointer;bytes:word);assembler;
+PROCEDURE Move(var src,dest;bytes:word);assembler;
  asm
      mov cx,bytes;jcxz @end{nic kdyz se ma presunout 0 bajtu dlouhej kus}
      PUSH DS
      lds si,src
      les di,dest
-     cmp si,di;jnz @doit{src<>dest (pravdepodobne)}
-     mov ax,ds;mov bx,es;cmp ax,bx;jz @endds{nic, kdyz src=dest}
-     @doit:
+     mov ax,ds;mov bx,es;cmp ax,bx;jnz @normalne
+     cmp si,di;jz @done
+     jb @pozpatku
+    @normalne:
      call REP_MOVSB_di
-     @endds:
+     jmp @done
+    @pozpatku:
+     add si,cx;dec si
+     add di,cx;dec di
+     std
+     call REP_MOVSB_back
+     cld
+    @done:
      POP DS
      @end:
  end;
 
 {---------------------------------------------------------------------------
- Rychlejsi nahrada Move.
- Pokud se zdroj a cil prekryvaji, musi jit o posun dopredu (na vyssi adresu).
+ Zcela neoptimalizovane ale moc uzitecne.
+ Vymeni dva bloky.
  ---------------------------------------------------------------------------}
-PROCEDURE MoveForw(src,dest:pointer;bytes:word);assembler;
+PROCEDURE Xchg(var src,dest;bytes:word);assembler;
  asm
-     mov cx,bytes;jcxz @end{nic kdyz se ma presunout 0 bajtu dlouhej kus}
      PUSH DS
      lds si,src
      les di,dest
-     cmp si,di;jnz @doit{src<>dest (pravdepodobne)}
-     mov ax,ds;mov bx,es;cmp ax,bx;jz @endds{nic, kdyz src=dest}
-     @doit:
-     std
-     call REP_MOVSB_back
-     cld
-     @endds:
+     mov cx,bytes
+     @1:
+     mov al,[es:di]
+     xchg al,[si]
+     stosb
+     inc si
+     loop @1
      POP DS
-     @end:
  end;
-
 
 {---------------------------------------------------------------------
  Vyplni blok zadanym bajtem. Pri preteceni segmentu se vrati na zacatek
@@ -1033,13 +1063,51 @@ end;
 
 
 
+{ßßßßßßßßßßßßßßßßßßßßßßßßßßßß TPLAYER ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
+
+Constructor TPlayer.Init(astream:PStream);
+begin
+ inherited Init;
+ stream:=astream;
+ if (stream<>nil) and (stream^.Status<>stOK) then KillObj(stream);
+ if stream=nil then Fail;
+end;
+
+Function TPlayer.Sync:boolean;
+begin
+end;
+
+Destructor TPlayer.Done;
+begin
+ KillObj(stream);
+ inherited Done;
+end;
+
+Procedure TPlaylist.Sync;
+var   i:integer;
+begin
+ i:=0;
+ while i<count do
+  if PPlayer(items^[i])^.Sync then AtFree(i) else inc(i);
+end;
+
+
+
+function fakeMakeRoom:boolean;far;
+begin
+ fakeMakeRoom:=false;
+end;
+
+
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
+const unita='memo';
 var result:integer;
 
 procedure UserInit;
  begin
   debugmem:=false;
+  MakeRoom:=fakeMakeRoom;
   if not GetMem(freeptr,freesize) then result:=erLowMem;
  end;
 

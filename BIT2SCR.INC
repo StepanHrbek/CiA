@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -12,6 +12,13 @@ Procedure TScreen.BtB2Box(p:PBitmap;srcX,srcY,Sirka,Vyska,destX,destY:word);
 Procedure TScreen.Box2BtB(p:PBitmap;srcX,srcY,Sirka,Vyska,destX,destY:word);
 {$endif}
 assembler;
+
+ {
+ procedure print;
+ begin
+  bioswriteln('                     '+stri(destx)+':'+stri(desty)+' '+stri(sirka)+'x'+stri(vyska));
+ end;
+ }
  var local_lineOffset:word;
      local_transparent:boolean;
      local_vgamodel:byte;
@@ -27,6 +34,11 @@ assembler;
 
      cmp Sirka,0;jz @done
      cmp Vyska,0;jz @done
+
+     {les di,p
+     cmp [es:di+TBitmap.sizeX],100;jb @skipprint - aby vynechal praci s mysi
+     push bp;call print
+     @skipprint:}
 
      les di,self
      mov ax,[es:di+lineOffset];mov local_lineOffset,ax

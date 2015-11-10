@@ -1,7 +1,13 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
+
+{$ifndef clr}
+ {$ifndef smer1}
+  {$define smer2}
+ {$endif}
+{$endif}
 
 {---------------------------------------------------------------------------
  BitBlt pro TScrolScreen (pocita se splitem, doublebufferingem apod).
@@ -87,6 +93,17 @@ begin
      pen:=oldpen;
      end;
 
+   PEN_VIRT_AREA:
+     begin
+     {$ifdef smer2}
+      map^.Box2BtB(p,srcX,srcY,Sirka,Vyska,destX,destY);
+     {$else}
+      inc(vramX,freePred);
+      inc(vramY,freeNad);
+      goto 1;
+     {$endif}
+     end;
+
    PEN_VIRTUAL:
      begin
      1:
@@ -95,7 +112,6 @@ begin
      case scrolMethod of
 
        MOVSD:
-         {*runtime 201 here po skonceni edu, nekdy snad runtime 0 pri F3, nekdy 201 nahodne ve vieweru}
          CallInherited(mapX,mapY,Sirka,Vyska,vramX-posNow.X div charXres,vramY-posNow.Y div charYres);
 
        WRAPPIN:
@@ -164,3 +180,5 @@ begin
      end;
    end;
 end;
+
+{$undef smer2}

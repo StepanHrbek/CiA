@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -88,6 +88,7 @@ const
       errOutOfMemory      = 02;{ out of memory }
       errFileOpen         = 13;{ unable to open file }
       errFileRead         = 14;{ unable to read file }
+      errInvalidArguments = 22;
       errFileNotFound     = 23;{ file not found }
       errFileWrite        = 31;{ unable to write file }
       errDPMIFailure      = 35;{ DMPI failure }
@@ -97,7 +98,10 @@ const
       erLowDosMem  = 77; { nedostatek dosove pameti }
       erLowBuffer  = 78; { malo pameti v bufferu }
       erMsgWritten = 79; { kod pro rychle ukonceni, hlaska je na obrazovce }
-      erFileTooBig = 85; { prilis velky soubor }
+      erFileCreate = 85; { nelze vytvorit soubor }
+      erFileTooBig = 91; { prilis velky soubor }
+      erFileClose  = 96; { nelze zavrit soubor }
+      erReadOnly   = 94; { snaha o zapis v readonly modu }
       erBreak      =255; { ukonceni vyvolano stiskem Ctrl-Break }
 
 {
@@ -119,7 +123,7 @@ Type  TReporter   =procedure(st:string);{procedura ktera ohlasi chybu
 
       TBugList    =object(TCollection)  {seznam chybovych hlasek}
                     procedure Register(akod:TError;ahlaska:string);
-                    procedure Report(akod:TError);
+                    function  Msg(akod:TError):string;
                    end;
 
 Var   debug       :boolean;  {debugovaci rezim: vypis ruznych hlasek za behu}
@@ -131,6 +135,7 @@ Var   debug       :boolean;  {debugovaci rezim: vypis ruznych hlasek za behu}
                               urcena pro zastaveni aktivit, ktere by mohly
                               po prepnuti do textmodu zpusobit skody}
       BugList     :TBugList;
+      errorLevel  :byte;     {kod ktery program po skonceni vrati systemu}
 
 PROCEDURE BiosWrite(st:string);
 PROCEDURE BiosWriteln(st:string);
@@ -237,6 +242,60 @@ PROCEDURE BiosWriteln(st:string);assembler;
  end;
 
 
+
+{---------------------------------------------------------------------------
+ Objekty TBug a TBugList.
+ ---------------------------------------------------------------------------}
+Type PBug = ^TBug;
+     TBug = object(TObject)      {jedna chybova hlaska}
+             kod:TError;
+             hlaska:PString;
+             constructor Init(akod:TError;ahlaska:string);
+             destructor Done;virtual;
+            end;
+
+Constructor TBug.Init(akod:TError;ahlaska:string);
+begin
+ inherited Init;
+ kod:=akod;
+ hlaska:=NewStr(ahlaska);
+end;
+
+Destructor TBug.Done;
+begin
+ DisposeStr(hlaska);
+ inherited Done;
+end;
+
+Procedure TBugList.Register(akod:TError;ahlaska:string);
+ function KodMatches(bug:PBug):boolean;far;
+ begin
+  KodMatches:=bug^.kod=akod;
+ end;
+var bug:^TBug;
+begin
+{$ifndef debuginit}
+ bug:=FirstThat(@KodMatches);
+ if bug<>nil then erMsg('Pokus o registraci dvou chyb se stejn˜m k¢dem ('+stri(akod)+').');
+ New(bug,Init(akod,ahlaska));
+ if bug=nil then Halt(erLowMem) else Insert(bug);
+{$endif}
+end;
+
+Function TBugList.Msg(akod:TError):string;
+ function KodMatches(bug:PBug):boolean;far;
+ begin
+  KodMatches:=bug^.kod=akod;
+ end;
+var bug:^TBug;
+begin
+ bug:=FirstThat(@KodMatches);
+ if bug<>nil then msg:=bug^.hlaska^ else
+  if akod<>erOk then msg:='Nezn m  chyba ‡¡slo '+stri(akod)+'.'
+   else msg:='';
+end;
+
+
 {---------------------------------------------------------------------------
  Hlasic chyb.
  ---------------------------------------------------------------------------}
@@ -253,64 +312,6 @@ begin
   then BiosWriteln(st)
   else BiosWriteln(Kamenici2Ascii(st));
 end;
-
-
-{---------------------------------------------------------------------------
- Objekty TBug a TBugList.
- ---------------------------------------------------------------------------}
-Type PBug = ^TBug;
-     TBug = object(TObject)      {jedna chybova hlaska}
-             constructor Init(akod:TError;ahlaska:string);
-             procedure Report;
-             destructor Done;virtual;
-            private
-             kod:TError;
-             hlaska:PString;
-            end;
-
-Constructor TBug.Init(akod:TError;ahlaska:string);
-begin
- inherited Init;
- kod:=akod;
- hlaska:=NewStr(ahlaska);
-end;
-
-Procedure TBug.Report;
-begin
- ReportError(hlaska^);
-end;
-
-Destructor TBug.Done;
-begin
- DisposeStr(hlaska);
- inherited Done;
-end;
-
-Procedure TBugList.Register(akod:TError;ahlaska:string);
- function KodMatches(bug:PBug):boolean;far;
- begin
-  KodMatches:=bug^.kod=akod;
- end;
-var bug:^TBug;
-begin
- bug:=FirstThat(@KodMatches);
- if bug<>nil then erMsg('Pokus o registraci dvou chyb se stejn˜m k¢dem ('+stri(akod)+').');
- New(bug,Init(akod,ahlaska));
- if bug=nil then Halt(erLowMem) else Insert(bug);
-end;
-
-Procedure TBugList.Report(akod:TError);
- function KodMatches(bug:PBug):boolean;far;
- begin
-  KodMatches:=bug^.kod=akod;
- end;
-var bug:^TBug;
-begin
- bug:=FirstThat(@KodMatches);
- if bug<>nil then bug^.Report else
-  if akod<>erOk then ReportError('Nezn m  chyba ‡¡slo '+stri(akod)+'.');
-end;
-
 
 {---------------------------------------------------------------------------
  Prepne do textmodu, vypise hlasku a ukonci program.
@@ -369,8 +370,17 @@ end;
 {$endif}
 
 
+var oldStreamError:pointer;
+
+procedure myStreamError(var s:TStream);far;
+begin
+ erMsg('Stream error '+stri(s.status)+'/'+stri(s.errorinfo)+'.');
+end;
+
+
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
+const unita='chyby';
 var result:integer;
     oldmem:longint;
 
@@ -381,7 +391,8 @@ procedure ShutDown;far;
     ReportError(ReportThis);
     ReportThis:='';
     end;
-  if ExitCode<>erMsgWritten then BugList.Report(ExitCode);
+  if ExitCode<>erMsgWritten then
+   if BugList.Msg(ExitCode)<>'' then ReportError(BugList.Msg(ExitCode));
   if longint(ErrorAddr)<>0 then begin
     ReportError('Adresa '+hexed(PtrRec(ErrorAddr).Seg)+':'+hexed(PtrRec(ErrorAddr).Ofs)+'.');
     ErrorAddr:=nil;
@@ -402,6 +413,7 @@ procedure UserInit;
   debug:=false;
   dumb:=true;
   cestina:=false;
+  errorLevel:=0;
   ShutDownInts:=ShutDown;
   if BugList.Init(100,100) then begin
     {vsechny chyby zdedene z midasu}
@@ -413,7 +425,9 @@ procedure UserInit;
     BugList.Register(errDPMIFailure   ,'Chyba p©i pr ci s DPMI.');
     {chyby CiA}
     BugList.Register(erLowDosMem      ,'Nedostatek konven‡n¡ pamˆti.');
+    BugList.Register(erFileCreate     ,'Nelze vytvo©it soubor.');
     BugList.Register(erFileTooBig     ,'P©¡li¨ velk˜ soubor.');
+    BugList.Register(erReadonly       ,'V readonly m¢du nelze zapisovat na disk.');
     BugList.Register(erBreak          ,'Break, taky ©e¨en¡.');
     {runtime chyby}
     BugList.Register(200              ,'Dˆlen¡ nulou.');
@@ -433,20 +447,29 @@ procedure UserInit;
     BugList.Register(214              ,'P©ete‡en¡ kolekce.');
     BugList.Register(215              ,'Aritmetick‚ p©ete‡en¡.');
     BugList.Register(216              ,'General Protection Fault, hehe :).');
+    {zavesi StreamError handler}
+    oldStreamError:=StreamError;
+    StreamError:=@myStreamError;
     exit;
     end;
   result:=erLowMem;
  end;
 
 procedure UserDone;
+ procedure printnumba(item:PBug);far;
  begin
+  BiosWrite(stri(item^.kod)+' ');
+ end;
+ begin
+  StreamError:=oldStreamError;
+  {vypise vsechny chybove kody: BugList.ForEach(@PrintNumba);}
   BugList.Done;
   if debug then begin
     BiosWriteln('memstart='+stri(oldmem));
     BiosWriteln('memend  ='+stri(system.memavail));
     BiosWriteln('rozdil  ='+stri(oldmem-system.memavail));
     end;
-  ExitCode:=erOk;
+  ExitCode:=errorLevel;
  end;
 
 {$i initdone.inc}

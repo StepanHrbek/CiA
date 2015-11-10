@@ -1,4 +1,4 @@
-{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 0.32ƒƒƒø
+{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 0.50ƒƒƒø
  ≥S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi≥
  ≥v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.≥
  ¿ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒŸ}
@@ -18,17 +18,18 @@ FUNCTION MinW(x,y:word):word;inline($58/$5b/$3b/$c3/$72/$01/$93);{pop ax;pop bx;
 FUNCTION MaxW(x,y:word):word;inline($58/$5b/$3b/$c3/$77/$01/$93);{pop ax;pop bx;cmp ax,bx;ja +1;xchg ax,bx}
 FUNCTION MinI(x,y:integer):integer;inline($58/$5b/$3b/$c3/$7e/$01/$93);{pop ax;pop bx;cmp ax,bx;jle +1;xchg ax,bx}
 FUNCTION MaxI(x,y:integer):integer;inline($58/$5b/$3b/$d8/$7e/$01/$93);{pop ax;pop bx;cmp bx,ax;jle +1;xchg ax,bx}
-FUNCTION MinL(x,y:longint):integer;inline($66/$58/$66/$5b/$66/$3b/$c3/$7e/$02/$66/$93);{jako integery, ale s db 66}
-FUNCTION MaxL(x,y:longint):integer;inline($66/$58/$66/$5b/$66/$3b/$d8/$7e/$02/$66/$93);
+FUNCTION MinL(x,y:longint):longint;inline($66/$58/$66/$5b/$66/$3b/$c3/$7e/$02/$66/$93/ $66/$50/$59/$5a);{jako MaxI/MinI,}
+FUNCTION MaxL(x,y:longint):longint;inline($66/$58/$66/$5b/$66/$3b/$d8/$7e/$02/$66/$93/ $66/$50/$59/$5a);{ale s hi(eax)->dx}
 FUNCTION HiWord(l:longint):word;inline($58/$58);{pop ax;pop ax}
-FUNCTION LoWord(l:longint):word;inline($58/$5b);{pop ax;pop bx}
+FUNCTION LoWord(l:longint):word;inline($66/$58);{pop eax}
 FUNCTION HiInt(l:longint):integer;inline($58/$58);{pop ax;pop ax}
-FUNCTION LoInt(l:longint):integer;inline($58/$5b);{pop ax;pop bx}
+FUNCTION LoInt(l:longint):integer;inline($66/$58);{pop eax}
 FUNCTION HiByte(w:word):byte;inline($58/$8a/$c4);{pop ax;mov al,ah}
 FUNCTION LoByte(w:word):byte;inline($58);{pop ax}
 FUNCTION MakeLong(hi,lo:word):longint;inline($58/$5a);{pop ax;pop dx}
 FUNCTION MakeWord(hi,lo:byte):word;inline($58/$5a/$8a/$e2);{pop ax;pop dx;mov ah,dl}
 FUNCTION MakeInt(hi,lo:byte):integer;inline($58/$5a/$8a/$e2);{pop ax;pop dx;mov ah,dl}
+FUNCTION Bi2By(w:word):word;inline($58/5/7/0/$c1/$e8/3);{pop ax;add ax,7;shr ax,3}
 FUNCTION Long2Word(n:longint):word;
 FUNCTION Long2Int(n:longint):integer;
 FUNCTION Bounded(base,bot,top:longint):longint;
@@ -43,6 +44,7 @@ PROCEDURE FixInts;
  inline($b0/$0  /$e6/$21   /$b0/$20   /$e6/$20   /$fb);
        {mov al,0;out 21h,al;mov al,20h;out 20h,al;sti}
 
+
 {---------------------------------------------------------------------------
  Klavesnice.
  ---------------------------------------------------------------------------}
@@ -52,15 +54,26 @@ FUNCTION  ReadKey:char; inline($b4/$08/$cd/$21);{mov ah,8;int 21h}
 PROCEDURE WaitKey; inline($b8/$0c08/$cd/$21);{mov ax,0c08h;int 21h}
 FUNCTION  AskKey(list:string):char;
 PROCEDURE FlushKey;
-FUNCTION  GuessKey:char;
 
 
 {---------------------------------------------------------------------------
- Kurzor.
+ Eventy.
+
+ Promenna event typu TEvent obsahuje tri udaje:
+   code(event) - kod stisknute klavesy
+   char(event) - znak vygenerovany stiskem nebo #0 pokud jde o rozsireny znak
+   extchar(event) - rozsireny znak nebo #0 pokud jde o normalni znak
+ Mas-li kod, znak a rozsireny znak, event vytvoris pomoci
+   MakeEvent(kod,znak,extznak).
  ---------------------------------------------------------------------------}
 
-PROCEDURE BiosGotoXY(x,y:byte);
-FUNCTION  BiosGetXY:word;
+type      TEvent = longint;
+function  MakeEvent(code:byte;char,extchar:char):TEvent; inline($5a/$58/$5b/$8a/$e3);{pop dx;pop ax;pop bx;mov ah,bl}
+function  code(e:TEvent):byte; inline($66/$58/$8a/$c4);{pop eax;mov al,ah}
+function  extchar(e:TEvent):char; inline($58/$58);{pop ax;pop ax}
+
+FUNCTION  GuessCode:byte;
+FUNCTION  ReadEvent:TEvent;
 
 
 {---------------------------------------------------------------------------
@@ -78,7 +91,15 @@ Type  TStopky = object
 
 
 {---------------------------------------------------------------------------
- Presne mereni casu (presnejsi nez stopky).
+ Kolik ubehlo milisekund od resetu? (o neco presnejsi nez systemove hodiny)
+ ---------------------------------------------------------------------------}
+
+FUNCTION  GetMs:longint;
+PROCEDURE IncMs(delta:longint);
+
+
+{---------------------------------------------------------------------------
+ Jeste presnejsi mereni casu.
  ---------------------------------------------------------------------------}
 
 var       EventWaitOk:boolean; {funguji nasledujici funkce?}
@@ -122,6 +143,13 @@ PROCEDURE GiveTimeSlice;
 {ﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂ}
                           IMPLEMENTATION
 {‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹}
+
+
+Const {Par konstant zkopcenych z key.pas abysme nemuseli pouzit uses.}
+ kExtended  =224;
+ kkSlash    =128+53;
+ kF11       =87;
+ kF12       =88;
 
 
 FUNCTION Bounded(base,bot,top:longint):longint;assembler;
@@ -180,40 +208,38 @@ end;
 
 
 {---------------------------------------------------------------------------
- Je-li keypressed (si musis overit sam), hada pristi znak.
- Extended znak (#0,znak) je interpretovan jako 128+znak.
+ Je-li keypressed (si musis overit sam), hada pristi znak (koukne se do
+ bufferu v biosu). Extended znak (#0,znak) je interpretovan jako 128+znak.
  ---------------------------------------------------------------------------}
-FUNCTION  GuessKey:char;
-var   c:byte;
+FUNCTION  GuessCode:byte;
+var   code:byte;
 begin
- c:=mem[seg0040:memw[seg0040:$1a]];
- if c=224 then GuessKey:=chr(128+mem[seg0040:memw[seg0040:$1a]+1])
-          else GuessKey:=chr(c);
+ code:=mem[seg0040:mem[seg0040:$1a]+1];
+ if mem[seg0040:mem[seg0040:$1a]]=kExtended then inc(code,128);
+ case code of 224:code:=kkSlash;{osetreni chaosu kdesi v biosu?}
+              133:code:=kF11;
+              134:code:=kF12;
+              84..93:dec(code,25);{shift-F1 az shift-F10}
+              end;
+ GuessCode:=code;
 end;
 
-
-{€€€€€€€€€€€€€€€€ KURZOR €€€€€€€€€€€€€€€€}
-
 {---------------------------------------------------------------------------
- Presune kurzor do souradnic x,y. Levy horni roh je v 0,0.
+ Precte signal z klavesnice.
+ Event se sklada z kodu stisknute klavesy (kEnter, kA, kF12 apod)
+ a znaku generovaneho stiskem (#13, 'a', 'A', #0#72 apod).
  ---------------------------------------------------------------------------}
-PROCEDURE BiosGotoXY(x,y:byte);assembler;
- asm
-     mov dl,x;mov dh,y
-     mov ah,2;mov bh,0
-     int 10h
- end;
+FUNCTION  ReadEvent:TEvent;
+var   co:byte;
+      ch,ext:char;
+begin
+ while not keypressed do;
+ co:=GuessCode;
+ ch:=ReadKey;
+ if ch=#0 then ext:=ReadKey else ext:=#0;
+ ReadEvent:=MakeEvent(co,ch,ext);
+end;
 
-{---------------------------------------------------------------------------
- Vraci souradnice kurzoru. Levy horni roh je v 0,0.
- Lo(BiosGetXY) je souradnice X, Hi(BiosGetXY) je Y.
- ---------------------------------------------------------------------------}
-FUNCTION  BiosGetXY:word;assembler;
- asm
-     mov ah,3;mov bh,0
-     int 10h
-     xchg ax,dx
- end;
 
 
 {€€€€€€€€€€€€€€€€ STOPKY €€€€€€€€€€€€€€€€}
@@ -341,6 +367,32 @@ begin
 end;
 
 
+{€€€€€€€€€€€€€€€€ HODINY €€€€€€€€€€€€€€€€}
+
+var milisekund:longint;
+
+{---------------------------------------------------------------------------
+ Kolik asi milisekund ubehlo od posledniho resetu?
+ Nevim co udela kdyz nechas pocitac pustenej vic jak 25 dni...
+ ---------------------------------------------------------------------------}
+FUNCTION  GetMs:longint;
+begin
+ milisekund:=maxL(milisekund,meml[seg0040:$6c]*55);
+ GetMs:=milisekund;
+end;
+
+{---------------------------------------------------------------------------
+ Timto oznamujes ze zas ubehlo tolik a tolik casu.
+ Kdyz budes casto a pravdive informovat, bude cas velmi presnej.
+ Kdyz nebudes informovat vubec, bude cas stejne nepresnej jako
+ systemovy hodiny.
+ Btw, IncMs vola unita Vga pri kazdym syncu, takze maximalni chyba hodin
+ se bezne pohybuje kolem 15ms (oproti 55ms systemovych hodin).
+ ---------------------------------------------------------------------------}
+PROCEDURE IncMs(delta:longint);
+begin
+ inc(milisekund,delta);
+end;
 
 
 {€€€€€€€€€€€€€€€€ DTA €€€€€€€€€€€€€€€€}
@@ -466,6 +518,7 @@ end;
 
 {∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞INIT/DONE∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞}
 
+const unita='sys';
 var result:integer;
 
 procedure UserInit;

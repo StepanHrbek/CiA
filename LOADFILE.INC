@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -21,17 +21,6 @@
   Promenne datasize a freesize se upravi tak, ze datasize=delka nahranych dat,
   freesize=volna pamet za daty.
   Vraci kod chyby, 0=ok.
-
- P je pointer na pripraveny blok pameti, datasize + freesize jeho velikost.
- Je-li p=nil, naalokuje se pamet velikosti souboru + freesize.
- Datasize uvadi maximalni velikost souboru. Je-li soubor delsi, bude
-  prebytek ignorovan a nahrano pouze datasize. V datasize se pote vraci
-  delka nahrane casti souboru. Pokud se alokovala pamet, velikost bufferu
-  zjistis souctem datasize + freesize.
- Onlyfull rika, ze se ma soubor nahravat jen pokud se do limitu datasize
-  vejde cely.
- Pri neuspechu (soubor nejde cist/neexistuje/neni pamet) zachova p
-  i datasize nezmenene.
  ---------------------------------------------------------------------------}
 
 FUNCTION {$ifdef dm}LoadDMFile{$else}LoadDosFile{$endif}
@@ -128,7 +117,7 @@ begin
  {zavre soubor}
  clous:
   {$ifdef dm}
-  CloseDMFile;
+  CloseFile;
   {$else}
   close(f);
   {$endif}

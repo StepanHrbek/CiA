@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -21,7 +21,7 @@ nebo ho necha vytvorit metodou identifikatoru. Az ti objekt doslouzi,
 zahodis ho zpatky do cache. Tam zustane lezet do prvniho nedostatku pameti.
 
 Jak sis jiste vsiml, klicem ke vsemu je 'identifikator'. Je to potomek
-zde zavedeneho objektu TCacheIdentif. V jeho dvou metodach musis
+zde zavedeneho objektu TCacheId. V jeho dvou metodach musis
 naprogramovat vytvoreni objektu a porovnani dou identifikatoru.
 
 Ukazka pouziti je v unite fonty, funkce caFontGet.
@@ -45,16 +45,15 @@ Pro lepsi orientaci se muzes podivat na mista kde je HeapError pouzit:
 
 Type
  {identifikator cachovaneho objektu}
- PCacheIdentif = ^TCacheIdentif;
- TCacheIdentif = object(TObject)
-   function    Compare(id:PCacheIdentif):boolean;virtual;
+ PCacheId = ^TCacheId;
+ TCacheId = object(TObject)
+   function    Compare(id:PCacheId):boolean;virtual;
    function    Load:PObject;virtual;
  end;
 
-Function  caGet(id:PCacheIdentif;priority:integer):PObject;
+Function  caGet(id:PCacheId;priority:integer):PObject;
 Procedure caLeave(var p);{p musi byt PObject nebo potomek}
-Function  caMakeRoom:boolean;
-
+Function  caMakeRoom:boolean;far;
 
 
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
@@ -73,7 +72,7 @@ Type
  PCacheCell = ^TCacheCell;
  TCacheCell = object(TObject)
    thing      :PObject;
-   identif    :PCacheIdentif;
+   identif    :PCacheId;
    fixes      :word;
    prior      :integer;
    destructor  Done;virtual;
@@ -81,16 +80,17 @@ Type
 
 {---------------------------------------------------------------------
  Porovna dva identifikatory.
+ Implicitni porovnani je bajt po bajtu.
  ---------------------------------------------------------------------}
-Function TCacheIdentif.Compare(id:PCacheIdentif):boolean;
+Function TCacheId.Compare(id:PCacheId):boolean;
 begin
- Abstract;
+ Compare:=(sizeof(self)=sizeof(id^)) and CmpBlock(@self,id,sizeof(self));
 end;
 
 {---------------------------------------------------------------------
  Nahraje objekt prislusny identifikatoru.
  ---------------------------------------------------------------------}
-Function TCacheIdentif.Load:PObject;
+Function TCacheId.Load:PObject;
 begin
  Abstract;
 end;
@@ -112,20 +112,20 @@ Var
 {---------------------------------------------------------------------
  Vraci objekt prislusny identifikatoru (nahrava ho jen pokud neni v cache).
  Puvodne jsem chtel mit prvni parametr "var id", ale to by znemoznilo
-  volat caGet(New(PCacheIdentif,Init),priority).
+  volat caGet(New(PCacheId,Init),priority).
  Takze pocitej s tim, ze kdyz neuspeje=vrati nil, id je killnute.
  ---------------------------------------------------------------------}
-Function caGet(id:PCacheIdentif;priority:integer):PObject;
+Function caGet(id:PCacheId;priority:integer):PObject;
 var   mycell:PCacheCell;
- function CompareIdentifsOk(Item:PCacheCell):boolean;far;
+ function CompareIdsOk(Item:PCacheCell):boolean;far;
  begin
-  CompareIdentifsOk:=(typeof(Item^.identif^)=typeof(id^))
-                     and Item^.identif^.Compare(id);
+  CompareIdsOk:={(typeof(Item^.identif^)=typeof(id^))
+                     and} Item^.identif^.Compare(id);
  end;
 begin
  caGet:=nil;
  if id=nil then EXIT;{bad-nedostal jsem identifikator}
- mycell:=caList.FirstThat(@CompareIdentifsOk);
+ mycell:=caList.FirstThat(@CompareIdsOk);
  if mycell<>nil then
   with mycell^ do begin
    KillObj(id);{mam dva stejny identifikatory tak jeden killnu}
@@ -142,6 +142,9 @@ begin
    thing:=id^.Load;
    if thing=nil then begin KillObj(mycell);EXIT;end;{bad-objekt nejde vytvorit}
    end;
+ {prodlouzi caList - behem toho se muze neco z calistu uvolnit}
+ if caList.count+10>caList.limit then caList.SetLimit(caList.count+100);
+ {insertne 1 polozku - behem toho se urcite prodluzovat nebude}
  caList.Insert(mycell);
  caGet:=mycell^.thing;
  {ok-objekt vytvoren}
@@ -204,13 +207,15 @@ end;
 
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
+const unita='cache';
 var result:integer;
 
 procedure UserInit;
  begin
-  if caList.Init(10,10) then begin
+  if caList.Init(100,100) then begin
     OldHeapError:=HeapError;
     HeapError:=@NewHeapError;
+    MakeRoom:=caMakeRoom;
     exit;
     end;
   result:=erLowMem;

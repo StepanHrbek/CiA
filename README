@@ -1,13 +1,13 @@
 
-                                                                5.duben 1997
-                                                                  verze 0.32
-                        ฑÛÛÛÛÝ    ฑÛÛÛÛÝ     ฑÛÝ
-                       ฑÛÝ         ฑÛÝ      ฑÛÛÛÝ
-                      ฑÛÝ         ฑÛÝ      ฑÛÝ ฑÛÝ
-                     ฑÛÝ         ฑÛÝ      ฑÛÛÛÛÛÛÛÝ
-                    ฑÛÝ         ฑÛÝ      ฑÛÝ     ฑÛÝ
-                    ฑÛÛÛÛÝode ฑÛÛÛÛÝt   ฑÛÝ       ฑÛÝgain Sam
-
+                       ฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐ
+                      ฐฐฐฐ ฑÛÛÛÛฒ ฐฐ ฑÛÛÛÛฒ ฐฐฐ ฑÛฒ ฐฐฐฐฐฐฐฐฐฐฐ
+                     ฐฐฐฐ ฑÛฒ ฐฐฐฐฐฐฐ ฑÛฒ ฐฐฐฐ ฑÛÛÛฒ ฐฐฐฐฐฐฐฐฐ
+                    ฐฐฐฐ ฑÛฒ ฐฐฐฐฐฐฐ ฑÛฒ ฐฐฐฐ ฑÛฒ ฑÛฒ ฐฐฐฐฐฐฐ
+                   ฐฐฐฐ ฑÛฒ ฐฐฐฐฐฐฐ ฑÛฒ ฐฐฐฐ ฑÛÛÛÛÛÛÛฒ ฐฐฐฐฐ
+                  ฐฐฐฐ ฑÛฒ ฐฐฐฐฐฐฐ ฑÛฒ ฐฐฐฐ ฑÛฒ ฐฐฐ ฑÛฒ ฐฐฐ
+                 ฐฐฐฐฐ ฑÛÛÛÛฒ ฐฐ ฑÛÛÛÛฒ ฐฐ ฑÛฒ ฐฐฐฐฐ ฑÛฒ ฐ     verze 0.50
+                ฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐ
+               ฐฐฐฐฐฐฐฐฐฐฐฐฐ Code It Again, Sam ฐฐฐฐฐฐฐฐ      23.rijen 1997
 
 ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
 ณ  Zakladni informace:                                                      ณ
@@ -20,8 +20,11 @@
  þ Ke zkompilovani jsou nutne unity standardne dodavane k Borland Pascalu 7.
  þ Tam kde zalezi na rychlosti je optimalizovano na rychlost na 386/486.
    V ostatnich pripadech na jednoduchost.
- þ Cislo verze napovida, ze soucasny stav ma k dokonalosti daleko :)
  þ V souborech priklad*.* je ukazka par zakladnich veci.
+ þ Pokud je nekde cestina (chybove hlasky, fonty), je v kodovani Kamenickych.
+ þ Prilozen je pouze jeden font, v proporcionalni a neproporcionalni verzi.
+   Dalsich vice nez 30 ceskych fontu najdes v Masine (k dostani na strance
+   www.ms.mff.cuni.cz/~shrb5163).
 
 
 ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
@@ -83,14 +86,14 @@
 ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
    SOUBOR         POPIS
 
- þ bit2scr.inc    include k vga.pas
+ þ bit2scr.inc    dvojnasobny include k vga.pas
  þ define.inc     globalni nastaveni $define pro vsechny unity
  þ initdone.inc   standardni init/done include ke vsem unitam
- þ loadfile.inc   include k fajly.pas
+ þ loadfile.inc   dvojnasobny include k fajly.pas
  þ modern.fn      ukazka fontu
  þ priklad*.*     ukazky prace s CIA...
  þ readme         dokumentace
- þ sbit2scr.inc   include k scrol.pas
+ þ sbit2scr.inc   dvojnasobny include k scrol.pas
  þ timer.asm      vlastni kod unity timer
  þ timer.obj      zkompilovany timer.asm
 
@@ -124,22 +127,20 @@
    radi do unit zaclenime vase vylepseni, opravy atd.
  þ Jakekoliv komentare jsou vitany.
  þ Plany do budoucna
-    - FileSystem (prace s WAD, ZIP apod jako s adresari)
-    - Loadery nejrozsirenejsich grafickych formatu
-    - Dialogy nezavisle na modu (fileselector, menu, askstring...)
+    - Help ve formatu TPH.
+    - Loadery nejrozsirenejsich grafickych formatu.
+    - Plna podpora Hi a TrueColor.
+    - Filesystem umoznujici praci s WAD, ZIP apod jako s adresari.
+
+   Ba ne, ted uprimne. Myslim, ze pascal je mrtvy jazyk. Prakticky nulova
+   odezva na predchozi verze CiA me v tom utvrzuje. Proto tuto verzi
+   povazuji za posledni. V pripade ze objevim nebo se dozvim o chybach,
+   vydam jeste patch. Samozrejme nebranim v dalsim vyvoji komukoliv
+   jinemu a v pripade potreby se zapojim.
 
 
 ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
-ณ  Chyby:                                                                   ณ
-ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
- þ Momentalne nejkritictejsi mista ve zdrojacich jsou
-    - unita Fajly ma par nedodelanych mist
- þ Chybi help.
- þ Dik Marianu Dvorskemu za ohlaseni par chyb.
-
-
-ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
-ณ  Historie:                                                                ณ
+ณ  Historie/Novinky:                                                        ณ
 ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
  þ 24.leden 1996 - napad, zacatek prace
  þ 19.rijen 1996 - verze 0.10
@@ -154,6 +155,30 @@
     -mnoho dalsich zmen, oprav, optimalizaci, prostredi je o dost stabilnejsi
     -docasne vypusten fnt2fn.exe (pozn: fnt2fn z CiA 0.10 nemusi produkovat
      korektni fonty, pockej si na opravu)
+ þ 23.rijen 1997 - verze 0.50
+    -dialogy
+    -TScreen ma svuj GetEvent, pouzivej ho misto cteni z klavesnice a mysi.
+    -TPalAlloc pro alokaci barev v palete, das mu RGB a on ti vrati index
+    -fn.exe na praci s fonty
+    -TText1 si uz hlida zacatek a konec textu
+    -standardni prikaz Move je s CiA az 4x rychlejsi
+    -opravene chyby
+   Pri prechodu z verze 0.32 dej zvlast pozor na tyto nenapadne zmeny:
+    -TScrolScreen.Done zrusi i listu, driv ji nechaval jen tak lezet v pameti
+    -T(Scrol)Screen.Init(model,sirka,vyska,0) podle modelu dela toto:
+      model_packed    - nastavi urcite packed
+      model_unchained - nastavi urcite unchained
+      model_256       - sam si vybere packed nebo unchained
+     Driv mezi model_packed a model_unchained nerozlisoval a sam si vybiral.
+    -TScreen.Sync cte klavesnici a stisky posila do eventbufferu, takze ted
+     by "repeat s.Sync until keypressed" nikdy neskoncilo. Na prime cteni
+     mysi a klavesnice zapomen, cti eventy pomoci GetEvent.
+    -psDisk vraci jen pismeno disku bez dvojtecky
+    -CallCommand nevraci DosError ale TError
+    -Napsat dulezitou vec jen jednou je malo, tedy:
+     Tvuj program by vubec nemel pouzivat unitu mys a funkce ReadKey,
+     KeyPressed apod. Vse potrebne ti nabizi GetEvent a dalsi metody TScreen,
+     pripadne TScrolScreen.
 
 
 ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
@@ -166,9 +191,13 @@
 ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
 ณ  Autori:                                                                  ณ
 ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
- þ Dement          dement@bbs.infima.cz     kdeco
- þ Sahara Surfers  pekangas@sci.fi          dpmi, timer
- þ Jan Patera      xpatera1@br.fjfi.cvut.cz hi+truecolor
- þ Erixon          sysop@foxone.fido.cz     disky, PCK
- þ ReDox           redox@bbs.infima.cz      nastaveni X-modu
+ þ Dement          dement@bbs.infima.cz          kdeco
+ þ Sahara Surfers  pekangas@sci.fi               dpmi, timer
+ þ Jan Patera      xpatera1@br.fjfi.cvut.cz      hi+truecolor
+ þ Erixon          sysop@foxone.fido.cz          disky, PCK
+ þ ReDox           redox@bbs.infima.cz           nastaveni X-modu
+
+
+ V pripade dalsiho vyvoje budou vzdy nejcerstvejsi informace na strance
+ www.ms.mff.cuni.cz/~shrb5163.
 

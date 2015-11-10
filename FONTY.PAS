@@ -1,11 +1,11 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
 
 Unit      Fonty;
 Interface {$i define.inc}
-Uses      Chyby,Memo, Dos,Objects, Cache,Fajly,Vga;
+Uses      Chyby,Memo, Dos,Objects,Strings, Stringy,Cache,Fajly,Vga;
 Function  Init:word;
 Procedure Done;
 
@@ -15,7 +15,7 @@ Procedure Done;
 ---------------------------------------------------------------------------
 
 Unita obsahuje podporu pro bitmapove fonty ukladane ve formatu FN,
-cachovany seznam fontu a zaklady psani temito fonty do bitmap.
+a zaklady psani temito fonty do bitmap.
 Pozn: primo na obrazovku psat nelze.
 
 
@@ -63,8 +63,8 @@ TYPE
                      fontname    :pchar;     {nazev fontu}
                      firstchar   :char;      {prvni definovany znak}
                      lastchar    :char;      {posledni definovany znak}
-                     sizeOver    :byte;      {+kolik pixelu nad carou by melo byt misto}
-                     sizeUnder   :byte;      {+kolik pixelu pod carou by melo byt misto}
+                     sizeOver    :shortint;  {+kolik pixelu nad carou by melo byt misto}
+                     sizeUnder   :shortint;  {+kolik pixelu pod carou by melo byt misto}
                      addspace    :byte;      {doporucena mezera mezi pismeny}
                      maxpred     :shortint;  {-o kolik nejvic pixelu couha PRED vizualni levy kraj pismene (viz "J")}
                      maxza       :shortint;  {+o kolik nejvic pixelu dosahuje ZA -"-}
@@ -74,15 +74,22 @@ TYPE
                      tablo       :PFontTable;{pointer na tabulku informaci o definovanych znacich}
                      function    LoadFromMem(p:pointer;siz:word):TError;
                      function    LoadFromDisk(hledamfilename:string):TError;
+                     function    GetFnt(var p:pointer;var charsize:word):TError;
+                     function    SetFnt:TError;
+                     function    SaveFnt(dest:PathStr):TError;
+                     function    Save(dest:PathStr):TError;
                      destructor  Done;virtual;
                    end;
+
 
 const fnmagic:pchar='ëmÕonç ';
       fnmagiclen   =7;
 
       fnDefault    ='modern.fn';{nejaky font, ktery urcite bude po ruce}
+      fnDefaultNp  ='moder_np.fn';{nejaky neproporcionalni font}
 
       erBadFont    = 84;
+      erTooBigFont = 92;
 
 
 {---------------------------------------------------------------------------
@@ -97,9 +104,15 @@ function  caFontGet(hledamfilename:PathStr):PFont;
 
 {---------------------------------------------------------------------------
  Prime psani textu do bitmapy.
+  OutText - univerzalni verze pro tisk pcharu
+  OutStr  - zjednodusena verze pro tisk stringu
  ---------------------------------------------------------------------------}
 
 FUNCTION  OutText({co }delka:word;src:Pchar;var mezer,sirmez:word;
+                  {kam}map:PBitmap;x,y:word;
+                  {jak}font:PFont;proporc:byte;barva:longint):word;
+
+FUNCTION  OutStr ({co }src:string;
                   {kam}map:PBitmap;x,y:word;
                   {jak}font:PFont;proporc:byte;barva:longint):word;
 
@@ -138,8 +151,8 @@ begin
  {nastavi firstchar,lastchar atd..}
  firstchar   :=b^;        inc(b);
  lastchar    :=b^;        inc(b);
- sizeOver    :=ord(b^);   inc(b);
- sizeUnder   :=ord(b^);   inc(b);
+ sizeOver    :=shortint(b^);inc(b);
+ sizeUnder   :=shortint(b^);inc(b);
  addspace    :=ord(b^);   inc(b);
  future      :=ord(b^);   inc(b);
  case future of 0:;{standardni format}
@@ -174,7 +187,6 @@ end;
 
 {---------------------------------------------------------------------------
  Naloaduje do objektu font ze zadaneho souboru.
- Vraci uspesnost.
  ---------------------------------------------------------------------------}
 Function TFont.LoadFromDisk(hledamfilename:string):TError;
 var   p:pointer;
@@ -193,6 +205,71 @@ begin
 end;
 
 {---------------------------------------------------------------------------
+ Ulozi font do souboru dest.
+ ---------------------------------------------------------------------------}
+Function  TFont.Save(dest:PathStr):TError;
+var   c:char;
+begin
+ {opravi offsety v tablu}
+ for c:=firstchar to lastchar do dec(tablo^[c].ofsb,ofs(all^));
+ {zapise all}
+ Save:=SaveFile(dest,all,allsize);
+ {opravi offsety v tablu}
+ for c:=firstchar to lastchar do inc(tablo^[c].ofsb,ofs(all^));
+end;
+
+{---------------------------------------------------------------------------
+ Vraci blok pameti s fontem prevedenym do formatu FNT.
+ ---------------------------------------------------------------------------}
+Function TFont.GetFnt(var p:pointer;var charsize:word):TError;
+var   c         :char;
+      j         :integer;
+begin
+ charsize:=sizeOver+sizeUnder;
+ if (maxza-maxpred>8) or (charsize>255) then GetFnt:=erTooBigFont else
+  if not GetMem(p,256*charsize) then GetFnt:=erLowMem else begin
+    fillchar(p^,256*charsize,0);
+    for c:=firstchar to lastchar do
+     with tablo^[c] do
+      for j:=0 to vysB-1 do
+       PLine(p)^[charsize*ord(c)+sizeOver+relY+j]:=Mem[PtrRec(all).Seg:ofsb+j] shr relX;
+    GetFnt:=erOk;
+    end;
+end;
+
+{---------------------------------------------------------------------------
+ Nastavi font na obrazovce (v textmodu).
+ ---------------------------------------------------------------------------}
+Function TFont.SetFnt:TError;
+var   p         :pointer;
+      charsize  :word;
+      er        :TError;
+begin
+ er:=GetFnt(p,charsize);
+ if er=erOk then begin
+   if charsize>16 then er:=erTooBigFont else er:=LoadUserFont(p,charsize);
+   FreeMem(p,256*charsize);
+   end;
+ SetFnt:=er;
+end;
+
+{---------------------------------------------------------------------------
+ Nastavi font na obrazovce (v textmodu).
+ ---------------------------------------------------------------------------}
+Function TFont.SaveFnt(dest:PathStr):TError;
+var   p         :pointer;
+      charsize  :word;
+      er        :TError;
+begin
+ er:=GetFnt(p,charsize);
+ if er=erOk then begin
+   er:=SaveFile(dest,p,256*charsize);
+   FreeMem(p,256*charsize);
+   end;
+ SaveFnt:=er;
+end;
+
+{---------------------------------------------------------------------------
  Uvolni pamet po fontu.
  ---------------------------------------------------------------------------}
 Destructor TFont.Done;
@@ -208,26 +285,20 @@ end;
 {ßßßßßßßßßßßßßßßßßßßßßßßß CACHOVANY SEZNAM FONTU ßßßßßßßßßßßßßßßßßßßßßßßßßß}
 
 Type
- PFontIdentif = ^TFontIdentif;
- TFontIdentif = object(TCacheIdentif)
+ PFontId = ^TFontId;
+ TFontId = object(TCacheId)
    filename:PathStr;
    constructor Init(name:PathStr);
-   function Compare(id:PCacheIdentif):boolean;virtual;
    function Load:PObject;virtual;
  end;
 
-Constructor TFontIdentif.Init(name:PathStr);
+Constructor TFontId.Init(name:PathStr);
 begin
  inherited Init;
  filename:=name;
 end;
 
-Function TFontIdentif.Compare(id:PCacheIdentif):boolean;
-begin
- Compare:=filename=PFontIdentif(id)^.filename;
-end;
-
-Function TFontIdentif.Load:PObject;
+Function TFontId.Load:PObject;
 var   f:PFont;
 begin
  New(f,Init);
@@ -242,7 +313,7 @@ end;
  ---------------------------------------------------------------------------}
 Function caFontGet(hledamfilename:PathStr):PFont;
 begin
- caFontGet:=PFont(caGet(New(PFontIdentif,Init(hledamfilename)),prior_font));
+ caFontGet:=PFont(caGet(New(PFontId,Init(hledamfilename)),prior_font));
 end;
 
 
@@ -351,6 +422,9 @@ var   UseModel      :byte;
       local_addspace:word;
       local_mezer   :word;
       local_sirmez  :word;
+      total_mezer   :word;
+      total_sirmez  :word;
+      total_counter :word;
       pom1          :byte;
       oldds         :word;
       oldX          :word;
@@ -386,8 +460,9 @@ asm
      {$endif}
 
      {prevede nektere parametry do lokalnich promennych}
-     les di,mezer;mov ax,[es:di];mov local_mezer,ax
-     les di,sirmez;mov ax,[es:di];mov local_sirmez,ax
+     les di,mezer;mov ax,[es:di];mov local_mezer,ax;mov total_mezer,ax
+     shr ax,1;mov total_counter,ax
+     les di,sirmez;mov ax,[es:di];mov local_sirmez,ax;mov total_sirmez,ax
 
      {pouzije model podle bitmapy, za unchained dosadi packed}
      les di,map
@@ -451,16 +526,24 @@ asm
 
      @DistribuujMezeryDoX:
       mov ax,local_sirmez
-      cmp ax,0
+      or ax,ax
       jz @ret
-      xor dx,dx
-      div local_mezer
+       xor dx,dx
+      {pekne optimalni rutina, ale mezery se hromadej u konce radky
+        div local_mezer}
+      {delsi rutina, ale mezery distribuuje rovnomerne}
+      {total_mezer krat prijde mezera a ja musim total_sirmez pridat.
+      zvysim citac o total_sirmez a pridam tolik, kolikrat pretece total_mezer}
+        mov ax,total_counter
+        add ax,total_sirmez
+        xor dx,dx
+        div total_mezer
+        mov total_counter,dx
       add X,ax
       sub local_sirmez,ax
       dec local_mezer
       @ret:
       retn
-
 
  {==========}
    @GRAPHIX:
@@ -745,13 +828,23 @@ asm
 end;
 
 
+FUNCTION  OutStr(src:string;map:PBitmap;x,y:word;font:PFont;proporc:byte;barva:longint):word;
+const mezer:word=0;
+      sirmez:word=0;
+begin
+ OutStr:=OutText(length(src),Str2Pc(src),mezer,sirmez,map,x,y,font,proporc,barva);
+end;
+
+
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
+const unita='fonty';
 var result:integer;
 
 procedure UserInit;
  begin
   BugList.Register(erBadFont,'Vadn˜ font.');
+  BugList.Register(erTooBigFont,'Pokus o nastaven¡/konverzi fontu pro tyto ‡innosti p©¡li¨ velk‚ho.');
  end;
 
 procedure UserDone;

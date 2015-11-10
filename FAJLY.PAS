@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -13,20 +13,37 @@ Procedure Done;
  Pozn: Tato unita ma par nedodelanych mist.
 }
 
+Const     erLowMem4Cmd=97;
+          erBadCmd=98;
+
 Var       ReadOnlyMod:boolean;{readonly rezim, potlaceni zapisu na disk}
 
 {disky}
 Type      dskType=(dskNone,dskFloppy,dskHard,dskNet,dskCdrom);
 FUNCTION  VratInstalovaneDisky: string;
 FUNCTION  IdentifikujDisk(dsk:char):dskType;
-FUNCTION  ZapisovatelnyAdresar(dir:PathStr):boolean;
+FUNCTION  ZapisovatelnyAdresar(dir:DirStr):boolean;
 FUNCTION  JeReady(dsk: char) : boolean;
 
 {adresare}
-FUNCTION  GetOnlyDir(path:PathStr):DirStr;
-FUNCTION  GetExeDir               :DirStr;
-FUNCTION  GetCurDir               :DirStr;
-FUNCTION  GetTempDir              :DirStr;
+FUNCTION  GetExeDir:DirStr;
+FUNCTION  GetCurDir:DirStr;
+FUNCTION  GetTempDir:DirStr;
+
+{PathSlice}
+const psDisk     =1;
+      psDvojtecka=2;{v takhle velkym slovniku jsem nenasel jak se to rekne anglicky}
+      psDir      =4;
+      psSlash    =8;
+      psName     =16;
+      psPoint    =32;
+      psExt      =64;
+      psPath     =psDisk+psDvojtecka+psDir+psSlash;
+      psFile     =psName+psPoint+psExt;
+      psExp      =128;
+      psLow      =256;
+
+FUNCTION PathSlice(path:PathStr;slice:word):PathStr;
 
 {PCK}
 FUNCTION  PCK_Init(name:PathStr): boolean;
@@ -38,9 +55,9 @@ Type      FileStr=string[13]; {13.znak kvuli pripadnemu pouziti Str2Pc}
           TLoadFile=function(filename:pathStr;var p:pointer;var datasize,freesize:longint):TError;
 Var       LoadFile:TLoadFile;
 
-FUNCTION  CallCommand(st:string):integer;
+FUNCTION  CallCommand(st:string):TError;
 FUNCTION  LoadDosFile(filename:pathStr;var p:pointer;var datasize,freesize:longint):TError;
-FUNCTION  SaveFile(filename:pathStr;p:pointer;size:longint):boolean;
+FUNCTION  SaveFile(filename:pathStr;p:pointer;size:longint):TError;
 
 
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
@@ -97,7 +114,7 @@ end;
  Vraci jestli jde do adresare zapisovat,
   konkretne zkousi atributy create+write+delete.
  ---------------------------------------------------------------------------}
-FUNCTION  ZapisovatelnyAdresar(dir:PathStr): boolean;
+FUNCTION  ZapisovatelnyAdresar(dir:DirStr): boolean;
 begin
  ZapisovatelnyAdresar:=false;
  dir:=FExpand(dir);
@@ -148,17 +165,38 @@ end;
 
 {ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ ADRESARE ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ}
 
+
 {---------------------------------------------------------------------------
- Ze zadane cesty k souboru vraci pouze disk+adresar.
- Vysledek je vzdy velkymi pismeny, expandovany a zakonceny lomitkem.
+ Ze zadane cesty k souboru vraci pouze zvolenou cast.
+ Slice je soucet konstant psXXXX, udava ktere casti vracet.
+ Vysledek je velkymi pismeny neni-li zadano psLow.
+ Pri psExp expanduje pripadny chybejici disk a adresar.
  ---------------------------------------------------------------------------}
-FUNCTION GetOnlyDir(path:PathStr):DirStr;
-var   dir:DirStr;
+FUNCTION PathSlice(path:PathStr;slice:word):PathStr;
+var   disk,slash:string[1];
+      dir:DirStr;
       name:NameStr;
       ext:ExtStr;
 begin
+ if (slice and psExp)=psExp then path:=fExpand(path);
  fSplit(path,dir,name,ext);
- GetOnlyDir:=fExpand(dir);
+ if (length(dir)>=2) and (dir[2]=':')
+  then begin disk:=dir[1];delete(dir,1,2);end
+  else disk:='';
+ if dir[length(dir)]='\'
+  then begin slash:='\';dec(dir[0]);end
+  else slash:='';
+ delete(ext,1,1);
+ path:='';
+ if (slice and psDisk     )>0 then path:=disk;
+ if (slice and psDvojtecka)>0 then if disk<>'' then path:=path+':';
+ if (slice and psDir      )>0 then path:=path+dir;
+ if (slice and psSlash    )>0 then path:=path+slash;
+ if (slice and psName     )>0 then path:=path+name;
+ if (slice and psPoint    )>0 then path:=path+'.';
+ if (slice and psExt      )>0 then path:=path+ext;
+ if (slice and psLow      )>0 then PathSlice:=LoCased(path)
+                              else PathSlice:=UpCased(path);
 end;
 
 {---------------------------------------------------------------------------
@@ -167,7 +205,7 @@ end;
  ---------------------------------------------------------------------------}
 FUNCTION GetExeDir:DirStr;
 begin
- GetExeDir:=GetOnlyDir(paramstr(0));
+ GetExeDir:=PathSlice(paramstr(0),psExp+psPath);
 end;
 
 {---------------------------------------------------------------------------
@@ -306,36 +344,39 @@ end;
  Vola command.com se zadanym parametrem.
  Vraci uspesnost (doserror).
  ---------------------------------------------------------------------------}
-FUNCTION CallCommand(st:string):integer;
+FUNCTION CallCommand(st:string):TError;
 begin
  swapvectors;
  exec(getenv('COMSPEC'),st);
- CallCommand:=doserror;
+ case doserror of
+   0:   CallCommand:=erOk;
+   8:   CallCommand:=erLowMem4Cmd;
+   else CallCommand:=erBadCmd;
+   end;
  swapvectors;
 end;
 
 
 {$i loadfile.inc}
 
-FUNCTION  SaveFile(filename:pathStr;p:pointer;size:longint):boolean;
+FUNCTION  SaveFile(filename:pathStr;p:pointer;size:longint):TError;
 var   f:file;
       towrite,written:word;
 label clos;
 begin
- SaveFile:=false;
  assign(f,filename);
  rewrite(f,1);
- if ioresult<>0 then exit;
+ if ioresult<>0 then begin SaveFile:=erFileCreate;exit;end;
  while size>0 do begin
    if size>65535 then towrite:=32768 else towrite:=size;
    blockwrite(f,p^,towrite,written);
-   if (ioresult<>0) or (towrite<>written) then goto clos;
+   if (ioresult<>0) or (towrite<>written) then begin SaveFile:=errFileWrite;goto clos;end;
    dec(size,towrite);
    if size>0 then
     if PtrRec(p).Ofs=0 then PtrRec(p).Ofs:=32768
                        else p:=ptr(PtrRec(p).Seg+SelectorInc,0);
    end;
- SaveFile:=true;
+ SaveFile:=erOk;
  clos:
  close(f);
 end;
@@ -343,10 +384,13 @@ end;
 
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
+const unita='fajly';
 var result:integer;
 
 procedure UserInit;
  begin
+  Buglist.Register(erLowMem4Cmd,'M lo pamˆti na vol n¡ COMMAND.COMu.');
+  Buglist.Register(erBadCmd,'Ne£spˆ¨n‚ vol n¡ COMMAND.COMu.');
   ReadOnlyMod  :=false;
   Pocetfajlu   :=0;
   List         :=nil;

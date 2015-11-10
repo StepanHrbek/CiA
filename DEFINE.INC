@@ -2,7 +2,9 @@
  {$define autoinit}              {-automaticky init unit?}
  {$define autodone}              {-automaticky done unit?}
  {$define timer_}                 {-pouzit unitu timer?}
- {$define dement_}               {-soukromy kod}
+ {$define dement_}                {-soukromy kod}
+ {$define safestack_}             {-pouzit vlastni stack v timerhandleru?}
+ {$define debuginit_}             {-pro ladeni init/done casti unit}
 
  {$G+,I-,X+}                     {-nezbytne nastaveni}
  {$T+,V+}                        {-doporucene nastaveni}

@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -9,6 +9,8 @@ Uses      Chyby;
 Function  Init:word;
 Procedure Done;
 
+{define printkey}
+
 {
 Handler klavesnice. Slouzi presnemu zjistovani stisknutych klaves,
 vsech krome pause. Chces vedet zda je stisknuty treba levy Ctrl?
@@ -18,10 +20,14 @@ Pozn: obcas, velmi ridce, se mi nektere klavesy zasekavaji, zustanou
 nastavene i kdyz uz nejsou stisknuty. Pry je to chyba biosu, nevim.
 Kazdopadne, pravidelne (tak 50-200x za vterinu) volam kDecPressed,
 tim se kazda zaseknuta klavesa nejdele za 1-2 vteriny vypne.
+Nevyhoda je, ze kdyz umyslne dlouho drzis stisklou klavesu,
+automaticky ji to za chvili vypne. Takze se rozhodni a volani
+kDecPressed pripadne odstran ze scrol.pas.
 }
 
 var       kHandler:boolean;                 {je na int9 povesen nas handler?}
           kPressed:array[0..255] of boolean;{stisknute klavesy}
+          kDirty:boolean;                   {nastavi se pri kazdem eventu}
 
 procedure kSetHandler(b:boolean);           {zavesi/odpoji nas handler}
 procedure kDecPressed;
@@ -116,9 +122,8 @@ const
  kF12       =88;
  kkEnter    =128+28;
  kRCtrl     =128+29;
- kPrnScr1   =128+42;
  kkSlash    =128+53;
- kPrnScr2   =128+55;
+ kPrintScr  =128+55;
  kRAlt      =128+56;
  kHome      =128+71;
  kUp        =128+72;
@@ -126,7 +131,7 @@ const
  kLeft      =128+75;
  kRight     =128+77;
  kEnd       =128+79;
- kDwn       =128+80;
+ kDown      =128+80;
  kPgDwn     =128+81;
  kInsert    =128+82;
  kDelete    =128+83;
@@ -195,6 +200,7 @@ PROCEDURE kSetHandler(b:boolean);assembler;
      PUSH DS
      push seg @data
      pop ds
+     mov kDirty,true
      PUSHF
      PUSHA
 
@@ -290,11 +296,13 @@ PROCEDURE kDecPressed;assembler;
 
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
+const unita='key';
 var result:integer;
 
 procedure UserInit;
  begin
   kHandler:=false;
+  kDirty:=false;
   fillchar(kPressed,sizeof(kPressed),0);
  end;
 

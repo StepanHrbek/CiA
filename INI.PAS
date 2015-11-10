@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -356,7 +356,7 @@ end;
      end
     else begin
      txt^.konec:=txt^.start+datasize;
-     txt^.EndNewline;
+     txt^.EndPtr^:=#0;{EndNewline;}
      LoadText:=true;
      end;
   end;
@@ -482,6 +482,9 @@ end;
    PassThruIni(@olda,selUserSec,#0,SelUserVar,skip,skip,skipAndRemember);
    if GoodValue<>#0 then ChangeValue(st,GoodValue);
    news.Writeln(st);
+   {obnovi puvodni hodnoty ktere PassThruIni rozhodil}
+   pass_sekce:=UserSec;
+   pass_name:=UserVar;
   end;
 
   {reporter: prida sekci pass_result}
@@ -767,15 +770,17 @@ End;
 
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
+const unita='ini';
 var result:integer;
 
 procedure UserInit;
+ const a=freesize div 4;
  begin
   SelectSec:=nil;
-  olda.init(ptr(freeseg,00000),20000);olda.static:=true;
-  vzor.init(ptr(freeseg,20000),20000);vzor.static:=true;
-  news.init(ptr(freeseg,40000),20000);news.static:=true;
-  extr.init(ptr(freeseg,60000), 5516);extr.static:=true;
+  olda.InitEmpty(ptr(freeseg,0*a),a);olda.static:=true;
+  vzor.InitEmpty(ptr(freeseg,1*a),a);vzor.static:=true;
+  news.InitEmpty(ptr(freeseg,2*a),a);news.static:=true;
+  extr.InitEmpty(ptr(freeseg,3*a),a);extr.static:=true;
  end;
 
 procedure UserDone;

@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -30,6 +30,16 @@ BEGIN
 END.
 *)
 
+{$ifdef debuginit}
+var old:longint;
+FUNCTION  Stri(n:longint):string;
+var st:string[10];
+begin
+ str(n,st);
+ stri:=st;
+end;
+{$endif}
+
 const inited:boolean=false;
 
 {$ifdef autodone}
@@ -51,7 +61,13 @@ function Init:word;
  begin
   result:=erOk;
   if not inited then begin
+    {$ifdef debuginit}
+    old:=memavail;
+    {$endif}
     UserInit;
+    {$ifdef debuginit}
+    bioswriteln(unita+'.init eats '+stri(old-memavail));
+    {$endif}
     if result=erOk then begin
       {$ifdef autodone}
       oldExitProc:=exitProc;
@@ -66,7 +82,16 @@ function Init:word;
 procedure Done;
  begin
   if inited then begin
+   {$ifdef debuginit}
+   old:=memavail;
+   bioswrite(unita+'.');
+   {$endif}
    UserDone;
+   {$ifdef debuginit}
+   bioswrite('done vomits '+stri(memavail-old));
+   if erroraddr<>nil then bioswrite(' ErrorAddr<>nil!');
+   bioswriteln('');
+   {$endif}
    inited:=false;
    end;
  end;

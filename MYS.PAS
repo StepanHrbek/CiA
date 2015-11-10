@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.50ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -10,8 +10,13 @@ Function  Init:word;
 Procedure Done;
 
 
+const     LeftPressed   = 1;
+          RightPressed  = 2;
+          CenterPressed = 4;
+
 var       mouseButtons :byte;   {pocet tlacitek mysi, 0=neni mys}
           mouseHandler :boolean;{je na mysi povesen nas handler?}
+          mouseDirty   :boolean;{nastavi se pri kazdem eventu}
 
 FUNCTION  mouseGetPress:byte;
 PROCEDURE mouseGetPos(var x,y:integer);
@@ -142,6 +147,7 @@ begin
    asm
     mov ax,7;mov cx,x1;mov dx,x2;int 33h;
     mov ax,8;mov cx,y1;mov dx,y2;int 33h;
+    mov ax,3;int 33h;mov mouseX,cx;mov mouseY,dx;mov bh,0;mov mouseZ,bx;
    end;
   end;
 end;
@@ -248,6 +254,7 @@ PROCEDURE mouseSetHandler(b:boolean);assembler;
      PUSH DS
      push seg @data
      pop ds
+     mov mouseDirty,true
       mov mouseX,cx
       mov mouseY,dx
       mov mouseZ,bx
@@ -265,12 +272,14 @@ PROCEDURE mouseSetHandler(b:boolean);assembler;
 
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
+const unita='mys';
 var result:integer;
 
 procedure UserInit;
  begin
   mouseInit;
   mouseHandler :=false;
+  mouseDirty   :=false;
   presZ        :=0;
   jumpX        :=1;
   jumpY        :=1;
