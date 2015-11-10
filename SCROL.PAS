@@ -1,4 +1,4 @@
-{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 1.00ƒƒƒø
+{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 2.00ƒƒƒø
  ≥S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi≥
  ≥v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.≥
  ¿ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒŸ}
@@ -8,7 +8,7 @@ Interface {$i define.inc}
           {define calos_key}
 Uses      Chyby,Memo, Objects,Strings, Cache,Sys,Mys,Key,Vga,Fonty,Stringy,INI
           {$ifdef carlos_key},Keyboard{$endif}
-          {$ifdef timer},Timer{$endif};
+          {$ifdef usestimer},Timer{$endif};
 
 Function  Init:TError;
 Procedure Done;
@@ -16,7 +16,7 @@ Procedure Done;
 {
 
 ===========================================================================
-                          Co tato unita umi
+                      Co tato unita umi (cti!)
 ===========================================================================
 
  Obsahem unity je objekt TScrolScreen - potomek TScreen z unity Vga.
@@ -66,11 +66,10 @@ Procedure Done;
 
 
 ===========================================================================
-                       Jak tato unita pracuje
+                 Pro ty kdo chteji vedet jak to funguje
 ===========================================================================
 
-
-Slovnicek:
+ Slovnicek:
 
  Wrappingem rozumim to, ze od urcite adresy videopameti se zacina zobrazovat
  opet od nuly. Idealni by bylo, kdyby obraz wrapoval az na konci videopameti
@@ -84,12 +83,12 @@ Slovnicek:
  registr), ve vesa modech nemusi fungovat.
 
 
----------------------------------------------------------------------------
-                          Pouzite metody
----------------------------------------------------------------------------
+ --------------------------------------------------------------------------
+                       Pouzite metody pro scrolling
+ --------------------------------------------------------------------------
 
   MOVSD
-   scrol do vsech smeru zajistuje movsd (fyzicke kopirovani)
+   scrol do vsech smeru zajistuje movsd (fyzicke kopirovani dat)
 
   SPLITTINg
    vyuziva splitscreen k jakesi emulaci wrappingu,
@@ -122,24 +121,26 @@ Slovnicek:
      dostupne videopameti, ta muze koncit uprostred radku
 
 
----------------------------------------------------------------------------
+ MapInit automaticky vybere metodu, ktera je v dane chvili nejlepsi.
+
+ --------------------------------------------------------------------------
                           Vadne karty a biosy
----------------------------------------------------------------------------
+ --------------------------------------------------------------------------
 
-Jsme jen lidi a delame chyby. Autori grafickych karet a jejich biosu
-maji obzvlast velkou fantazii a do svych dilek komponuji neslychane
-bugance. Tato unita se tvari jako by se nic nedelo, jako by bylo vsechno
-v poradku. Ale uvnitr svadi tvrdy zapas, kazdy detail musi overit,
-na nic nemuze spolehat, karta rekne X, unita musi udaj overit z nezavislych
-zdroju. To zahrnuje i spolupraci s uzivatelem, interaktivni testy.
-Jednou zdetekovane udaje si muzes ulozit (VgaVars do INI souboru).
+ Jsme jen lidi a delame chyby. Autori grafickych karet a jejich biosu
+ maji obzvlast velkou fantazii a do svych dilek komponuji neslychane
+ bugance. Tato unita se tvari jako by se nic nedelo, jako by bylo vsechno
+ v poradku. Ale uvnitr svadi tvrdy zapas, kazdy detail musi overit,
+ na nic nemuze spolehat, karta rekne X, unita musi udaj overit z nezavislych
+ zdroju. To zahrnuje i spolupraci s uzivatelem, interaktivni testy.
+ Jednou zdetekovane udaje si muzes ulozit (VgaVars do INI souboru).
 
-Seznam vsech chyb ktere znam je na www.ms.mff.cuni.cz/~shrb5163
-pod linkem VBE buglist. S drtivou vetsinou chyb tato unita pocita.
+ Seznam vsech chyb ktere znam je na http://dee.webpark.cz
+ pod linkem VBE buglist. S drtivou vetsinou chyb tato unita pocita.
 
-Unita scrol predstavuje dva roky tvrde prace. Mela by fungovat i na vetsine
-vadnych karet a biosu, ale zarucit to samozrejme nemuzu. Kdyz narazis
-na nejakou situaci ve ktere nefunguje jak by mela, dej mi vedet.
+ Unita scrol predstavuje nekolik let tvrde prace. Mela by fungovat i na
+ vetsine vadnych karet a biosu, ale zarucit to samozrejme nemuzu. Kdyz
+ narazis na nejakou situaci ve ktere nefunguje jak by mela, dej mi vedet.
 
 }
 
@@ -170,13 +171,15 @@ const
       syncAllOff       = 2*syncAllOn;
       syncLetsRock     = syncAllOn+syncMHandlerOn+syncKHandlerOn;{vse vcetne handleru}
       syncHolocaust    = 2*syncLetsRock;{vypne vse, volat pred dos shellem}
-
 var
       AutoscrolSpeed   :byte;
       CitlivostSipek   :byte;
       CitlivostNumpadu :byte;
+      {$ifdef timer}
       usetimer         :boolean;{smi pouzivat timer k synchronizaci?}
       preciseTimer     :boolean;{je timer dostatecne presny?}
+      {$endif}
+      unlockLockedKeys :boolean;{ignorovat pokracovani stisku po jedne sekunde?..nedovoli delsi 'locknuti' klaves}
 type
       PScrolScreen=^TScrolScreen;
 
@@ -196,12 +199,12 @@ type
          {hlavni bitmapa}
          public
           map                :PBitmap;{bitmapa nad kterou se scrolluje}
-          mapsleep           :string[50];{buffer pro ukladani nekterych atributu map kdyz je nutno map docasne zrusit}
+          mapsleep           :string[52];{buffer pro ukladani nekterych atributu map kdyz je nutno map docasne zrusit}
           MapUpdate          :TMapProc;
           procedure          MapInit(amap,alista:PBitmap;startX,startY:integer);
           procedure          MapRedraw;
           procedure          MapRedrawBox(srcX,srcY,Sirka,Vyska:integer);
-          procedure          MapDone;
+          procedure          MapDone(ilistu:boolean);
 
          {lista}
          public
@@ -217,7 +220,7 @@ type
                               SetvisStepX        :shortint;{po kolika pixelech lze menit disp.addr.start v ose x ?, 0=nelze,
                                                             -1=nevim, 8=jde po 8 a mozna i min, viz hruba detekce SetvisStepX}
                               VirtXStep          :shortint;{po kolika pixelech lze menit virt Xres ?, 0=nelze, -1=nevim}
-                              WrappingAt         :shortint;{po kolika 64KB segmentech obraz wrapuje, 0=nikdy, -1=nevim}
+                              WrappingAt         :shortint;{+=po 32K shl dis wrapuje, -=po 32K shl -dis obraz konci, 0=nevim}
                               PanUpBug           :shortint;{odchylka v casovani PanUpu?, 1=Tseng-like, 0=standard, -1=nevim}
                               PanLeftBug         :shortint;{odchylka v casovani PanLeftu?, 1=mach64-like, 0=standard, -1=nevim}
                               function           GetNeededTests(test:word;forcetest:word):word;
@@ -256,6 +259,7 @@ type
                               toVesaY          :word;
                               procedure        PrepSetvisRegisters(x,y:word);
                               procedure        ScrolSetvis;
+                              procedure        UpdateActualScreenFreq(hint:word);
                              public
 
          {eventy}
@@ -275,6 +279,7 @@ type
 
          {mys}
           procedure          MouseGetRect(var rect:TRect);virtual;
+          procedure          MouseGetPos(apen:byte;var x,y:integer);virtual;
 
          {crashe do sten}
           function           GetCrashLevel:word;
@@ -306,9 +311,11 @@ type
                              public
 
          {timer}
+          {$ifdef timer}
           function           TimerAllRight:boolean;
           function           DetectTmrScrSync:word;virtual;
           procedure          SetUseTimer(use:boolean);
+          {$endif}
 
                              private
                               phase            :byte;{ktera faze setvisu je na rade?}
@@ -317,8 +324,10 @@ type
                               procedure        SetvisPhase2;
                               procedure        SetvisPhase3;
                               procedure        SetvisPhase4;
+                              {$ifdef timer}
                               procedure        TmrScrolStart;
                               procedure        TmrScrolStop;
+                              {$endif}
                               procedure        SyncSpocitej;{spocita kam se ma scrollovat}
                               procedure        SyncDokresli;{dokresli kus bitmapy o ktery se odscrollovalo}
          end;
@@ -357,9 +366,10 @@ const
       autoscrolprocent   =15;{kolik procent rozmeru vyrezu pro pohyb mysi
                              tvori okraj pro autoscrol}
 var
+      {$ifdef timer}
       wanttimer          :boolean;{chce pouzit timer k synchronizaci? (nezavisi na tom jestli smi)}
       usingtimer         :boolean;{je prave pouzit timer k synchronizaci? (az kdyz chce+smi+dalsi_podminky)}
-
+      {$endif}
       backstack          :pointer;{pointer na zalozni stack (1KB)}
 
 
@@ -368,7 +378,7 @@ var
 Function scrolscreen:PScrolScreen;
 begin
  {$ifdef beta}
- if CurScrolScreen=nil then Halt(erNoScreen);
+ if CurScrolScreen=nil then Halt(_erNoScreen);
  {$endif}
  scrolscreen:=CurScrolScreen;
 end;
@@ -381,14 +391,19 @@ end;
 Constructor TScrolScreen.Init(newModel,newSir,newVys,newMode:word);
 begin
 {$ifdef beta}
+ {$ifdef timer}
  if wanttimer then erBetaMsg('scrol.init: '+_(_msgModNeuvolTimer));
+ {$endif}
 {$endif}
 
  if not inherited Init(newModel,newSir,newVys,newMode) then Fail;
- if newModel<>model_text then BlackHwPal;
+ if MapModel in models_8 then BlackHwPal;
 
  {zakaze scrol spodni pulky obrazu ve splitscreenu}
  if VgaCompat then vga_EnableSplitScrol(false);
+
+ {zakazat blinking musi vzdycky, i kdyz tim riskuje}
+ vga_EnableBlinking(false);
 
  {ful=cela vramka}
  ExpandFul(true);
@@ -410,10 +425,12 @@ begin
   byla nastavena obyc screen a v CurScrolScreen zustal neaktualni udaj}
    inherited ReInit;
    if VgaCompat then vga_EnableSplitScrol(false);
+   vga_EnableBlinking(false);
    {CurScrolScreen nastavit jeste pred setvisem, ktery ji vyuziva (v tmrScrol1/2/3)}
    CurScrolScreen:=@self;
    if map<>nil then begin
      MapRedraw;
+     ListaRedraw;
      if (pal<>nil) and (reinitSpeed>=0) then Fade(+reinitSpeed);
      reinitSpeed:=0;
      end;
@@ -426,7 +443,7 @@ end;
  ---------------------------------------------------------------------------}
 Destructor TScrolScreen.Done;
 begin
- MapDone;
+ MapDone(true);
  inherited Done;
  if CurScreen=nil then CurScrolScreen:=nil;
 end;
@@ -453,59 +470,6 @@ begin
  rect.b.x:=writtenRight+1;
  rect.b.y:=writtenBot+1;
 end;
-
-{---------------------------------------------------------------------------
- Vraci ve stringu nejake debugovaci informace.
- ---------------------------------------------------------------------------}
-Function TScrolScreen.GetDebugInfo(n:byte):string;
-
-const stri_boolean:array[false..true] of string[3]=('no','yez');
-      stri_method:array[movsd..doublebufferin] of string[8]=('movsd','splittin','wrappin','bufferin');
-begin
- case n of
-   1:GetDebugInfo:='VRAM INFOORMA'#13#10+
-       #13#10'vesamode='      +stri_boolean[VesaMode]+
-       #13#10'model='         +ModelStr[MapModel]+
-       #13#10'method='        +stri_method[scrolmethod]+
-       #13#10'SCREEN='        +stri(Xres)+'x'+stri(Yres)+
-       #13#10'VRAM='          +stri(sizeX)+'x'+stri(sizeY)+
-       #13#10'VIRTUAL='       +stri(map^.sizeX)+'x'+stri(map^.sizeY)+
-       #13#10'doublescan='    +stri(doublescan)+
-       #13#10'nowsplit='      +stri(nowsplity)+
-       #13#10'maxsplit='      +stri(maxsplity);
-   2:GetDebugInfo:='TIMING INFOORMA'#13#10+
-       #13#10'eventwaitOk='   +stri_boolean[EventWaitOk]+
-       #13#10'retracelen='    +stri(retracelen)+
-       #13#10'vesasetvissync='+stri_boolean[vesa_setvissyncuje]+
-       #13#10'screenfreq='    +stri(screenfreq)+
-       #13#10'tmrscrsync='    +stri(timerscrsync)+
-       #13#10'precisetimer='  +stri_boolean[precisetimer]+
-       #13#10'usetimer='      +stri_boolean[usetimer]+
-       #13#10'wanttimer='     +stri_boolean[wanttimer]+
-       #13#10'usingtimer='    +stri_boolean[usingtimer];
-   3:GetDebugInfo:='HW SCROL INFOORMA'#13#10+
-       #13#10'splitting='     +stri(splitting)+
-       #13#10'setvisstepx='   +stri(setvisstepx)+
-       #13#10'setvisybug='    +stri(setvisybug)+
-       #13#10'virtxstep='     +stri(virtxstep)+
-       #13#10'wrappingat='    +stri(wrappingat)+
-       #13#10'gotoybug='      +stri(gotoybug)+
-       #13#10'panupbug='      +stri(panupbug)+
-       #13#10'panleftbug='    +stri(panleftbug);
-   4:GetDebugInfo:='BUFFER INFOORMA'#13#10+
-       #13#10'buflinefirst='  +stri(buflinefirst)+
-       #13#10'buflines='      +stri(buflines)+
-       #13#10'bufmaxrezervaX='+stri(bufmaxrezervaX)+
-       #13#10'bufmaxrezervaY='+stri(bufmaxrezervaY);
-   5:GetDebugInfo:='SYSTEM INFOORMA'#13#10+
-       #13#10'os='            +Pc2Str(os[ops])+
-       #13#10'memavail='      +stri(memavail)+
-       #13#10'maxavail='      +stri(maxavail);
-   else
-     GetDebugInfo:='';
-   end;
-end;
-
 
 {---------------------------------------------------------------------------
  Prekresli cast listy.
@@ -541,26 +505,29 @@ end;
 {---------------------------------------------------------------------------
  Prijme mapu a volitelne listu a prizpusobi se jim.
  Po skonceni prace je zlikviduje.
- Pozor, lista nekdy vyrazne hodne zhorsi plynulost scrollingu.
+ Pozor, lista nekdy vyrazne zhorsi plynulost scrollingu.
  ---------------------------------------------------------------------------}
 Procedure TScrolScreen.MapInit(amap,alista:PBitmap;startX,startY:integer);
 var   usefulX,usefulY:word;
 
  function mySetVramXRes(usefulX:word):boolean;
  begin
+  {$ifdef testvga}bioswriteln('mapinit setvramxres init');{$endif}
   if SetVramXRes(usefulX) then begin
     mySetVramXRes:=true;
     usefulX:=vramXres;{upravi usefulX aby nemusel opakovane setvramxresovat}
     end
    else
     mySetVramXRes:=false;
+  {$ifdef testvga}bioswriteln('mapinit setvramxres done');{$endif}
  end;
 
  function TryWrappin:boolean;
  begin
+  {$ifdef testvga}bioswriteln('mapinit trywrappin');{$endif}
   TryWrappin:=
     {kdyz funguje wrapping}
-    (VramSizeKB=WrappingAt*64) and
+    (VramSizeKB=32 shl WrappingAt) and
     {a neni v textmodu}
     ((MapModel<>model_text)) and
     {a funguje setvis}
@@ -577,6 +544,7 @@ var   usefulX,usefulY:word;
 
  function TrySplittin:boolean;
  begin
+  {$ifdef testvga}bioswriteln('mapinit trysplittin');{$endif}
   TrySplittin:=
     {kdyz funguje splitting}
     (splitting=1) and
@@ -591,11 +559,14 @@ var   usefulX,usefulY:word;
     {a jde nastavit vramXres}
     ((usefulX=vramXres) or ((virtXstep>0) and mySetVramXRes(usefulX))) and
     {a je dost vram}
-    (vramYres>=usefulY);
+    (vramYres>=usefulY) and
+    {a dokazeme nastavovat splitovaci registr dost casto, ne kazdy 3.frame}
+    (RetraceLen<>65535);
  end;
 
  function TryBufferin(lines:word):boolean;
  begin
+  {$ifdef testvga}bioswriteln('mapinit bufferin');{$endif}
   TryBufferin:=
     {a funguje setvis}
     (setvisStepX>0) and
@@ -611,6 +582,7 @@ var   usefulX,usefulY:word;
 
  function TrySingleBufferin:boolean;
  begin
+  {$ifdef testvga}bioswriteln('mapinit singlebufferin');{$endif}
   TrySingleBufferin:=
    {funguje jen bez listy}
    (botYres=0) and
@@ -621,6 +593,7 @@ var   usefulX,usefulY:word;
 
  function TryDoubleBufferin:boolean;
  begin
+  {$ifdef testvga}bioswriteln('mapinit doublebufferin');{$endif}
   TryDoubleBufferin:=
    TryBufferin(usefulY+topYres +amap^.sizeX div usefulX);
                                 {^odhad poctu radek, ktere zabere rezerva pro scrol doprava}
@@ -632,19 +605,22 @@ var m:TMergeMaps;
     oldmodel:word;
     {$endif}
 begin
+ {$ifdef testvga}bioswriteln('mapinit init');{$endif}
  if alista=nil then botYres:=0 else botYres:=alista^.sizeY;
  topYres:=Yres-botYres;
  if amap=nil then erMsg('MapInit: '+_(_msgNoBitmap));
  if topYres<=0 then erMsg('MapInit: '+_(_msgMocVelkaLista));
 
  {spocita minimalni vramXYres}
+ {$ifdef testvga}bioswriteln('mapinit -1');{$endif}
  usefulX:=maxI(   Xres,minI(   Xres*11 div 10,amap^.sizeX));
  usefulY:=maxI(topYres,minI(topYres*11 div 10,amap^.sizeY))+botYres;
+ {$ifdef testvga}bioswriteln('mapinit 0');{$endif}
 
  {volba metody}
  if SafeMode          then scrolmethod:=movsd else
  if TryWrappin        then scrolmethod:=wrappin else
- if TrySingleBufferin then begin scrolmethod:=wrappin;WrappingAt:=0;{nesmi byt -1}end else
+ if TrySingleBufferin then begin scrolmethod:=wrappin;WrappingAt:=9;{tak velke aby to modovalo obraz az na 16MB}end else
  if TryDoubleBufferin then scrolmethod:=doublebufferin else
  if TrySplittin       then scrolmethod:=splittin
                       else scrolmethod:=movsd;
@@ -653,6 +629,8 @@ begin
  warning:=amap^.MapModel<>MapModel;
  oldmodel:=amap^.MapModel;
  {$endif}
+
+ {$ifdef testvga}bioswriteln('mapinit 1');{$endif}
 
  {slouci palety listy a hlavni mapy}
  m.Init(MapModel,pal);
@@ -668,6 +646,8 @@ begin
  {v movsd nepotrebuje ful}
  ExpandFul(scrolmethod<>movsd);
 
+ {$ifdef testvga}bioswriteln('mapinit 2');{$endif}
+
  {zpracuje listu}
  lista:=alista;
  if scrolmethod=movsd
@@ -679,7 +659,9 @@ begin
    vga_SplitY(maxSplitY-charYres*botYres);
    Setvis(0,charYres*botYres);
    end;
+ {$ifdef testvga}bioswriteln('mapinit 3');{$endif}
  ListaRedraw;
+ {$ifdef testvga}bioswriteln('mapinit 4');{$endif}
 
  {nastavi kdejake atributy}
  pen              :=PEN_VIRT_AREA;
@@ -691,8 +673,8 @@ begin
  if scrolMethod=doublebufferin
   then dec(buflines,topYres +amap^.sizeX div usefulX{presne urceni});
 
- startX:=minI(startX,map^.sizeX-1);
- startY:=minI(startY,map^.sizeY-1);
+ startX:=maxI(0,minI(startX,map^.sizeX-Xres));
+ startY:=maxI(0,minI(startY,map^.sizeY-topYres));
 
  writtenTop       :=startY;
  writtenBot       :=startY-1;
@@ -715,16 +697,17 @@ begin
  {$ifdef beta}
  {if warning then ReportErr('Konverze z '+stri(oldModel)+' do '+stri(MapModel));{}
  {$endif}
+ {$ifdef testvga}bioswriteln('mapinit done');{$endif}
 end;
 
 {---------------------------------------------------------------------------
  Zahodi mapu a listu.
  ---------------------------------------------------------------------------}
-Procedure TScrolScreen.MapDone;
+Procedure TScrolScreen.MapDone(ilistu:boolean);
 begin
  if not SilentDone then SetActivity(syncAllOff);
  caLeave(map);
- caLeave(lista);
+ if ilistu then caLeave(lista);
 end;
 
 {$define clr}
@@ -786,7 +769,7 @@ begin
  ScrolSetvis;
  Dokresli(sir,vys);
  {vymaze okraje kolem uzke nebo placate bitmapy}
- {hned po vykresleni updatene co je trba}
+ {hned po vykresleni updatene co je treba}
  if @MapUpdate<>nil then MapUpdate(map);
 end;
 
@@ -800,7 +783,13 @@ begin
  case pen of
    PEN_VRAM   :1:inherited GotoXY(x,y);
    PEN_SCREEN   :if buflines=0 then goto 1{osetreni GotoXY pred MapInit} else
-                 inherited GotoXY(x+vramVisX div charXres,buflineFirst+(vramVisY div charYres+y-buflineFirst) mod buflines);
+                 {inherited GotoXY(x+vramVisX div charXres,
+                  buflineFirst+(vramVisY div charYres+y-buflineFirst) mod buflines);{}
+                 begin
+                 inc(x,posNow.X div charXres);
+                 inc(y,posNow.Y div charYres);
+                 goto 2;
+                 end;
    PEN_VIRTUAL:2:begin
                  case scrolMethod of
                    movsd:begin
@@ -836,6 +825,20 @@ begin
 end;
 
 {---------------------------------------------------------------------------
+ Vraci pozici mysi (TScreen.mouse) pro dany pen.
+ ---------------------------------------------------------------------------}
+Procedure TScrolScreen.MouseGetPos(apen:byte;var x,y:integer);
+begin
+ inherited MouseGetPos(pen,x,y);
+ case apen of
+   PEN_VRAM     :{nic takoveho nikdy nema smysl};
+   PEN_VIRTUAL  :begin inc(x,posNow.x);inc(y,posNow.y);end;
+   PEN_VIRT_AREA:begin inc(x,posNow.x-freePred);inc(y,posNow.y-freeNad);end;
+   PEN_SCREEN   :{je ok};
+   end;
+end;
+
+{---------------------------------------------------------------------------
  Priprava scrollovaciho setvisu (pocita se splitem, doublebufferingem apod).
  Souradnice jsou v pixelech (i v textmodu), relativni k zacatku scrolbufferu.
  ---------------------------------------------------------------------------}
@@ -864,7 +867,7 @@ Procedure TScrolScreen.PrepSetvisRegisters(x,y:word);assembler;
      mov ax,dx;mul cx
      xchg ax,bx;mul cx
      add dx,bx{ax:dx=poradi bitu ve videopameti}
-     mov cl,[es:di+WrappingAt];mov ch,0;{shl cx,3;}dec cx;and dx,cx{ax:dx=wrapnuty bit}
+     mov cl,[es:di+WrappingAt];mov bx,32;shl bx,cl;dec bx;and dx,bx{ax:dx=wrapnuty bit}
      push dx;push ax;db 66h;pop ax;db 66h;xor dx,dx{eax:edx=wrapnuty bit}
      db 66h;xor bx,bx;mov bl,[es:di+ByPP]
      db 66h;div bx{eax=wrapnuty pixel}
@@ -1116,8 +1119,16 @@ begin
  posWantsFreshup:=(not posOk) or (posNext.X<>posNow.X) or (posNext.Y<>posNow.Y);
 end;
 
+{volat kdykoliv}
 Procedure TScrolScreen.SetvisPhase1;
 begin
+ {Tento kod byl jeden cas docasne umisten v phase2.
+  Zde na cirrus logic se chova jako by vesa_setvis syncoval
+  i kdyz detekce rika ze nesyncuje.
+  Doma a ve skole na nesyncujici karte funguji dobre obe umisteni kodu,
+  akorat v phase2 neni pri irq2 sipka mysi pri scrolu jako pribita,
+  proto jsem kod vratil sem kde byl.
+  Na syncujici karte dosud nevyzkouseno.}
  {pokud doslo k pohybu:}
  if posWantsFreshup then begin
    {spocita hodnoty registru odpovidajici zadanym souradnicim}
@@ -1132,6 +1143,7 @@ begin
    end;
 end;
 
+{volat tesne pred retracem}
 Procedure TScrolScreen.SetvisPhase2;
 begin
  {pracuje jen kdyz je na rade}
@@ -1152,6 +1164,7 @@ begin
    end;
 end;
 
+{volat behem retracu}
 Procedure TScrolScreen.SetvisPhase3;
 begin
  {pracuje jen kdyz je na rade}
@@ -1171,6 +1184,7 @@ begin
    end;
 end;
 
+{volat kdykoliv}
 Procedure TScrolScreen.SetvisPhase4;
 var   oldmouse:boolean;
       old:TBankRegs;
@@ -1232,15 +1246,16 @@ begin
    if oldmouse then MouseShow;
    AddAll2Update;
    end
-  else if VesaMode and vesa_SetvisSyncuje then begin
+  else if (VesaMode and vesa_SetvisSyncuje) then begin
    SetvisPhase1;
    SetvisPhase2;
    SetvisPhase3;
    SetvisPhase4;
    end
   else begin
-   SetvisPhase1;
    WaitForTrace;
+   SetvisPhase1;
+   WaitBeforeRetrace;
    SetvisPhase2;
    WaitForRetrace;
    SetvisPhase3;
@@ -1249,6 +1264,8 @@ begin
    end;
 end;
 
+
+{$ifdef timer}
 
 {Pokud nejak manipulujes se stackem a obcas se nachazi v nejakem divnem
  stavu, je tu riziko ze zrovna v tu chvili nabehne timer a vola tmrScrol*.
@@ -1317,9 +1334,9 @@ end;
 Function TScrolScreen.TimerAllRight:boolean;
 begin
  TimerAllRight:=usetimer
+      {$ifdef dpmi}and (swapsize=0){$endif}
       and not SafeMode
-      {and not (ops=windows)}
-      and not (RetraceLen>0)
+      and not (RetraceLen>0){*zaridit aby sel i pri 65534 aneb irq2_ok}
       and preciseTimer
       and not (VesaMode and vesa_SetvisSyncuje);
 end;
@@ -1332,8 +1349,8 @@ Function TScrolScreen.DetectTmrScrSync:word;
 var   scrSync:word;
 begin
  scrSync:=0;
-{$ifdef timer}
- if TimerAllRight then 
+{$ifdef usestimer}
+ if TimerAllRight then
   if tmrGetScrSync(@scrSync)<>0 then preciseTimer:=false;
 {$endif}
  DetectTmrScrSync:=scrSync;
@@ -1345,7 +1362,7 @@ end;
  ---------------------------------------------------------------------------}
 Procedure TScrolScreen.TmrScrolStart;
 begin
- {$ifdef timer}
+ {$ifdef usestimer}
  if not usingTimer then
   if TimerAllright then begin
    {zavesi to vsechno na timer}
@@ -1364,7 +1381,7 @@ end;
  ---------------------------------------------------------------------------}
 Procedure TScrolScreen.TmrScrolStop;
 begin
- {$ifdef timer}
+ {$ifdef usestimer}
  if usingTimer then begin
    {zastavi timer}
    beziNahazovacRet :=false;
@@ -1386,13 +1403,13 @@ end;
  ---------------------------------------------------------------------------}
 Procedure TScrolScreen.SetUseTimer(use:boolean);
 begin
- {$ifdef timer}
+ {$ifdef usestimer}
  usetimer:=use;
  if wanttimer then TmrScrolStart else TmrScrolStop;
  {$endif}
 end;
 
-
+{$endif}
 
 
 {€€€€€€€€€€€€€€€€ S C R O L L I N G €€€€€€€€€€€€€€€€}
@@ -1406,7 +1423,9 @@ Function TScrolScreen.GetActivity:TAct;
 var   i:TAct;
 begin
  i:=0;
+ {$ifdef timer}
  if usingTimer    then i:=i or syncTimerOn     else i:=i or syncTimerOff;
+ {$endif}
  if syncMoving    then i:=i or syncMovingOn    else i:=i or syncMovingOff;
  if syncDrawing   then i:=i or syncDrawingOn   else i:=i or syncDrawingOff;
  if syncAutoscrol then i:=i or syncAutoscrolOn else i:=i or syncAutoscrolOff;
@@ -1429,10 +1448,12 @@ var   kpressed:array[-1..255] of boolean absolute keybmap;
  Parametr je soucet konstant syncXXXX.
  ---------------------------------------------------------------------------}
 Procedure TScrolScreen.SetActivity(act:TAct);
-var   t:longint;
+var   t:TStopky;
 begin
+ {$ifdef timer}
  if (act and syncTimerOn     )<>0 then begin wanttimer:=true;TmrScrolStart;end;
  if (act and syncTimerOff    )<>0 then begin wanttimer:=false;TmrScrolStop;end;
+ {$endif}
  if (act and syncMovingOn    )<>0 then syncMoving:=true;
  if (act and syncMovingOff   )<>0 then syncMoving:=false;
  if (act and syncDrawingOn   )<>0 then syncDrawing:=true;
@@ -1450,17 +1471,19 @@ begin
  if (act and syncKScrolOn    )<>0 then syncKScrol:=true;
  if (act and syncKScrolOff   )<>0 then syncKScrol:=false;
 
+ {$ifdef timer}
  if (act and syncMovingOff   )<>0 then
    {pocka az na pozadi dobehne setvis}
    if usingtimer then begin
      {$ifdef beta}
-     t:=GetMs;
-     repeat until posOk or (GetMs>t+1000);
+     t.Start;
+     repeat until posOk or (t.LookAt>1000);
      if not posOk and not dumb then erBetaMsg('posOk chaos');
      {$else}
      repeat until posOk;
      {$endif}
      end;
+ {$endif}
 end;
 
 {---------------------------------------------------------------------------
@@ -1489,10 +1512,9 @@ end;
 Procedure TScrolScreen.Sync;
 begin
  mouseRedrawFlag:=false;
- if not usingTimer then SyncSpocitej;
- if (not usingTimer or (scrolMethod=movsd))
-    and syncMoving and posWantsFreshup then ScrolSetvis;
- SyncRet;
+ {$ifdef timer}if not usingTimer then{$endif} SyncSpocitej;
+ if {$ifdef timer}(not usingTimer or (scrolMethod=movsd)) and{$endif}
+    syncMoving and posWantsFreshup then ScrolSetvis;
  KeyboardRescan;
  MouseRescanPress;
  MouseRescanState;
@@ -1500,9 +1522,10 @@ begin
  if syncDrawing
   then SyncDokresli{dokresli, pripadne s vynucenym prekreslenim mysi}
   else if not mouseRedrawFlag then MouseRedraw;{jen prekresli mys}
- IncMs(1000 div screenfreq);
- kDecPressed;
+ {IncMs(1000 div screenfreq);}
+ if unlockLockedKeys then kIncPressed;
  if @userSync<>nil then userSync;
+ SyncRet;
 end;
 
 {---------------------------------------------------------------------------
@@ -1525,29 +1548,72 @@ begin
 end;
 
 
+
+{---------------------------------------------------------------------------
+ Aktualizuje actualscreenfreq.
+ Jde o velmi pribliznou frekvenci s jakou je prekreslovan obraz,
+ podle ni se voli dynamika pohybu.
+ ---------------------------------------------------------------------------}
+var   actualscreenfreq:word;
+const updatetimes=2;{kolik casovych useku dozadu sledovat, staci 2}
+var   lastupdatetime:longint;
+var   updates:array[-updatetimes..0] of word;{kolikrat byl za usek casu updatovan obraz}
+
+Procedure TScrolScreen.UpdateActualScreenFreq(hint:word);
+const zlomek=3;{casovy usek=tretina sekundy}
+var   thisupdatetime:longint;
+      i:integer;
+      from:longint;
+begin
+ {seridi pole updates}
+ thisupdatetime:=GetMs div (1000 div zlomek);
+ if lastupdatetime>thisupdatetime then lastupdatetime:=thisupdatetime-updatetimes-1;
+ for i:=-updatetimes to 0 do begin
+   from:=i+thisupdatetime-lastupdatetime;
+   if from>0 then updates[i]:=0 else updates[i]:=updates[from];
+   end;
+ lastupdatetime:=thisupdatetime;
+ inc(updates[0]);
+ {na zaklade pole nastavi actualscreenfreq}
+ if (updates[-2]>0) and (updates[-1]>0)
+  then actualscreenfreq:=maxw(updates[-2],maxw(updates[-1],updates[0]))*zlomek
+  else actualscreenfreq:=hint;
+ {detekuje a osetri prepnuti ve windozach do okna}
+ if (updates[-2]>300) and (updates[-1]>300) and (updates[0]>300) then begin
+   screenfreq:=70;
+   actualscreenfreq:=screenfreq;
+   retracelen:=65535;
+   end;
+end;
+
 {---------------------------------------------------------------------------
  Zapocita do pohybu z Now do Cil setrvacnost.
  Speed je momentalni rychlost pohybu. Pohybovat se lze od 0 do Max.
+ Pred Smoothin je potreba v kazdem snimku zavolat UpdateActualScreenFreq.
  ---------------------------------------------------------------------------}
 PROCEDURE Smoothin(var now,cil,speed:integer;fast,max:integer;var CrashLevel:word);
-const setrv=0.8;
-var   oldnow,i:integer;
+var   oldnow,i,spin:integer;
+      setrv,work:real;
 begin
  oldnow:=now;
  inc(now,fast);
  inc(cil,fast);
  if max<0 then max:=0;
- if cil<=now then speed:=round(speed*setrv-sqrt(now-cil)*(1-setrv)) else
- if cil>now then speed:=round(speed*setrv+sqrt(cil-now)*(1-setrv));
+ setrv:=1-0.2*8/sqrt(actualscreenfreq);
+ work:=0.2*70/actualscreenfreq;
+ if cil<=now then spin:=-1 else spin:=1;
+ if (speed>0) xor (spin>0) then setrv:=setrv/2;{brzdi tik-tak perpetuum}
+ speed:=round(speed*setrv+spin*sqrt(abs(now-cil))*work);
  inc(now,speed);
- if now<0 then now:=0 else if now>max then now:=max else exit;
+ if now<=0 then now:=0 else if now>=max then now:=max else exit;
+  {musi byt <= a >= jinak neudela crash pri dojeti presne k okraji}
 
  {pouze pri narazu do kraje:}
  cil:=now;
  speed:=-speed div 2;
  if CurScreen=nil then i:=3 else i:=maxW(3,(CurScreen^.Xres+CurScreen^.Yres) div 200);
  if abs(speed)<i then speed:=0;{bez toho zpusobi drzeny home/end nepretrzite male odrazy}
- if now<>oldnow then inc(CrashLevel,abs(speed+fast));
+ if now<>oldnow then inc(CrashLevel,abs(speed)+abs(fast));
 end;
 
 {---------------------------------------------------------------------------
@@ -1578,26 +1644,29 @@ var   fastX,fastY:integer;
       p:pointer absolute userSpocitej;
       emu:boolean;
 begin
+ UpdateActualScreenFreq(screenfreq);
  fastX:=0;
  fastY:=0;
 
  if p<>nil then userSpocitej(@self);
 
  if syncMoving and syncAutoScrol then begin
-   fastX:=Haha(HahaDiv(mouse.X-mouseRng.a.x,mouseRng.b.x-mouseRng.a.x+1))*Xres   *charXres div 640 div 25;
-   fastY:=Haha(HahaDiv(mouse.Y-mouseRng.a.y,mouseRng.b.y-mouseRng.a.y+1))*topYres*charYres div 480 div 25;
+   fastX:=Haha(HahaDiv(mouse.X-mouseRng.a.x,mouseRng.b.x-mouseRng.a.x+1))*Xres   *charXres
+    div actualscreenfreq div (640*25 div 70);
+   fastY:=Haha(HahaDiv(mouse.Y-mouseRng.a.y,mouseRng.b.y-mouseRng.a.y+1))*topYres*charYres
+    div actualscreenfreq div (480*25 div 70);
    end;
 
  if syncMoving and syncKScrol then begin
-   if kPressed[kLeft ] then dec(posCil.X,longint(CitlivostSipek)*Xres   *charXres div 640);
-   if kPressed[kRight] then inc(posCil.X,longint(CitlivostSipek)*Xres   *charXres div 640);
-   if kPressed[kUp   ] then dec(posCil.Y,longint(CitlivostSipek)*topYres*charYres div 480);
-   if kPressed[kDown ] then inc(posCil.Y,longint(CitlivostSipek)*topYres*charYres div 480);
+   if kPressed[kLeft ] then dec(posCil.X,round(longint(CitlivostSipek)*Xres   *charXres/sqrt(actualscreenfreq)/80));
+   if kPressed[kRight] then inc(posCil.X,round(longint(CitlivostSipek)*Xres   *charXres/sqrt(actualscreenfreq)/80));
+   if kPressed[kUp   ] then dec(posCil.Y,round(longint(CitlivostSipek)*topYres*charYres/sqrt(actualscreenfreq)/60));
+   if kPressed[kDown ] then inc(posCil.Y,round(longint(CitlivostSipek)*topYres*charYres/sqrt(actualscreenfreq)/60));
    end;
 
  if syncEmulMouse then begin
    inc(presslength);
-   myspeedY:=minW(2+presslength div 10,10)*7*CitlivostNumpadu;
+   myspeedY:=minL(2+presslength div 10,10)*7*70*CitlivostNumpadu div actualscreenfreq;
    myspeedX:=maxW(1,HiByte(myspeedY div charXres));
    myspeedY:=maxW(1,HiByte(myspeedY div charYres));
    emu:=false;
@@ -1668,6 +1737,67 @@ begin
  Dokresli(dx,dy);
 end;
 
+{---------------------------------------------------------------------------
+ Vraci ve stringu nejake debugovaci informace.
+ ---------------------------------------------------------------------------}
+Function TScrolScreen.GetDebugInfo(n:byte):string;
+
+const stri_boolean:array[false..true] of string[3]=('no','yez');
+      stri_method:array[movsd..doublebufferin] of string[8]=('movsd','splittin','wrappin','bufferin');
+begin
+ case n of
+   1:GetDebugInfo:='VRAM INFOORMA'#13#10+
+       #13#10'vesamode='      +stri_boolean[VesaMode]+
+       #13#10'model='         +ModelStr[MapModel]+
+       #13#10'mode='          +stri(ModeID)+
+       #13#10'method='        +stri_method[scrolmethod]+
+       #13#10'SCREEN='        +stri(Xres)+'x'+stri(Yres)+
+       #13#10'VRAM='          +stri(sizeX)+'x'+stri(sizeY)+
+       #13#10'VIRTUAL='       +stri(map^.sizeX)+'x'+stri(map^.sizeY)+
+       #13#10'lineoffset='    +stri(lineoffset)+
+       #13#10'doublescan='    +stri(doublescan)+
+       #13#10'nowsplit='      +stri(nowsplity)+
+       #13#10'maxsplit='      +stri(maxsplity);
+   2:GetDebugInfo:='TIMING INFOORMA'#13#10+
+       #13#10'eventwaitOk='   +stri_boolean[EventWaitOk]+
+       #13#10'retracelen='    +stri(retracelen)+
+       #13#10'vesasetvissync='+stri_boolean[vesa_setvissyncuje]+
+       #13#10'screenfreq='    +stri(screenfreq)+
+       #13#10'actualfreq='    +stri(actualscreenfreq)+
+       #13#10'tmrscrsync='    +stri(timerscrsync)
+       {$ifdef timer}+
+       #13#10'precisetimer='  +stri_boolean[precisetimer]+
+       #13#10'usetimer='      +stri_boolean[usetimer]+
+       #13#10'wanttimer='     +stri_boolean[wanttimer]+
+       #13#10'usingtimer='    +stri_boolean[usingtimer]
+       {$endif};
+   3:GetDebugInfo:='HW SCROL INFOORMA'#13#10+
+       #13#10'splitting='     +stri(splitting)+
+       #13#10'setvisstepx='   +stri(setvisstepx)+
+       #13#10'setvisybug='    +stri(setvisybug)+
+       #13#10'virtxstep='     +stri(virtxstep)+
+       #13#10'wrappingat='    +stri(wrappingat)+
+       #13#10'gotoybug='      +stri(gotoybug)+
+       #13#10'panupbug='      +stri(panupbug)+
+       #13#10'panleftbug='    +stri(panleftbug);
+   4:GetDebugInfo:='BUFFER INFOORMA'#13#10+
+       #13#10'buflinefirst='  +stri(buflinefirst)+
+       #13#10'buflines='      +stri(buflines)+
+       #13#10'bufmaxrezervaX='+stri(bufmaxrezervaX)+
+       #13#10'bufmaxrezervaY='+stri(bufmaxrezervaY);
+   5:GetDebugInfo:='SYSTEM INFOORMA'#13#10+
+       #13#10'os='            +Pc2Str(os[ops])+
+       #13#10'time='          +TimeS+
+       #13#10'date='          +DateS+
+       #13#10'memavail='      +stri(memavail)+
+       #13#10'maxavail='      +stri(maxavail){$ifdef dpmi}+
+       #13#10'swapsize='      +stri(swapsize){$endif};
+   else
+     GetDebugInfo:='';
+   end;
+end;
+
+
 
 
 
@@ -1677,25 +1807,26 @@ end;
 Type  TCfg = record
                Ves :boolean; {Vesamode}
                Mdl :byte;    {MapModel}
-               Spl :shortint;{Splitting}
-               StX :shortint;{SetvisStepX}
-               StY :shortint;{SetvisYBug}
-               ViX :shortint;{VirtXStep}
-               Wrp :shortint;{Wrapping}
-               GtY :shortint;{GotoYBug}
-               PaU :shortint;{PanUpBug}
-               PaL :shortint;{PanLeftBug}
+               Spl :shortint;{Splitting      -1=nevim}
+               StX :shortint;{SetvisStepX    -1}
+               StY :shortint;{SetvisYBug     -1}
+               ViX :shortint;{VirtXStep      -1}
+               OlW :shortint;{OldWrapping    -1}
+               GtY :shortint;{GotoYBug       -1}
+               PaU :shortint;{PanUpBug       -1}
+               PaL :shortint;{PanLeftBug     -1}
+               Wrp :shortint;{Wrapping        0=nevim}
              end;
 Const cfgs=6;
       cfg_vesa_packed=5;
       cfg:array[0..cfgs] of TCfg=(
-       (Ves:false;Mdl:255            ;Spl:-1;StX:-1;StY: 0;ViX:-1;Wrp:-1;GtY:-1;PaU:-1;PaL:-1),
-       (Ves:false;Mdl:model_text     ;Spl: 1;StX: 1;StY: 0;ViX: 2;Wrp: 0;GtY:-1;PaU:-1;PaL:-1),
-       (Ves:false;Mdl:model_packed   ;Spl: 1;StX: 1;StY: 0;ViX: 4;Wrp:-1;GtY: 0;PaU: 0;PaL:-1),
-       (Ves:false;Mdl:model_unchained;Spl: 1;StX: 1;StY: 0;ViX: 8;Wrp:-1;GtY: 0;PaU: 0;PaL:-1),
-       (Ves:true ;Mdl:model_text     ;Spl:-1;StX:-1;StY:-1;ViX:-1;Wrp: 0;GtY:-1;PaU: 0;PaL: 0),
-       (Ves:true ;Mdl:model_packed   ;Spl:-1;StX:-1;StY:-1;ViX:-1;Wrp:-1;GtY: 0;PaU: 0;PaL: 0),
-       (Ves:true ;Mdl:model_direct_  ;Spl:-1;StX:-1;StY:-1;ViX:-1;Wrp:-1;GtY: 0;PaU: 0;PaL: 0)
+       (Ves:false;Mdl:255            ;Spl:-1;StX:-1;StY: 0;ViX:-1;OlW:-1;GtY:-1;PaU:-1;PaL:-1;Wrp: 0),
+       (Ves:false;Mdl:model_text     ;Spl: 1;StX: 1;StY: 0;ViX: 2;OlW: 0;GtY:-1;PaU:-1;PaL:-1;Wrp:-1),
+       (Ves:false;Mdl:model_packed   ;Spl: 1;StX: 1;StY: 0;ViX: 4;OlW:-1;GtY: 0;PaU: 0;PaL:-1;Wrp: 0),
+       (Ves:false;Mdl:model_unchained;Spl: 1;StX: 1;StY: 0;ViX: 8;OlW:-1;GtY: 0;PaU: 0;PaL:-1;Wrp: 0),
+       (Ves:true ;Mdl:model_text     ;Spl:-1;StX:-1;StY:-1;ViX:-1;OlW: 0;GtY:-1;PaU: 0;PaL: 0;Wrp:-1),
+       (Ves:true ;Mdl:model_packed   ;Spl:-1;StX:-1;StY:-1;ViX:-1;OlW:-1;GtY: 0;PaU: 0;PaL: 0;Wrp: 0),
+       (Ves:true ;Mdl:model_direct_  ;Spl:-1;StX:-1;StY:-1;ViX:-1;OlW:-1;GtY: 0;PaU: 0;PaL: 0;Wrp: 0)
        );
 {Poznamky k tabulce:
   Prvni dva udaje v recordu jsou pouze popis skupiny modu kterych se to tyka.
@@ -1705,8 +1836,8 @@ Const cfgs=6;
    tam nastavil 0 (jako ze newrapuje), aby se usetrila jedna detekce.
   Vse ostatni je nastaveno na -1 neboli "dosud nezjisteno".
 
-  WrappingAt ve VGA Packed je asi u 70-95% karet 1; lisi se Trident, Tseng.
-  WrappingAt ve VGA Unchained je asi na 50-90% karet 4; lisi se Tseng, WD Accel, UMC, nektere S3.
+  WrappingAt ve VGA Packed je asi u 70-95% karet 1(64k); lisi se Trident, Tseng.
+  WrappingAt ve VGA Unchained je asi na 50-90% karet 3(256k); lisi se Tseng, WD Accel, UMC, nektere S3.
   SetvisYBug a GotoYBug ma hodne karet s S3.
   PanUpBug ma Tseng.
   PanLeftBug ma AtiMach64.
@@ -1784,8 +1915,8 @@ Procedure TScrolScreen.LoadCfg;
 begin
  LoadCfgOf(Vesamode,MapModel);
  {snizi velikost videopameti pri wrappingu pred jejim koncem}
- if (WrappingAt>0) then
-  if VramSizeKB>WrappingAt*64 then VramSizeKB:=WrappingAt*64;
+ if WrappingAt<>0 then
+  VramSizeKB:=MinW(VramSizeKB,32 shl abs(WrappingAt));
 end;
 
 
@@ -1810,7 +1941,7 @@ begin
  if (forcetest and t_SetvisStepXp )>0 then SetvisStepX  :=-1;
  if (forcetest and t_SetvisYBug   )>0 then SetvisYBug   :=-1;
  if (forcetest and t_VirtXStep    )>0 then VirtXStep    :=-1;
- if (forcetest and t_WrappingAt   )>0 then WrappingAt   :=-1;
+ if (forcetest and t_WrappingAt   )>0 then WrappingAt   :=0;
  if (forcetest and t_GotoYBug     )>0 then GotoYBug     :=-1;
  if (forcetest and t_PanUpBug     )>0 then PanUpBug     :=-1;
  if (forcetest and t_PanLeftBug   )>0 then PanLeftBug   :=-1;
@@ -1821,7 +1952,7 @@ begin
  if SetvisStepX <>-1 then test:=test and (65535-t_SetvisStepXp);
  if SetvisYBug  <>-1 then test:=test and (65535-t_SetvisYBug  );
  if VirtXStep   <>-1 then test:=test and (65535-t_VirtXStep   );
- if WrappingAt  <>-1 then test:=test and (65535-t_WrappingAt  );
+ if WrappingAt  <>0  then test:=test and (65535-t_WrappingAt  );
  if GotoYBug    <>-1 then test:=test and (65535-t_GotoYBug    );
  if PanUpBug    <>-1 then test:=test and (65535-t_PanUpBug    );
  if PanLeftBug  <>-1 then test:=test and (65535-t_PanLeftBug  );
@@ -1853,12 +1984,18 @@ var   b                 :PBitmap;
       rezervaY          :integer;
       testvga_intromsg  :boolean;
       testvga_oldexpand :boolean;
+type  string3=string[3];
+
+ function MyAskKeys(s:string3):char;
+  begin
+   SetHwCol(txtcolor,63,63,63);
+   MyAskKeys:=AskKey(s);
+   SetHwCol(txtcolor,0,0,0);
+  end;
 
  function MyAskKey:boolean;
   begin
-   SetHwCol(txtcolor,63,63,63);
-   MyAskKey:=AskKey(#13#27)=#13;
-   SetHwCol(txtcolor,0,0,0);
+   MyAskKey:=MyAskKeys(#13#27)=#13;
   end;
 
  {vycentruje text a hodi ho na obrazovku do vysky outY,
@@ -1866,7 +2003,7 @@ var   b                 :PBitmap;
  procedure outtext(deltaX:integer;outY:word;st:string);
   var   y,prop,sirka,kraj:word;
   begin
-   if MapModel=model_text then st:=Kamenici2Ascii(st);
+   if MapModel=model_text then st:=ToAscii(st);
    b^.Clr2Ful;
    if b^.MapModel=model_text then begin prop:=1;y:=1;end
                              else begin prop:=0;y:=-f^.maxnad;end;
@@ -1882,8 +2019,8 @@ var   b                 :PBitmap;
  procedure intromsg;
   begin
    {pripravi font a bitmapku pro outtext}
-   if f=nil then f:=caFontGet(fnDefault);
-   if f=nil then Halt(erMsgWritten);
+   if f=nil then f:=cacheGetFont(fnDefault);
+   if f=nil then Halt(_erWritten);
    if b=nil then New(b,Init(MapModel,minW(Xres,320),16));
    if b=nil then Halt(erLowMem);
    {zobrazi info}
@@ -2006,22 +2143,22 @@ var   b                 :PBitmap;
  function  testWrap:integer;
   const pixs=500;
   var i,j,x,y,sy,posun:integer;
+      c:char;
   label 1;
   begin
-   testwrap:=-1;
+   testwrap:=0;
    if setvisStepX<1 then exit;{bez toho nelze detekovat}
    if not interact then exit;
-   IntroMsg;
-   testwrap:=0;
-   OutText(0,0,_(_testEnter));
-   i:=1;
-   {do I*64KB spocita nejmensi mocninu dvou do ktere se vejde cela obrazovka}
+(*   IntroMsg;
+   OutText(0,0,_(_testEnter));*)
+   {do (32 shl i)KB spocita nejmensi mocninu dvou do ktere se vejde cela obrazovka}
    {ve VGA packed necha 1*64KB}
+   i:=1;
    if Vesamode or (MapModel<>model_packed) then begin
      j:=HiWord(longint(Xres)*Yres*ByPP-1);
-     while j>0 do begin i:=i shl 1;j:=j shr 1;end;
+     while j>0 do begin inc(i);j:=j shr 1;end;
      end;
-   {zkousi jestli newrapuje I*64KB nebo na nasledujicich mocninach dvou az do konce vram}
+(*   {zkousi jestli newrapuje I*64KB nebo na nasledujicich mocninach dvou az do konce vram}
    while i*64<VramSizeKB do begin
      y:=65536*i div vramXres;
      if y<Yres then sy:=0 else sy:=y-Yres;
@@ -2041,12 +2178,45 @@ var   b                 :PBitmap;
      for j:=0 to pixs do begin
        x:=Xres div 2+round(Xres/4*cos(j/pixs*pi));
        y:=round(Yres/3*sin(j/pixs*pi));
-       Col2Box(x+posun,y,1,1,txtcolor);
-       Col2Box(x,vramYres-1-y,1,1,txtcolor);
+       PutPixel(x+posun,y,txtcolor);
+       PutPixel(x,vramYres-1-y,txtcolor);
        end;
      OutText(0,vramYres-Yres div 4,_(_testPulkruzEsc));
      OutText(posun,Yres div 4,_(_testKruzEnter));
      if MyAskKey then begin testwrap:=i;goto 1;end;
+     end;*)
+   if 32 shl i<=VramSizeKB then IntroMsg;
+   {zkousi jestli newrapuje (32 shl i)KB nebo na nasledujicich mocninach dvou az do konce vram}
+   while 32 shl i<=VramSizeKB do begin
+     Clr2Ful;
+     sy:=(32768 shl i) div sizeXb-Yres div 2;{y na kterem bude zacinat obraz}
+     Setvis(0,sy);
+     posun:=Xres-(32768 shl i) mod sizeXb;
+     for j:=0 to pixs do begin
+       x:=Xres div 2+round(Xres/4*cos(j/pixs*pi));
+       y:=round(Yres/3*sin(j/pixs*pi));
+       PutPixel(x+posun,y,txtcolor);
+       PutPixel(x,sy+Yres div 2-1-y,txtcolor);
+       if 32 shl i<VramSizeKB then
+        PutPixel(x,sy+Yres div 2+y,txtcolor);
+       end;
+     if i<5
+      then OutText(0,sy+Yres div 2-16,'- '+stri(32 shl i)+' KB -')
+      else OutText(0,sy+Yres div 2-16,'- '+stri(1 shl (i-5))+' MB -');
+     OutText(0,sy+Yres div 4,_(_testPulkruzEsc));{jen horni pulka -> stop, wrap=-i}
+     OutText(posun,Yres div 4,_(_testKruzSpace));{i dolni -> stop, wrap=i}
+     if 32 shl i<VramSizeKB then begin
+       OutText(0,sy+Yres*3 div 4,_(_testKruzEnter));{i dolni -> testuj dal}
+       c:=MyAskKeys(#27#32#13);
+       end
+     else
+       c:=MyAskKeys(#27#32);
+     case c of
+       #27:begin testwrap:=-i;goto 1;end;
+       #32:begin testwrap:=i;goto 1;end;
+       end;
+     inc(i);
+     refresh(5);
      end;
    1:
    SetVis(0,0);
@@ -2343,6 +2513,7 @@ Begin
    if (Splitting=-1) and VgaCompat and (cfg[cfg_vesa_packed].Spl=1) then Splitting:=1;
    end;
 
+
  ExpandFul(testvga_oldexpand);
 End;
 
@@ -2354,12 +2525,12 @@ End;
  ---------------------------------------------------------------------------}
 PROCEDURE VgaVars;assembler;
  asm
-  db 'vgatext'                 ,0,i_use1,i_8sho;dw offset Cfg+2+10*1
-  db 'vgapacked'               ,0,i_use1,i_8sho;dw offset Cfg+2+10*2
-  db 'vgaunchained'            ,0,i_use1,i_8sho;dw offset Cfg+2+10*3
-  db 'vesatext'                ,0,i_use1,i_8sho;dw offset Cfg+2+10*4
-  db 'vesapacked'              ,0,i_use1,i_8sho;dw offset Cfg+2+10*5
-  db 'vesadirect'              ,0,i_use1,i_8sho;dw offset Cfg+2+10*6
+  db 'vgatext'                 ,0,i_use1,i_9sho;dw offset Cfg+2+type TCfg*1
+  db 'vgapacked'               ,0,i_use1,i_9sho;dw offset Cfg+2+type TCfg*2
+  db 'vgaunchained'            ,0,i_use1,i_9sho;dw offset Cfg+2+type TCfg*3
+  db 'vesatext'                ,0,i_use1,i_9sho;dw offset Cfg+2+type TCfg*4
+  db 'vesapacked'              ,0,i_use1,i_9sho;dw offset Cfg+2+type TCfg*5
+  db 'vesadirect'              ,0,i_use1,i_9sho;dw offset Cfg+2+type TCfg*6
   db 0
  end;
 
@@ -2372,29 +2543,35 @@ var result:TError;
 
 procedure ShutDown;far;
  begin
+  ShutDownInts:=OldShutDown;
   if CurScrolScreen<>nil then begin
+    {$ifdef timer}
     CurScrolScreen^.TmrScrolStop;
+    {$endif}
     {vynilovat abychom pozdeji mohli mov ax,3;int 10h a nikdo si nestezoval}
     CurScrolScreen:=nil;
     CurScreen:=nil;
     end;
-  if @OldShutDown<>nil then OldShutDown;
  end;
 
 procedure UserInit;
  begin
   autoscrolspeed   :=30;
+  {$ifdef timer}
   usetimer         :=false;
   preciseTimer     :=true;
   wanttimer        :=false;
   usingtimer       :=false;
+  {$endif}
   CitlivostSipek   :=30;
   CitlivostNumpadu :=30;
+  unlockLockedKeys :=false;
   CurScrolScreen   :=nil;
   presslength      :=0;
   t_test           :=t_all;
   t_forcetest      :=0;
   t_interact       :=false;
+  fillchar(updates,sizeof(updates),0);
   OldShutDown      :=ShutDownInts;
   ShutDownInts     :=ShutDown;
   {$ifdef safestack}

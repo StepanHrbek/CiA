@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -11,47 +11,60 @@ Procedure Done;
 
 Type      string2=string[2];
           string8=string[8];
+          string10=string[10];
           string11=string[11];
 
 {---------------------------------------------------------------------------
  Konverze
  ---------------------------------------------------------------------------}
 {obecne konverze}
-PROCEDURE Xlat(var st:openstring;src,dest:string);
-FUNCTION  Xlated(st,src,dest:string):string;
+PROCEDURE XlatChar(var c:char;const src,dest:pstring);
+PROCEDURE Xlat(var st:openstring;const src,dest:pstring);
+FUNCTION  Xlated(st:string;const src,dest:pstring):string;
 
-{hexa cisla}
+{cislo<->string}
+FUNCTION  Valu(st:string11):longint;
+FUNCTION  Stri(num:longint):string11;
+FUNCTION  Ptr2Str(p:pointer):string11;
+FUNCTION  WithZeroes(num:longint;len:byte):string11;
+FUNCTION  PadDigits(number,digits,radix:word; paddingchar:char):string11;
+
+{cislo<->hexadecimalni_zapis}
 const     hex:array[0..15] of char='0123456789ABCDEF';
 FUNCTION  Hexed(d:longint):string8;
 FUNCTION  Dehexed(s:string):longint;
 
-{maly/velky/kamenici}
+{CSstring<->USstring}
+var       kodovani:pstring;         {tva tabulka znaku s diakritikou}
+var       bezkodovani:pstring;      {a tech samych bez ni}
+FUNCTION  ToAscii(st:string):string;
+
+{maly<->velky s moznosti osetreni cestiny}
 FUNCTION  DnCase(c:char):char;
 PROCEDURE LoCasni(var st:openstring);
 PROCEDURE UpCasni(var st:openstring);
 FUNCTION  LoCased(st:string):string;
 FUNCTION  UpCased(st:string):string;
-FUNCTION  Kamenici2Ascii(st:openstring):string;
 FUNCTION  lcased(s:string):string;
 FUNCTION  ucased(s:string):string;
 
-{string/pchar}
+{string<->pchar}
 FUNCTION  Pc2Str(pc:pchar):string;
 FUNCTION  Str2Pc(var st:openstring):pchar;
 FUNCTION  DeStr2Pc(var st:openstring):pchar;
 FUNCTION  Str2TempPc(st:string):pchar;
 
-{ostatni}
+{cas->string}
+FUNCTION  DateS:string10;
+FUNCTION  TimeS:string8;
+
+{zarovnavani doleva/doprava/doprostred}
 FUNCTION  Rep(c:char;kolikrat:byte):string;
 FUNCTION  Left(st:string;len:byte):string;
 FUNCTION  Right(st:string;len:byte):string;
 FUNCTION  LeftRight(levy,pravy:string;len:byte):string;
 FUNCTION  Middle(st:string;len:byte):string;
 FUNCTION  Reversed(s:string):string;
-
-{cas na string}
-FUNCTION  DateS:string8;
-FUNCTION  TimeS:string8;
 
 {---------------------------------------------------------------------------
  Zpracovani strukturovanych stringu.
@@ -65,26 +78,30 @@ FUNCTION  CutName(var st:openstring):string;
 FUNCTION  CutChar(var st:openstring):char;
 FUNCTION  CutAll(var st:openstring):string;
 PROCEDURE AddName(var st:openstring;name:PathStr);
+FUNCTION  MultiCase(variable:string;environment:pchar):string;
+
+{prace s vybranymi znaky}
 FUNCTION  WithoutChar(c:char;s:string):string;
 FUNCTION  WithoutChars(chars,s:string):string;
 FUNCTION  CharsIn(c:char;s:string):byte;
+FUNCTION  CharsPos(const str,chars:string):byte;
 
-{prace s cisly ve stringu}
-const     Zero:char='0';
-FUNCTION  WithZeroes(num:longint;len:byte):string11;
-FUNCTION  Stri(num:longint):string11;
-FUNCTION  Valu(st:string11):longint;
+{prace s vice cisly ve stringu}
 FUNCTION  GetNumPos(st:string;n:integer;var pos,len:integer):longint;
 FUNCTION  GetNum(st:string;n:integer):longint;
 FUNCTION  ReplacedNum(st:string;n:integer;value:longint):string;
 FUNCTION  CutNum(var st:openstring):longint;
-FUNCTION  Ptr2Str(p:pointer):string11;
-FUNCTION  MultiCase(variable:string;environment:pchar):string;
 
 {const     SubstChar:char='^';
 FUNCTION  SubstString(c:char; s:string):string;
 FUNCTION  DeSubstString(s:string):string;
 FUNCTION  IsInStr(item,list:string):boolean;
+
+{---------------------------------------------------------------------------
+ Hvezdickova konvence.
+ ---------------------------------------------------------------------------}
+FUNCTION  hkIsOk(st:string):boolean;
+FUNCTION  hkNalezi(prvek,mnozina:string):boolean;
 
 {---------------------------------------------------------------------------
  Vse pro pchary.
@@ -107,19 +124,25 @@ FUNCTION  StrRolStr(pc:pchar;separator:char):string;
 {ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ}
 
 
-
 FUNCTION MinW(x,y:word):word;inline($58/$5b/$3b/$c3/$72/$01/$93);{pop ax;pop bx;cmp ax,bx;jb +1;xchg ax,bx}
 FUNCTION MaxI(x,y:integer):integer;inline($58/$5b/$3b/$d8/$7e/$01/$93);{pop ax;pop bx;cmp bx,ax;jle +1;xchg ax,bx}
+
+PROCEDURE XlatChar(var c:char;const src,dest:pstring);
+var i:byte;
+begin
+ i:=pos(c,src^);
+ if i>0 then c:=dest^[i];
+end;
 
 {---------------------------------------------------------------------------
  Znaky ze src nahradi znaky z dest.
  ---------------------------------------------------------------------------}
-PROCEDURE Xlat(var st:openstring;src,dest:string);
+PROCEDURE Xlat(var st:openstring;const src,dest:pstring);
 var   i,j:word;
 begin
  for i:=1 to length(st) do begin
-   j:=pos(st[i],src);
-   if j>0 then st[i]:=dest[j];
+   j:=pos(st[i],src^);
+   if j>0 then st[i]:=dest^[j];
    end;
 end;
 
@@ -127,7 +150,7 @@ end;
  Znaky ze src nahradi znaky z dest.
  Priklad: Xlated('ahoj','aj','Ay')='Ahoy'
  ---------------------------------------------------------------------------}
-FUNCTION  Xlated(st,src,dest:string):string;
+FUNCTION  Xlated(st:string;const src,dest:pstring):string;
 begin
  Xlat(st,src,dest);
  Xlated:=st;
@@ -136,7 +159,7 @@ end;
 {---------------------------------------------------------------------------
  Zameni jednu cast stringu za druhou.
  ---------------------------------------------------------------------------}
-PROCEDURE XLatStr(var s:string; scr,dest:string);
+PROCEDURE XlatStr(var s:string; scr,dest:string);
 var i:byte;
 begin
  i:=Pos(scr,s);
@@ -154,11 +177,6 @@ begin
  XlatStr(st,src,dest);
  XlatedStr:=st;
 end;
-
-const Kamenici: string[30] = 'ˆ¨‡©‘˜ ¡‚£–Ÿ¤ƒ¢'+
-                             '‰›€’‹—¦†¥…•';
-      Ascii   : string[30] = 'escrzyaieuutndo'+
-                             'ESCRZYAIEUUTNDO';
 
 {---------------------------------------------------------------------------
  Zkonverti longint do hexastringu.
@@ -178,6 +196,13 @@ asm   {hexed}
  call @hex
  mov  al,byte ptr d
  call @hex
+ cmp  word ptr d+2,0
+ jne  @end
+ cmp  word ptr d,0
+ jne  @end
+ mov  al,'0'
+ stosb
+ mov  bl,1
  jmp  @end
 @hex:
  mov  ah,al
@@ -321,10 +346,12 @@ PROCEDURE LoCasni(var st:openstring);
 var i,j:byte;
 begin
  for i:=1 to length(st) do begin
-	case st[i] of 'A'..'Z':inc(st[i],32); end;
-        j:=pos(st[i],Kamenici);
-        if j > 15 then st[i]:=Kamenici[j-15];
-        end;
+   st[i]:=dncase(st[i]);
+   if kodovani<>nil then begin
+     j:=pos(st[i],kodovani^);
+     if j>length(kodovani^) div 2 then st[i]:=kodovani^[j-length(kodovani^) div 2];
+     end;
+   end;
 end;
 
 {---------------------------------------------------------------------------
@@ -334,10 +361,26 @@ PROCEDURE UpCasni(var st:openstring);
 var i,j:byte;
 begin
  for i:=1 to length(st) do begin
-	st[i]:=upcase(st[i]);
-        j:=pos(st[i],Kamenici);
-        case j of 1..15:st[i]:=Kamenici[j+15]; end;
-        end;
+   st[i]:=upcase(st[i]);
+   if kodovani<>nil then begin
+     j:=pos(st[i],kodovani^);
+     if (j>0) and (j<=length(kodovani^) div 2) then st[i]:=kodovani^[j+length(kodovani^) div 2];
+     end;
+   end;
+end;
+
+{---------------------------------------------------------------------------
+ Vraci string zkonverteny z cestiny do ASCII.
+ ---------------------------------------------------------------------------}
+FUNCTION ToAscii(st:string):string;
+var i,j:byte;
+begin
+ if (kodovani<>nil) and (bezkodovani<>nil) then
+  for i:=1 to length(st) do begin
+   j:=pos(st[i],kodovani^);
+   if j<>0 then st[i]:=bezkodovani^[j];
+   end;
+ ToAscii:=st;
 end;
 
 {---------------------------------------------------------------------------
@@ -414,17 +457,6 @@ asm   {ucased}
  pop  ds
  pop  es
 end;  {ucased}
-
-{---------------------------------------------------------------------------
- Vraci string zkonverteny z Kameniku do ASCII.
- ---------------------------------------------------------------------------}
-FUNCTION Kamenici2Ascii(st:openstring):string;
-var i:byte;
-begin
- for i:=1 to length(st) do
-  if pos(st[i],Kamenici)<>0 then st[i]:=ascii[pos(st[i],Kamenici)];
- Kamenici2Ascii:=st;
-end;
 
 {---------------------------------------------------------------------------
  Konverti pchar na string. Z prilis dlouhych vraci prvnich 255 znaku.
@@ -668,7 +700,7 @@ begin
 end;
 
 {---------------------------------------------------------------------------
- Vrati n-ty prvek z retezce slov oddelenych separatorem.
+ Vrati n-ty prvek z retezce slov oddelenych separatorem, zacina se prvnim.
  ---------------------------------------------------------------------------}
 FUNCTION  GetString(st:string;separator:char;n:integer):string;
 var   i,j:integer;
@@ -749,14 +781,21 @@ end;  {CutString}*)
 {---------------------------------------------------------------------------
  Z kraje stringu odstrihne filename a vraci ho jako vysledek.
  Rozpozna oddelovac souboru (viz pouzity seznam znaku).
+ Od uvozovky az do dalsi muze jmeno obsahovat i vsechny specialni znaky,
+ uvozovky jsou pak zahozeny.
  ---------------------------------------------------------------------------}
 FUNCTION  CutName(var st:openstring):string;
 var i:word;
+    uvoz:boolean;
 begin
+ uvoz:=false;
  i:=1;
- while (i<=length(st)) and
-  not (st[i] in [' ',',',';','+',{':','\','?','*',}#0..#31]) do inc(i);
- CutName:=copy(st,1,i-1);
+ while i<=length(st) do begin
+   if st[i]='"' then uvoz:=not uvoz else
+    if not uvoz and (st[i] in [' ',',',';','+',{':','\','?','*',}#0..#31]) then break;
+   inc(i);
+   end;
+ CutName:=WithoutChar('"',copy(st,1,i-1));
  delete(st,1,i);
 end;
 
@@ -801,6 +840,18 @@ begin
 end;
 
 {---------------------------------------------------------------------------
+ Zkonverti string do longintu ale na rozdil od 'System.Val' je to funkce.
+ Pri nekorektnim vstupu vraci 0.
+ ---------------------------------------------------------------------------}
+FUNCTION  Valu(st:string11):longint;
+var   l:longint;
+      code:word;
+begin {Valu}
+ val(st,l,code);
+ if code=0 then valu:=l else valu:=0;
+end;  {Valu}
+
+{---------------------------------------------------------------------------
  Zkonverti cislo do stringu zadane delky bez mezer.
  Kdyz se nevejde, vrati nejblizsi cislo ktere se jeste vejde.
  Prikady: WithZeroes(  79,5)='00079'
@@ -813,27 +864,126 @@ FUNCTION WithZeroes(num:longint;len:byte):string11;
 var s:string11;
 begin {WithZeroes}
  if len=0 then begin WithZeroes:='';exit;end;
- if (len=1) and (num<0) then begin WithZeroes:=Zero; exit; end;
+ if (len=1) and (num<=0) then begin WithZeroes:='0'; exit; end;
  if num<0 then dec(len);
  s:=stri(abs(num));
- if length(s)>len then s:=rep('9',len) else s:=rep(Zero,len-length(s))+s;
+ if length(s)>len then s:=rep('9',len) else s:=rep('0',len-length(s))+s;
  if num<0
   then WithZeroes:='-'+s
   else WithZeroes:=s;
 end;  {WithZeroes}
-{* Kdyby tady tak byla RealWithZeroes i pro realna cisla}
+
+(*FUNCTION  PadZeroes(num,digits:word):string; assembler;
+{vrati cislo jako retezec zadane delky, zprava vyplneny nulami.}
+asm   {PadZeroes}
+ push ds
+ les  di,@result
+ mov  cx,digits
+ mov  si,cx
+ mov  es:[di],cl
+ jcxz @end
+ add  di,cx
+ mov  si,10
+ mov  ax,num
+ std
+@1:
+ xor  dx,dx
+ div  si
+ mov  bx,ax
+ mov  al,dl
+ add  al,'0'
+ stosb
+ mov  ax,bx
+ loop @1
+@end:
+ cld
+ pop  ds
+end;  {PadZeroes}
+
+FUNCTION  PadZeroesM(num,digits,radix:word):string; assembler;
+{jako PadZeroesM ale muzete zadat radix (zaklad ciselne soustavy)}
+asm   {PadZeroesM}
+ push ds
+ les  di,@result
+ mov  cx,digits {sice je to word, ale predpoklada se, ze to bude
+delka stringu, takze 0..255}
+ mov  si,cx
+ mov  es:[di],cl
+ jcxz @end
+ add  di,cx
+ mov  si,radix {prestoze je word, predpoklada se, ze radix bude
+2..255}
+{pro radix=1 nefungi ale mohl by se pro to udelat kod - rep
+('0',digits); :-)}
+ mov  ax,num
+ std
+@1:
+ xor  dx,dx
+ div  si
+ mov  bx,ax
+ mov  al,dl
+ cmp  si,36 {cislice do radixu=35 se daji zobrazit do
+0..9,"A".."Z", dal zobrazovat jako chr(cislice)}
+ ja   @2
+ add  al,'0'
+ cmp  al,'9'
+ jbe  @2
+ add  al,'A'-'9'-1
+ cmp  al,'Z'
+@2:
+ stosb
+ mov  ax,bx
+ loop @1
+@end:
+ cld
+ pop  ds
+end;  {PadZeroesM}
+*)
 
 {---------------------------------------------------------------------------
- Zkonverti string do longintu ale na rozdil od 'System.Val' je to funkce.
- Pri nekorektnim vstupu vraci 0.
+ Prevede nezap.cislo do zadane soustavy a doplni paddingcharem na zadanou delku.
+ Priklad: paddigits(65520,6,16,'.')='..FFF0'
  ---------------------------------------------------------------------------}
-FUNCTION  Valu(st:string11):longint;
-var   l:longint;
-      code:word;
-begin {Valu}
- val(st,l,code);
- if code=0 then valu:=l else valu:=0;
-end;  {Valu}
+FUNCTION  PadDigits(number,digits,radix:word; paddingchar:char):string11; assembler;
+asm   {PadDigits}
+ push ds
+ les  di,@result
+ mov  cx,digits
+ mov  si,cx
+ mov  es:[di],cl
+ jcxz @end
+ add  di,cx
+ mov  si,radix
+ mov  ax,number
+@1:
+ xor  dx,dx
+ div  si
+ mov  bx,ax
+ mov  al,dl
+ add  al,'0'
+ cmp  al,'9'
+ jbe  @2
+ add  al,'A'-'9'-1
+@2:
+ std
+ stosb
+ cld
+ mov  ax,bx
+ loop @1
+ mov  cx,digits
+ dec  cx
+ jcxz @end
+ mov  al,'0'
+ mov  ah,paddingchar
+@3:
+ inc  di
+ scasb
+ jnz  @end
+ mov  es:[di-1],ah
+ loop @3
+@end:
+ pop  ds
+end;  {PadDigits}
 
 {---------------------------------------------------------------------------
  Pomocna funkce:
@@ -943,7 +1093,7 @@ end;
  Jeden priklad za vsechny: WithoutChar('.','M.A.S.H.')='MASH'
  ---------------------------------------------------------------------------}
 FUNCTION WithoutChar(c:char;s:string):string; assembler;
-asm   {vyjmiznak}
+asm   {withoutchar}
  push ds
  push es
  {cld}
@@ -969,7 +1119,7 @@ asm   {vyjmiznak}
 @end:
  pop  es
  pop  ds
-end;  {vyjmiznak}
+end;  {withoutchar}
 
 FUNCTION  WithoutChars(chars,s:string):string;
 var i:integer;
@@ -1018,6 +1168,23 @@ begin
  for i:=1 to length(s) do if s[i]=c then inc(j);
  CharsIn:=j;
 end;}
+
+{---------------------------------------------------------------------------
+ Vraci pozici prvniho vyskytu libovolneho ze zadanych znaku.
+ Pokud string neobsahuje zadny ze zadanych znaku, vraci 0.
+ Tj. vse je jako u pos(), jen misto jednoho znaku jich lze hledat vic.
+ ---------------------------------------------------------------------------}
+FUNCTION  CharsPos(const str,chars:string):byte;
+var a:byte;
+begin 
+ CharsPos:=0;
+ for a:=1 to length(str) do 
+  if pos(str[a],chars)>0 then 
+    begin
+     CharsPos:=a;
+     exit;
+    end;
+end;  
 
 (*
 FUNCTION  SubstString(c:char; s:string):string; assembler;
@@ -1166,8 +1333,8 @@ end;  {DeSubstString}
  IsIn pro stringy. Vraci, jesli v seznamu, jehoz jednotlive polozky jsou
  oddeleny strednikem, je pritomen dany retezec.
  Priklad: IsInStr('jablko','pomeranc;citron;banan;kiwi;hruska;kokos')=false
- Rozlisuje mala a velka pismena. Podporuje (De)SubstString. Omezeni na 255b.
- {* a) nevyzkouseno  b) asi bude lepsi verze pro PChary misto string£.
+ Rozlisuje mala a velka pismena. Podporuje (De)SubstString. Omezeni na 255B.
+ {* a) nevyzkouseno  b) asi bude lepsi verze pro PChary misto stringu.
  ---------------------------------------------------------------------------}
 FUNCTION  IsInStr(item,list:string):boolean;
 begin {IsInStr}
@@ -1222,13 +1389,13 @@ asm   {Reversed}
 end;  {Reversed}
 
 {---------------------------------------------------------------------------
- Vraci systemove datum v podobe stringu (napr.'02.29.96')
+ Vraci systemove datum v podobe stringu (napr.'29.02.1996')
  ---------------------------------------------------------------------------}
-FUNCTION  DateS:string8;
+FUNCTION  DateS:string10;
 var y,m,d,dow:word;
 begin {dates}
  GetDate(y,m,d,dow);
- dates:=WithZeroes(d,2)+'.'+WithZeroes(m,2)+'.'+Right(WithZeroes(y,4),2);
+ dates:=WithZeroes(d,2)+'.'+WithZeroes(m,2)+'.'+WithZeroes(y,4);
 end;  {dates}
 
 {---------------------------------------------------------------------------
@@ -1242,6 +1409,102 @@ begin {times}
 end;  {times}
 
 
+
+{ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ HVEZDICKOVA KONVENCE ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ}
+
+{---------------------------------------------------------------------------
+ Vraci zda string neporusuje syntaxi rozsirene hvezdickove konvence.
+ Syntaxe:
+  ? - libovolny znak
+  * - libovolny string, i prazdny
+  [var1|var2|var3...] - libovolna z uvedenych variant
+  " - pouziva se k ohraniceni stringu, proto se nesmi vyskytovat uvnitr
+  #0..#31 - tyto znaky jsou preventivne zakazany
+ ---------------------------------------------------------------------------}
+FUNCTION  hkIsOk(st:string):boolean;
+var   zavorek:integer;
+      i:word;
+label bad;
+begin
+ hkIsOk:=false;
+ zavorek:=0;
+ for i:=1 to length(st) do
+  case st[i] of '"':goto bad;
+                '[':inc(zavorek);
+                ']':if zavorek>0 then dec(zavorek) else goto bad;
+            #0..#31:goto bad;
+                '|':if zavorek=0 then goto bad;
+                end;
+ if zavorek<>0 then goto bad;
+ hkIsOk:=true;
+ bad:
+end;
+
+{---------------------------------------------------------------------------
+ Vraci zda prvek nalezi do mnoziny zadane rozsirenou hvezdickovou konvenci.
+ Funkce predpoklada ze druhy parametr odpovida konvenci, nesnazi se
+ detekovat nejake syntakticke chyby.
+ Vysvetleni nazvu: *.bak je mnozina souboru, bagr.bak jeji prvek, a tahle
+  funkce zjisti jestli prvek nalezi do mnoziny.
+ ---------------------------------------------------------------------------}
+FUNCTION hkNalezi(prvek,mnozina:string):boolean;
+var   i,j,k,l,m:byte;
+label ok;
+begin
+ hkNalezi:=false;
+ if prvek=mnozina then goto OK;
+ {odstrani sekvence hvezdicek, ktere zada vul snazici se zahltiti stack}
+ for i:=length(mnozina) downto 2 do
+  if (mnozina[i]='*') and (mnozina[i-1]='*') then delete(mnozina,i,1);
+
+ if prvek='' then begin
+   if mnozina[1]='*' then if hkNalezi('',copy(mnozina,2,255)) then goto OK;
+   exit;
+   end;
+
+ for i:=1 to length(prvek) do
+   if i>length(mnozina) then exit
+   {---------------- obstara syntaxi * ---------------}
+   else
+   if mnozina[i]='*' then
+     begin
+     for j:=i to length(prvek)+1 do
+      if hkNalezi(copy(prvek,j,255),copy(mnozina,i+1,255)) then goto OK;
+     end
+   {---------------- obstara syntaxi [|] ---------------}
+   else
+   if mnozina[i]='[' then
+     begin
+     {i <- pozice zacatku vyrazu: '['}
+     {k <- pozice konce vyrazu: ']'}
+     l:=0;
+     for k:=i+1 to length(mnozina) do
+      case mnozina[k] of '[':inc(l);
+                         ']':if l>0 then dec(l) else break;
+                         end;
+     {j <- pozice zacatku substringu: '[' nebo '|'}
+     j:=i;
+     repeat
+       {m <- pozice konce substringu: '|' nebo ']'}
+       l:=0;
+       for m:=j+1 to k do
+        case mnozina[m] of '[':inc(l);
+                           ']':if l>0 then dec(l) else break;
+                           '|':if l=0 then break;
+                           end;
+       if hkNalezi(copy(prvek,i,200),copy(mnozina,j+1,m-j-1)+copy(mnozina,k+1,255)) then goto OK;
+       j:=m;
+     until mnozina[m]=']';
+     exit;
+     end
+   {---------------- obstara syntaxi ? ---------------}
+   else
+   if (mnozina[i]<>prvek[i]) and (mnozina[i]<>'?') then exit;
+
+ if not hkNalezi('',copy(mnozina,length(prvek)+1,255)) then exit;
+ ok:
+ hkNalezi:=true;
+end;
 
 {ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ VSE PRO PCHARY ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ}
 
@@ -1315,11 +1578,17 @@ end;
  ---------------------------------------------------------------------------}
 FUNCTION  StrCutName(var pc:pchar):string;
 var st:string;
+    uvoz:boolean;
 begin
+ uvoz:=false;
  st:='';
  if pc<>nil then begin
-   while not (pc^ in [' ',',',';','+',#0..#31])
-    do begin st:=st+pc^;inc(pc);end;
+   while pc^<>#0 do begin
+     if pc^='"' then uvoz:=not uvoz else
+      if not uvoz and (pc^ in [' ',',',';','+',#0..#31]) then break
+       else st:=st+pc^;
+     inc(pc);
+     end;
    if pc^<>#0 then inc(pc);
    end;
  StrCutName:=st;
@@ -1390,15 +1659,25 @@ begin
  if oldpc<>nil then StrCopy(oldpc,pc);
 end;
 
+
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
-function Init:TError;
+const unita='stringy';
+var result:TError;
+
+procedure UserInit;
  begin
-  Init:=erOk;
+  kodovani         :=nil;
+  bezkodovani      :=nil;
  end;
 
-procedure Done;
+procedure UserDone;
  begin
  end;
 
+{$i initdone.inc}
+{$ifdef autoinit}
+BEGIN
+ erCheck(Init);
+{$endif}
 END.

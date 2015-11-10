@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -32,11 +32,11 @@ END.
 
 {$ifdef debuginit}
 var old:longint;
-FUNCTION  Stri(n:longint):string;
+FUNCTION  _Stri(n:longint):string;
 var st:string[10];
 begin
  str(n,st);
- stri:=st;
+ _stri:=st;
 end;
 {$endif}
 
@@ -49,8 +49,7 @@ procedure RuntimeExit;far;
   asm mov ax,seg @data;mov ds,ax;end;
   exitProc:=oldExitProc;
   {Zastavi proud HW interruptu ktere by mohly delat problemy.}
-  if @ShutDownInts<>nil then ShutDownInts;
-  ShutDownInts:=nil;
+  while @ShutDownInts<>nil do ShutDownInts;
   {Dej pozor abys tady volal ZDEJSI Done (deklaruj Done v interface)}
   Done;
  end;
@@ -65,7 +64,7 @@ function Init:TError;
     {$endif}
     UserInit;
     {$ifdef debuginit}
-    bioswriteln(unita+'.init eats '+stri(old-memavail));
+    bioswriteln(unita+'.init eats '+_stri(old-memavail));
     {$endif}
     if result=erOk then begin
       {$ifdef autodone}
@@ -87,7 +86,7 @@ procedure Done;
    {$endif}
    UserDone;
    {$ifdef debuginit}
-   bioswrite('done vomits '+stri(memavail-old));
+   bioswrite('done vomits '+_stri(memavail-old));
    if erroraddr<>nil then bioswrite(' ErrorAddr<>nil!');
    bioswriteln('');
    {$endif}

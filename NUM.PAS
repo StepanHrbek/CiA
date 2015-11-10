@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -81,7 +81,6 @@ FUNCTION  Oct2Hex2(d:string6):string4;
 FUNCTION  Oct2Hex4(d:string11):string8;
 FUNCTION  Any2Any(number:string;inbase,outbase:byte):string;
 
-
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
                           IMPLEMENTATION
 {ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ}
@@ -110,7 +109,7 @@ asm   {Dec2Hex1}
 @ConvertHex2:
  add  al,'0'
  stosb
- ret
+ retn
 @end:
  pop  es
 end;  {Dec2Hex1}
@@ -142,7 +141,7 @@ asm   {Dec2Hex2}
 @ConvertHex2:
  add  al,'0'
  stosb
- ret
+ retn
 @end:
  pop  es
 end;  {Dec2Hex2}
@@ -186,7 +185,7 @@ asm   {Dec2Hex4}
 @ConvertHex2:
  add  al,'0'
  stosb
- ret
+ retn
 @end:
  pop  es
 end;  {Dec2Hex4}
@@ -365,7 +364,7 @@ asm   {Dec2Bin2}
 @ConvertBin2:
  stosb
  loop @ConvertBin1
- ret
+ retn
 @end:
  pop  es
 end;  {Dec2Bin2}
@@ -400,7 +399,7 @@ asm   {Dec2Bin4}
 @ConvertBin2:
  stosb
  loop @ConvertBin1
- ret
+ retn
 @end:
  pop  es
 end;  {Dec2Bin4}
@@ -453,7 +452,7 @@ asm   {Hex2Bin1}
  db 66h;stosw          {a prekopiruju je do @resultu.}
  pop  di
  add  di,4
- ret
+ retn
 @end:
  pop  es
  pop  ds
@@ -496,7 +495,7 @@ asm   {Hex2Bin2}
  db 66h;stosw          {a prekopiruju je do @resultu.}
  pop  di
  add  di,4
- ret
+ retn
 @end:
  pop  es
  pop  ds
@@ -539,7 +538,7 @@ asm   {Hex2Bin4}
  db 66h;stosw          {a prekopiruju je do @resultu.}
  pop  di
  add  di,4
- ret
+ retn
 @end:
  pop  es
  pop  ds
@@ -608,7 +607,7 @@ asm   {Oct2Bin1}
  pop  es
  db 66h;stosw
  dec  di
- ret
+ retn
 @end:
  pop  es
  pop  ds
@@ -671,7 +670,7 @@ asm   {Oct2Bin2}
  pop  es
  db 66h;stosw
  dec  di
- ret
+ retn
 @end:
  pop  es
  pop  ds
@@ -734,7 +733,7 @@ asm   {Oct2Bin4}
  pop  es
  db 66h;stosw
  dec  di
- ret
+ retn
 @end:
  pop  es
  pop  ds
@@ -796,7 +795,7 @@ asm   {Hex2Dec2}
  sub  al,'0'
  and  al,0Fh
  add  al,ah
- ret
+ retn
 @end:
  pop  ds
 end;  {Hex2Dec2}
@@ -834,7 +833,7 @@ asm   {Hex2Dec4}
  sub  al,'0'
  and  al,0Fh
  add  al,ah
- ret
+ retn
 @end:
  pop  ds
 end;  {Hex2Dec4}
@@ -882,7 +881,7 @@ asm   {Bin2Dec2}
  shr  bh,1
  loop @cykl
  mov  al,bl
- ret
+ retn
 @end:
  pop  ds
 end;  {Bin2Dec2}
@@ -913,7 +912,7 @@ asm   {Bin2Dec4}
  shr  bh,1
  loop @cykl
  mov  al,bl
- ret
+ retn
 @end:
  pop  ds
 end;  {Bin2Dec4}
@@ -949,7 +948,7 @@ asm   {Bin2Hex1}
 @done:
  mov  al,bl
  stosb
- ret
+ retn
 @end:
  pop  es
  pop  ds
@@ -987,7 +986,7 @@ asm   {Bin2Hex2}
 @done:
  mov  al,bl
  stosb
- ret
+ retn
 @end:
  pop  es
  pop  ds
@@ -1025,7 +1024,7 @@ asm   {Bin2Hex4}
 @done:
  mov  al,bl
  stosb
- ret
+ retn
 @end:
  pop  es
  pop  ds
@@ -1060,7 +1059,7 @@ asm   {Bin2Oct1}
  pop  cx
  mov  al,bl
  stosb
- ret
+ retn
 @end:
  pop  es
  pop  ds
@@ -1101,7 +1100,7 @@ asm   {Bin2Oct2}
  pop  cx
  mov  al,bl
  stosb
- ret
+ retn
 @end:
  pop  es
  pop  ds
@@ -1137,7 +1136,7 @@ asm   {Bin2Oct4}
  loop @cykl
  mov  al,bl
  stosb
- ret
+ retn
 @end:
  pop  es
  pop  ds
@@ -1616,7 +1615,7 @@ asm   {Oct2Hex2}
  add  ah,'0'
  mov  al,ah
  stosb
- ret
+ retn
 @end:
  pop  es
  pop  ds
@@ -1711,7 +1710,7 @@ asm   {Oct2Hex4}
  add  ah,'0'
  mov  al,ah
  stosb
- ret
+ retn
 @end:
  pop  es
  pop  ds
@@ -1814,6 +1813,12 @@ asm
     @bug:
 end;
 
+{---------------------------------------------------------------------------
+ Prevadi cislo (jen nezaporne?) do jine soustavy.
+ V betaverzi jeste kontroluje zda jsou vstupy korektni.
+ Cisla v soustavach 2-36 jsou slozena ze znaku 0..9,A..Z.
+ Cisla v soustavach 37-255 jsou slozena ze znaku #0..#254.
+ ---------------------------------------------------------------------------}
 FUNCTION Any2Any(number:string;inbase,outbase:byte):string;
 begin
  if inbase<=36 then digit2byte(number);
@@ -1828,7 +1833,6 @@ begin
      call byte2digit
  end;
 end;
-
 
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 

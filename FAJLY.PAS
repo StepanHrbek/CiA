@@ -1,11 +1,11 @@
-{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 1.00ƒƒƒø
+{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 2.00ƒƒƒø
  ≥S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi≥
  ≥v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.≥
  ¿ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒŸ}
 
 Unit      Fajly;
 Interface {$i define.inc}
-Uses      Chyby,Memo, Dos,Objects, {$ifdef dpmi}DPMI,{$endif} Stringy,Sys;
+Uses      Chyby,Memo, Dos,Objects,Strings, {$ifdef dpmi}DPMI,{$endif} Stringy,Sys;
 Function  Init:TError;
 Procedure Done;
 
@@ -30,16 +30,16 @@ Procedure Done;
  zalezi zda flags+globflags obsahuje
    fileIgnoreErr - ignorovat chybu a pokracovat v operaci na dalsich souborech
    fileStopIfErr - ukoncit celou operaci
-   else          - zeptat se co delat a podle toho i nastavit globflags
+   else          - zeptat se co delat (dialog),podle toho i nastavit globflags
 
  ---------------------------------------------------------------------------
                              Registr formatu
  ---------------------------------------------------------------------------
- V registru formatu je ulozen seznam formatu a jejich vlastnosti.
+ V registru formatu je ulozen seznam formatu(typu souboru)a jejich vlastnosti.
  Registr vznika za behu a kdykoliv lze zaregistrovat nove formaty.
 
  Funkce fileIs(name) vraci vlastnosti souboru name.
- Tak naprilad fileIs('bagr.tga') vrati isLoadable+isGraphics+isFixedSize.
+ Tak naprilad fileIs('bagr.gif') vrati isLoadable+isGraphics+isFixedSize.
 
  Funkce fileFind(name,flags) se podiva na soubor name. Pokud ho nenajde,
  zkousi k name pripojovat zaregistrovane pripony (podle poradi registrace)
@@ -58,6 +58,7 @@ Procedure Done;
 
 
 Var       ReadOnlyMod:boolean;              {readonly rezim, potlaceni zapisu na disk}
+          DeviceExists:boolean;             {ma fce fileExists uspet na device (prn, lpt1...)?}
           globflags:word;                   {globalni flagy, fce je mohou samy na pokyn uzivatele menit}
 Type      FileStr=string[13];               {13.znak kvuli pripadnemu pouziti Str2Pc}
 
@@ -65,7 +66,9 @@ Type      FileStr=string[13];               {13.znak kvuli pripadnemu pouziti St
 Type      dskType=(dskNone,dskFloppy,dskHard,dskNet,dskCdrom);
 FUNCTION  dskList:string;                   {vrati seznam dostupnych disku velkymi pismeny}
 FUNCTION  dskName(dsk:char):FileStr;        {vrati jmeno drivu}
-FUNCTION  dskSerialNumber(dsk:char):longint;{vrati seriove cislo disku {*chybi protected verze}
+{$ifdef dosmem}
+FUNCTION  dskSerialNumber(dsk:char):longint;{vrati seriove cislo disku}
+{$endif}
 FUNCTION  dskId(dsk:char):dskType;          {vrati typ disku}
 FUNCTION  dskReady(dsk:char):boolean;       {vrati jestli je disk ready}
 FUNCTION  dskBoot:char;                     {vrati bootovaci disk}
@@ -111,21 +114,22 @@ FUNCTION  dos_fileReadStream(name:PathStr):PStream;
 FUNCTION  dos_fileCreateStream(name:PathStr):PStream;
 FUNCTION  dos_fileGetSize(name:PathStr;var size:longint):boolean;
 
-VAR       fileExists:TFileExists;                   {vrati zda soubor existuje}
-VAR       fileReadStream:TFileStream;               {vrati stream pro cteni souboru}
-VAR       fileCreateStream:TFileStream;             {vytvori stream zapisujici do souboru}
-VAR       fileGetSize:TFileGetSize;{zjisti velikost souboru}
+VAR       fileExists:TFileExists;           {vrati zda soubor existuje}
+VAR       fileReadStream:TFileStream;       {vrati stream pro cteni souboru}
+VAR       fileCreateStream:TFileStream;     {vytvori stream zapisujici do souboru}
+VAR       fileGetSize:TFileGetSize;         {zjisti velikost souboru}
 FUNCTION  fileCopy(flags:word;src,dest:PathStr):boolean;{zkopiruje soubor}
 FUNCTION  fileMove(flags:word;src,dest:PathStr):boolean;{presune soubor}
 FUNCTION  fileDelete(flags:word;name:PathStr):boolean;{smaze soubor}
 FUNCTION  fileGetAttr(name:PathStr;var attr:integer):boolean;{zjisti atributy souboru}
 FUNCTION  fileSetAttr(name:PathStr;attr:byte):boolean;{nastavi atributy souboru}
-FUNCTION  fileNameValid(name:PathStr):boolean; {Zjisti jestli soubor muze byt vytvoren (nebo prepsan)}
-FUNCTION  fileSize(name:PathStr):longint;       {vraci velikost souboru, -1 pri selhani}
-FUNCTION  fileAttr(name:PathStr):integer;       {vraci atributy souboru, -1 pri selhani}
+FUNCTION  fileNameValid(name:PathStr):boolean;{zjisti jestli soubor muze byt vytvoren (nebo prepsan)}
+FUNCTION  fileSize(name:PathStr):longint;   {vraci velikost souboru, -1 pri selhani}
+FUNCTION  fileAttr(name:PathStr):integer;   {vraci atributy souboru, -1 pri selhani}
 FUNCTION  fileLoad(name:PathStr;s:PStream;var p:pointer;var datasize,freesize:longint):boolean;{nahraje soubor do pameti}
-FUNCTION  fileSave(name:PathStr;p:pointer;size:longint):boolean;{ulozi soubor na disk}
-FUNCTION  fileLoad2Pchar(name:PathStr;s:PStream;var p:pchar):boolean;{nahraje soubor do pcharu}
+FUNCTION  fileSave(flags:word;name:PathStr;p:pointer;size:longint):boolean;{ulozi soubor na disk}
+FUNCTION  fileLoadPchar(name:PathStr;s:PStream;var p:pchar):boolean;{nahraje soubor do pcharu}
+FUNCTION  fileSavePchar(flags:word;name:PathStr;p:pchar):boolean;{ulozi pchar na disk}
 
 FUNCTION  filesCopy(flags:word;srcfiles:PathStr;destdir:DirStr):boolean;{zkopiruje soubory dane maskou}
 FUNCTION  filesMove(flags:word;srcfiles:PathStr;destdir:DirStr):boolean;{presune soubory dane maskou}
@@ -183,6 +187,8 @@ Const     psExp       =128;                     { expanze chybejicich casti }
 
 FUNCTION  PathSlice(path:PathStr;slice:word):PathStr;
 
+FUNCTION  PathAbsolute(path:PathStr):boolean;   {vraci jetli je cesta absolutni nebo relativni}
+
 {PCK}
 FUNCTION  PCK_Init(name:PathStr): boolean;      {otevre PCK soubor}
 PROCEDURE PCK_Close;                            {zavre PCK soubor}
@@ -214,11 +220,12 @@ begin
  if (flags+globflags) and fileIgnoreErr=0 then begin
    if (flags+globflags) and fileStopIfErr=0 then
     if @_dlgChoice<>nil then
-     case _dlgChoice(msg,_(_msgContIgnoreStop)) of
-      0,
-      1:;
+     case _dlgChoice(msg,_(_msgContAlwStopAlw)) of
+      1:flags:=flags or fileIgnoreErr;
       2:globflags:=globflags or fileIgnoreErr;
-      3:globflags:=globflags or fileStopIfErr;
+      0,
+      3:flags:=flags or fileStopIfErr;
+      4:globflags:=globflags or fileStopIfErr;
       end;
    if (flags+globflags) and fileStopIfErr<>0 then dlgContMsg:=false;
    end;
@@ -233,7 +240,7 @@ FUNCTION ReadOnlyErr:boolean;
 begin
  ReadOnlyErr:=ReadOnlyMod;
  if ReadOnlyMod then begin
-   if globflags and fileIgnoreErr=0 then ReportErr(_(erReadOnly));
+   if globflags and fileIgnoreErr=0 then ReportErr(_(_erReadOnly));
    end;
 end;
 
@@ -268,7 +275,8 @@ begin
  if DosError=0 then dskName:=di.name else dskName:='';
 end;
 
-FUNCTION  dskSerialNumber(dsk:char):longint; assembler;
+{$IFDEF DOSMEM}
+{FUNCTION  dskSerialNumber(dsk:char):longint; assembler;
 var dib:
  record
   level:word;
@@ -299,12 +307,54 @@ asm
  xor  dx,dx
 @end:
  pop  ds
+end;}
+{waclawova verze i pro protekt:}
+FUNCTION dskSerialNumber(dsk:char):longint;
+type PDiskSerNoInfo=^TDiskSerNoInfo;
+     TDiskSerNoInfo=record
+      Level:word;
+      Serial:longint;
+      Name:array[1..11] of char;
+      FatType:array[1..8] of char;
+     end;
+var Info:PDiskSerNoInfo;
+    Segment:word;
+    {$ifdef dpmi}
+    Regs:dpmiRealCallRegs;
+    {$else}
+    Regs:Registers;
+    {$endif}
+begin
+ GetMemDos(Segment,pointer(Info),sizeof(TDiskSerNoInfo));
+ {$ifdef dpmi}
+ with Regs do begin
+  rEAX:=$6900;
+  rEBX:=ConvertLetter(dsk);
+  rDS :=Segment;
+  rEDX:=0;
+  dpmiRealModeInt($21,@Regs);
+ end;
+ {$else}
+ with Regs do begin
+  AX:=$6900;
+  BL:=ConvertLetter(dsk);
+  DS:=Seg(Info^);
+  DX:=Ofs(Info^);
+  Intr($21,Regs);
+ end;
+ {$endif}
+ if Regs.Flags and 1<>0 then Info^.Serial:=0;
+ dskSerialNumber:=Info^.Serial;
+ FreeMemDos(pointer(Info),sizeof(TDiskSerNoInfo));
 end;
+{$ENDIF DOSMEM}
 
 {---------------------------------------------------------------------------
  Vrati vsechny instalovane disky ve stringu jako napr. ABCD.
+ Vysledek je cachovany, protoze windows nt pri testovani existence a: kricej,
+ ze v a: neni disketa. Tak at to delaj jen jednou... {* ma nekdo lepsi napad?
  ---------------------------------------------------------------------------}
-FUNCTION dskList:string; assembler;
+FUNCTION dskListUncached:string; assembler;
 asm   {dskList}
  mov  ah,19h
  int  21h
@@ -339,6 +389,14 @@ asm   {dskList}
  mov  dl,al
  int  21h {a ChDir na puvodni disk}
 end;  {dskList}
+
+var dskListCache:string[26];
+
+FUNCTION dskList:string;
+begin
+ if dskListCache='-' then dskListCache:=dskListUncached;
+ dskList:=dskListCache;
+end;
 
 {---------------------------------------------------------------------------
  Identifikuje zadany disk a vrati:
@@ -382,6 +440,7 @@ asm   {dskId}
  mov  ax,01100h
  int  2Fh
  pop  bx            {vyndame z trouby upecene slovo}
+ {postreh: tato detekce cdrom nefunguje ve win2k}
 (*{$else}
 {*
 Pod dpmi se to stale nepodarilo rozchodit.
@@ -523,7 +582,7 @@ asm   {dskChanged}
  cmp  al,'A'
  jb   @end
  and  al,31
- cmp  al,'Z'-'A'
+ cmp  al,'Z'-'A'+1{oprava: +1 aby uz nepovazoval z: za neplatny pismeno}
  ja   @end
  dec  al
  mov  dsk,al
@@ -843,6 +902,15 @@ begin
                                  else PathSlice:=ucased(path);
 end;
 
+{---------------------------------------------------------------------------
+ Vraci jestli je cesta absolutni, tj. jestli zacina \ nebo x:\.
+ ---------------------------------------------------------------------------}
+FUNCTION  PathAbsolute(path:PathStr):boolean;
+begin
+ PathAbsolute:=((length(path)>0) and (path[1]='\'))
+   or ((length(path)>2) and (path[2]=':') and (path[3]='\'))
+end;
+
 {‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹ ADRESARE ‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹}
 
 
@@ -861,7 +929,7 @@ begin {dirWriteable}
     PUSH DS
     push ss
     pop ds
-    {create file}
+    {create temporary file}
     mov ah,5ah;mov cx,0;lea dx,dir;int 21h;jc @err
     {write to file}
     xchg bx,ax;mov ah,40h;inc cx;int 21h;jc @err
@@ -880,10 +948,11 @@ end;  {dirWriteable}
  Vraci adresar ve kterem je spusteny exe soubor.
  Vysledek je vzdy velkymi pismeny, expandovany a zakonceny lomitkem.
  ---------------------------------------------------------------------------}
+var dirExeCache:PathStr;
 FUNCTION dirExe:DirStr;
-begin {dirExe}
- dirExe:=PathSlice(paramstr(0),psExp+psPath);
-end;  {dirExe}
+begin
+ dirExe:=dirExeCache;
+end;
 
 {---------------------------------------------------------------------------
  Vraci aktualni adresar na disku dsk.
@@ -980,51 +1049,69 @@ end;  {dirCur}
 {---------------------------------------------------------------------------
  Vraci pracovni adresar.
  Vysledek je vzdy velkymi pismeny, expandovany a zakonceny lomitkem.
+ Vzhledem k tomu ze ve standardnim tempu v NT s NTFS
+  - nemame pravo exec
+  - nemame pravo file scan
+ pokousime se temto adresarum vyhnout.
  ---------------------------------------------------------------------------}
-FUNCTION dirTemp:DirStr;
-var   st:PathStr;
-      i:byte;
-      Fre:LongInt;
-      dsk:char;
-begin {dirTemp}
+var dirTempCache:DirStr;
+
+FUNCTION _dirTemp:DirStr;
+var  st:PathStr;
+     i:byte;
+     Fre:LongInt;
+     dsk:char;
+     di:SearchRec;
+begin
+ {zkusi nacist temp z environmentu}
  st:=fExpand(GetEnv('temp'));
  if st='' then st:=fExpand(GetEnv('tmp'));
  if st='' then st:=fExpand(GetEnv('work'));
- if (st='') or (not dirExists(st) and (ReadOnlyMod or not dirMake(st))) then
-  begin
-   st:=dskList;
-   if length(st)<1 then
-    begin
-     st:=dirCur;
-     if st='' then st:='C:\';
-     dirTemp:=st;
-     exit
-    end;
-   Fre:=0;
-   dsk:=#0;
-   for i:=1 to length(st) do {mel by najit hadr s nejvetsim volnym mistem}
-    if (dskId(st[i])=dskHard) and
-       (ReadOnlyMod or dirWriteable(st[i]+':\')) and
-       (DiskFree(ord(st[i])-64)>Fre) then
-     begin
-      dsk:=st[i];
-      fre:=DiskFree(ord(st[i])-64)
-     end;
-   if dsk=#0 then dsk:=dskCur;
-   if ReadOnlyMod then dirTemp:=dsk+':\' else
-   if dirMake(st[length(st)+1]+':\TEMP')
-   then dirTemp:=st[length(st)+1]+':\TEMP\'
-   else dirTemp:=st[length(st)+1]+':\';
+ if st[length(st)]<>'\' then st:=st+'\';
+ FindFirst(st+'*.*',anyfile,di);{zjisti zda mame pravo file scan}
+ if (doserror=0{mame file scan}) and (st<>'')
+  and (dirExists(st) or (not ReadOnlyMod and dirMake(st)))
+  and dirWriteable(st) then begin
+   _dirTemp:=st;
    exit;
+   end;
+ {vymysli temp sam}
+ st:=dskList;
+ if length(st)<1 then
+  begin
+   st:=dirCur;
+   if st='' then st:='C:\';
+   _dirTemp:=st;
+   exit
   end;
- dirTemp:=st;
-end;  {dirTemp}
+ Fre:=0;
+ dsk:=#0;
+ for i:=1 to length(st) do {mel by najit hadr s nejvetsim volnym mistem, ale at neprohledava zbytecne dlouho, >100MB bere hned}
+  if (dskId(st[i])=dskHard) and
+     (ReadOnlyMod or dirWriteable(st[i]+':\')) and
+     (DiskFree(ord(st[i])-64)>Fre) then
+   begin
+    dsk:=st[i];
+    fre:=DiskFree(ord(st[i])-64);
+    if fre>100*1024*1024 then break;
+   end;
+ if dsk=#0 then dsk:=dskCur;
+ _dirTemp:=dsk+':\';
+ if not ReadOnlyMod and dirMake(dsk+':\TEMP\') then _dirTemp:=dsk+':\TEMP\';
+end;
+
+FUNCTION dirTemp:DirStr;
+begin
+ if dirTempCache='' then dirTempCache:=_dirTemp;
+ dirTemp:=dirTempCache;
+end;
 
 FUNCTION dirExists(dir:PathStr):boolean;
-var di:SearchRec;
+var attr:word;
+    f:file;
 begin {dirExists}
  dir:=fExpand(getcore(dir));
- if (dir[0]+dir[length(dir)]=#2':') or (dir[0]+dir[2]+dir[3]=#3':\') then
+ if (dir[0]+dir[2]=#2':') or (dir[0]+dir[2]+dir[3]=#3':\') then
   begin
    {existujici adresar na nepripravenem mediu = neexistujici adresar
    dirExists:=Pos(UpCase(dir[1]),dskList)>0;}
@@ -1032,22 +1119,27 @@ begin {dirExists}
    exit;
   end;
  if dir[length(dir)]='\' then dec(dir[0]);
- di.attr:=0;
- FindFirst(dir,Directory,di);
- dirExists:=(DosError=0) and (di.attr and Directory<>0);
+ assign(f,dir);
+ GetFAttr(f,attr);
+ {existenci adresare nelze jako dosud testovat pomoci FindFirst,
+  protoze ve w2k v adresari \WINNT\Temp neni NIC, ani . a ..,
+  takze FindFirst zfailuje}
+ dirExists:=(DosError=0) and (attr and Directory<>0);
 end;  {dirExists}
 
 FUNCTION dirMake(dir:DirStr):boolean;
 var made:PathStr;
-    t:SearchRec;
+    f:file;
+    attr:word;
 begin {dirMake}
  dirMake:=false;
  made:='';
  while dir<>'' do begin
    made:=made+CutString(dir,'\');
    if (length(made)=1) or (length(made)>2) or (made[2]<>':') then begin
-     FindFirst(made,anyfile,t);
-     if (doserror<>0) or ((t.attr and directory)=0) then begin
+     assign(f,made);
+     GetFAttr(f,attr);
+     if (doserror<>0) or ((attr and directory)=0) then begin
        if ReadOnlyErr then exit;
        MkDir(made);
        if ioresult<>0 then begin ReportErr(_(_erNelzeVytvAdr)+' '+made+'.');exit;end;
@@ -1061,7 +1153,8 @@ end;  {dirMake}
 FUNCTION dirChange(dir:DirStr):boolean;
 begin {dirChange}
  dirChange:=false;
- if not (dir[length(dir)] in [':','\']) then dir:=dir+'\';
+ {zakonci lomitkem adresare chybou volajiciho nezakonceny}
+ if not (dir[length(dir)] in [':','\',#0]) then dir:=dir+'\';
  dskSelectFantom(Str2Char(Copy(fExpand(dir),1,1)));
  ChDir(PathSlice(dir,psPascalPath));
  if ioresult<>0
@@ -1214,8 +1307,8 @@ begin
  Swapvectors;
  case doserror of
    0:   ;
-   8:   begin ReportErr(_(erLowMem4Cmd)+': '+command);exit;end;
-   else begin ReportErr(_(erBadCmd)+': '+command);exit;end;
+   8:   begin ReportErr(_i(_erLowMem4Cmd,command));exit;end;
+   else begin ReportErr(_i(_erBadCmd,command));exit;end;
    end;
  CallCommand:=true;
 end;
@@ -1238,6 +1331,19 @@ asm   {GetVerify}
 end;  {GetVerify}
 
 {‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹ SOUBORY ‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹}
+
+FUNCTION filePrepareForOverwriting(flags:word;name:PathStr):boolean;
+begin
+ filePrepareForOverwriting:=false;
+ if ReadOnlyErr then exit;
+ if fileExists(name) then begin
+   if flags and fileOverwrite=0 then
+    if not dlgContMsg(flags,_i(_erSoubJizExist,name))
+     then exit;
+   fileDelete(flags,name);
+   end;
+ filePrepareForOverwriting:=true;
+end;
 
 {---------------------------------------------------------------------------
  Nahraje soubor z disku do pameti. Velikost neni omezena na 64KB.
@@ -1332,11 +1438,12 @@ ende:
  if swasnil then KillObj(s);
 end;
 
-FUNCTION fileSave(name:PathStr;p:pointer;size:longint):boolean;
+FUNCTION fileSave(flags:word;name:PathStr;p:pointer;size:longint):boolean;
 var   f:file;
       towrite,written:word;
 begin
  fileSave:=false;
+ if not filePrepareForOverwriting(flags,name) then exit;
  if ReadOnlyErr then exit;
  Assign(f,name);
  Rewrite(f,1);
@@ -1356,7 +1463,7 @@ begin
  fileSave:=true;
 end;
 
-FUNCTION fileLoad2Pchar(name:PathStr;s:PStream;var p:pchar):boolean;
+FUNCTION fileLoadPchar(name:PathStr;s:PStream;var p:pchar):boolean;
 var datasize,freesize:longint;
     b:boolean;
 begin
@@ -1365,15 +1472,24 @@ begin
  freesize:=1;
  b:=fileLoad(name,s,pointer(p),datasize,freesize);
  if b then PByte(Ptr(PtrRec(p).Seg,PtrRec(p).Ofs+datasize))^:=0;
- fileLoad2Pchar:=b;
+ fileLoadPchar:=b;
+end;
+
+FUNCTION fileSavePchar(flags:word;name:PathStr;p:pchar):boolean;
+begin
+ fileSavePchar:=fileSave(flags,name,p,StrLen(p));
 end;
 
 FUNCTION dos_fileExists(name:PathStr):boolean;
-var di:SearchRec;
-begin {dos_fileExists}
- FindFirst(name,AnyFile-VolumeID-Directory,di);
- dos_fileExists:=(DosError=0) and (di.attr and Directory=0)
-end;  {dos_fileExists}
+var f:file;
+    attr:word;
+begin
+ {existenci nelze testovat pomoci FindFirst napr kvuli adresari \WinNT\TEMP}
+ assign(f,name);
+ GetFAttr(f,attr);
+ dos_fileExists:=(DosError=0) and (attr and (Directory+VolumeID)=0) and
+   (DeviceExists or (attr and $40=0)){prinejmensim DOS 7 pro device vraci $40};
+end;
 
 FUNCTION dos_fileReadStream(name:PathStr):PStream;
 var s:PBufStream;
@@ -1393,22 +1509,8 @@ begin
  dos_fileCreateStream:=s;
 end;
 
-FUNCTION filePrepareForOverwriting(flags:word;name:PathStr):boolean;
-begin
- filePrepareForOverwriting:=false;
- if ReadOnlyErr then exit;
- if fileExists(name) then begin
-   if flags and fileOverwrite=0 then
-    if not dlgContMsg(flags,_i(__erSoubJizExist,name))
-     then exit;
-   fileDelete(flags,name);
-   end;
- filePrepareForOverwriting:=true;
-end;
-
 FUNCTION fileCopy(flags:word;src,dest:PathStr):boolean;
 var p:pointer;
-    size:longint;
     fsrc,fdest:file;
     t:SearchRec;
     readen,written:word;
@@ -1426,15 +1528,18 @@ begin
  assign(fdest,dest);
  rewrite(fdest,1);
  if ioresult<>0 then begin ReportErr(_(_erNelzeVytvSoub)+' '+dest+'.');exit;end;
-1:
- BlockRead(fsrc,freeptr^,65536-512,readen);
- if ioresult<>0 then begin ReportErr(_(_erNelzeCistSoub)+' '+src+'.');exit;end;
- if readen>0 then begin
-   BlockWrite(fdest,freeptr^,readen,written);
-   if (ioresult<>0) or (written<readen) then begin ReportErr(_(_erNelzePsatSoub)+' '+dest+', '+_(_erAsiMaloMista));exit;end;
-   dec(t.size,written);
-   goto 1;
-   end;
+ repeat
+  1:
+  BlockRead(fsrc,freeptr^,65536-512,readen);
+  if ioresult<>0 then begin ReportErr(_(_erNelzeCistSoub)+' '+src+'.');exit;end;
+  if readen>0 then begin
+    BlockWrite(fdest,freeptr^,readen,written);
+    if (ioresult<>0) or (written<readen) then begin ReportErr(_(_erNelzePsatSoub)+' '+dest+', '+_(_erAsiMaloMista));exit;end;
+    dec(t.size,written);
+    {continue;}goto 1;
+    {BP continue tady a ted kompiluje na jump ven za until!}
+    end;
+ until true;
  if t.size<>0 then begin ReportErr(_(_erNelzeCistCelySoub)+' '+src+'.');exit;end;
  close(fsrc);
  if ioresult<>0 then begin ReportErr(_(_erNelzeZavrSoub)+' '+src+'.');exit;end;
@@ -1476,7 +1581,7 @@ begin
  destcreated:=false;
  if flags and _fileInner=0 then begin
    if not dirExists(PathSlice(srcfiles,psPath)) then begin
-     ReportErr(_i(__erChybiAdr,PathSlice(srcfiles,psPath)));
+     ReportErr(_i(_erChybiAdr,PathSlice(srcfiles,psPath)));
      exit;
      end;
    if not dirMake(destdir) then exit;
@@ -1629,7 +1734,7 @@ begin
  fileSetAttr:=false;
  if ReadOnlyErr then exit;
  Assign(f,name);
- SetFAttr(f,Archive);
+ SetFAttr(f,attr);
  if ioresult<>0 then begin ReportErr(_(_erNelzeSetAttr)+' '+name+'.');exit;end;
  fileSetAttr:=true;
 end;
@@ -1747,10 +1852,14 @@ var result:TError;
 procedure UserInit;
  begin
   ReadOnlyMod      :=false;
+  DeviceExists     :=false;
   globflags        :=0;
   Pocetfajlu       :=0;
   List             :=nil;
   _dlgChoice       :=nil;
+  dskListCache     :='-';
+  dirExeCache      :=PathSlice(paramstr(0),psExp+psPath);
+  dirTempCache     :='';
   fileExists       :=dos_fileExists;
   fileReadStream   :=dos_fileReadStream;
   fileCreateStream :=dos_fileCreateStream;

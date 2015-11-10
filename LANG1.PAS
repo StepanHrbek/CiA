@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -10,23 +10,30 @@ Function  Init:TError;
 Procedure Done;
 
 {
-  Pokud das tuto unitu do Uses, budou vsechny hlasky uvnitr programu.
-  To znamena, ze program nebude vyzadovat nejaky prilozeny soubor,
-  ale zas bude umet jen jednim jazykem.
-  Kdybys chtel vic jazyku, podivej se na unitu LangFile,
-  ktera nahrava hlasky ze souboru a podporuje prepinani jazyku
-  za behu programu.
+ ---------------------------------------------------------------------------
+             Ulozeni textovych resourcu (chybovych hlasek apod)
+ ---------------------------------------------------------------------------
+
+ Pokud ve svem programu chces mit chybove hlasky, ne jen kody chyb,
+ mel bys v jeho Uses uvest prave jednu Lang* unitu.
+
+ Lang1    zajisti ze soucasti vysledneho .exe budou hlasky v jednom jazyce.
+ Lang2    zajisti ze soucasti vysledneho .exe budou hlasky ve dvou jazycich
+          s moznosti za behu prepinat.
+ LangFile zajisti ze hlasky v libovolne mnoha jazycich budou v samostatnych
+          souborech, samozrejme s moznosti za behu prepinat.
 }
 
 Implementation
 
+ {$define lang_in_DS}
  {$i lang1.inc}
 
  var      old_:function(code:TError):string;
 
  function my_(code:TError):string;far;
  begin
-  my_:=Pc2Str(hlasky[code]);
+  my_:=Pc2Str(hlasky1DS[code]);
  end;
 
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}

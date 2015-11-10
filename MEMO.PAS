@@ -1,16 +1,21 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
-{$ifdef dpmi}
- {$define nt} {ma v protektu potlacit uvolnovani bloku konvencni pameti?}
-{$endif}
 
 Unit      Memo;
 Interface {$i define.inc}
 Uses      Chyby, Objects{$ifdef dpmi},WinApi,DPMI{$endif};
 Function  Init:TError;
 Procedure Done;
+
+{$ifdef dpmi}
+ {$ifdef dosmem}
+  {$define nt} {v protektu potlaci uvolnovani bloku konvencni pameti}
+               {vyhyba se tak chybam starsich windows NT}
+ {$endif}
+{$endif}
+
 
 {
 ---------------------------------------------------------------------------
@@ -109,9 +114,11 @@ Var   {pointer na 64KB blok volne pameti}
       freeseg:word;
       freeptr:pointer absolute freeofs;
 
+{$ifdef dosmem}
       {pointer na 1KB volne konvencni pameti}
       dosfree:pointer;
       dosfreeSeg:word;
+{$endif}
 
       {1KB volne pameti v datasegmentu}
       freeL:array[0..256] of longint;
@@ -133,8 +140,10 @@ FUNCTION  MemAvail:longint;
 FUNCTION  MaxAvail:longint;
 FUNCTION  GetMem(var p:pointer;bytes:longint):boolean;
 PROCEDURE FreeMem(var p:pointer;bytes:longint);
+{$ifdef dosmem}
 FUNCTION  GetMemDos(var segment:word;var p:pointer;bytes:longint):boolean;
 PROCEDURE FreeMemDos(var p:pointer;bytes:longint);
+{$endif}
 PROCEDURE Seg2Desc(var w:word);
 
 {---------------------------------------------------------------------------
@@ -261,26 +270,44 @@ Type
         procedure      Sync;
        end;
 
+{$ifdef dpmi}
+
+{ MemInitSwapFile opens a swapfile of size FileSize. If file exists and }
+{ new size is larger, this function will grow the swap file, otherwise  }
+{ the call has no effect. File size is limited to 2 gigabytes.          }
+{                                                                       }
+{ Returns:                                                              }
+{     rtmOK           - Successful                                      }
+{     rtmNoMemory     - Not enough disk space                           }
+{     rtmFileIOError  - Could not open/grow file                        }
+
+function MemInitSwapFile (FileName: PChar; FileSize: LongInt): Integer;
+
+{ MemCloseSwapFile closes the swapfile if it was created by the current }
+{ task. If Delete is non 0, the swap file is deleted.                   }
+{                                                                       }
+{ Returns:                                                              }
+{     rtmOK           - Successful                                      }
+{     rtmNoMemory     - Not enough physical memory to run without       }
+{                       swap file                                       }
+{     rtmFileIOError  - Could not close/delete the file                 }
+
+function MemCloseSwapFile (Delete: Integer): Integer;
+
+var      swapsize:longint; {bytes of memory allocated on disc}
+
+{$endif}
 
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
                           IMPLEMENTATION
 {ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ}
 
+Uses Stringy;
+
 {---------------------------------------------------------------------------
  Nekolik kousku zkopirovanych z jinych unit za ucelem snizeni poctu uses.
  ---------------------------------------------------------------------------}
-Type string11=string[11];
-FUNCTION  Stri(num:longint):string11;
-var st:string11;
-begin
- str(num,st);
- stri:=st;
-end;
-FUNCTION  Ptr2Str(p:pointer):string11;
-begin
- Ptr2Str:=stri(PtrRec(p).Seg)+':'+stri(PtrRec(p).Ofs);
-end;
-FUNCTION MaxI(x,y:integer):integer;inline($58/$5b/$3b/$d8/$7e/$01/$93);{pop ax;pop bx;cmp bx,ax;jle +1;xchg ax,bx}
+FUNCTION MaxI(x,y:integer):integer;inline($58/$5b/$3b/$d8/$7e/$01/$93);
 FUNCTION MaxL(x,y:longint):longint;inline($66/$58/$66/$5b/$66/$3b/$d8/$7e/$02/$66/$93/ $66/$50/$59/$5a);
 FUNCTION HiInt(l:longint):integer;inline($58/$58);
 FUNCTION LoWord(l:longint):word;inline($66/$58);
@@ -332,9 +359,11 @@ end;
 
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßß KONTROLY... ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
 
+var oldmem:longint;
+
 {$ifdef beta}
 var minavail:longint;
-const maxblox=1500;
+const maxblox=2000;
 type tblox=array[1..maxblox] of record p:pointer;l:longint;end;
 var blox:^tblox;
     used:word;
@@ -348,13 +377,25 @@ begin
 end;
 
 procedure DoneBlox;
-var i:integer;
+var i,j:integer;
+    f:text;
 begin
- {for i:=1 to used do BiosWriteln('Forgotten:'+Pc2Str(pchar(blox^[i].p)));{}
+(*
+ if used<>0 then begin
+   assign(f,'blox.$$$');
+   rewrite(f);
+   for i:=1 to used do begin
+     write(f,stri(blox^[i].l)+':');
+{     for j:=0 to blox^[i].l-1 do write(f,(pchar(blox^[i].p)+j)^);}
+     writeln(f);
+     end;
+   close(f);
+   end;
+(**)
  Dispose(blox);
  if used<>0 then BiosWriteln(stri(used)+' blox still used.');
  if debug then BiosWriteln('Max used blox='+stri(maxused)+'.');
- if debug then BiosWriteln('Max used mem='+stri((memavail-minavail) shr 10)+'K');
+ if debug then BiosWriteln('Max used mem='+stri((oldmem-minavail) shr 10)+'K');
 end;
 
 procedure AddBlock(p:pointer;l:longint);
@@ -368,8 +409,6 @@ begin
  maxused:=maxL(used,maxused);
  blox^[used].p:=p;
  blox^[used].l:=l;
- {alloc it now!
- pbyte(p)^:=0;{}
 end;
 
 function RemoveBlock(p:pointer;l:longint):boolean;
@@ -391,6 +430,9 @@ begin
 end;
 
 {$endif}
+
+
+{$IFDEF DOSMEM}
 
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßß NT BUG... ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
 {nekdy (pod Windows NT) neni vhodne uvolnovat konvencni pamet}
@@ -481,38 +523,6 @@ FUNCTION GetMaxConv:longint;assembler;
  end;
 
 {---------------------------------------------------------------------------
- Nahrada MemAvail.
- ---------------------------------------------------------------------------}
-FUNCTION  MemAvail:longint;
-begin
- {$ifdef realdos}
-  MemAvail:=GetMaxConv;
- {$endif}
- {$ifdef realpas}
-  MemAvail:=GetMaxConv+system.MemAvail;
- {$endif}
- {$ifdef protpas}
-  MemAvail:=system.MemAvail;
- {$endif}
-end;
-
-{---------------------------------------------------------------------------
- Nahrada MaxAvail.
- ---------------------------------------------------------------------------}
-FUNCTION  MaxAvail:longint;
-begin
- {$ifdef realdos}
-  MaxAvail:=GetMaxConv;
- {$endif}
- {$ifdef realpas}
-  MaxAvail:=maxL(GetMaxConv,system.MaxAvail);
- {$endif}
- {$ifdef protpas}
-  MaxAvail:=system.MaxAvail;
- {$endif}
-end;
-
-{---------------------------------------------------------------------------
  Alokace dosove pameti.
  Vraci uspesnost.
  ---------------------------------------------------------------------------}
@@ -531,7 +541,7 @@ begin
   system.GetMem(p,bytes);
   segment:=PtrRec(p).Seg;
  {$endif}
- if not dumb and (p=nil) then Halt(erLowDosMem);
+ if not dumb and (p=nil) then Halt(_erLowDosMem);
  GetMemDos:=p<>nil;
 
  {$ifdef beta}
@@ -571,6 +581,40 @@ begin
      {$endif}
    p:=nil;
    end;
+end;
+
+{$ENDIF DOSMEM}
+
+{---------------------------------------------------------------------------
+ Nahrada MemAvail.
+ ---------------------------------------------------------------------------}
+FUNCTION  MemAvail:longint;
+begin
+ {$ifdef realdos}
+  MemAvail:=GetMaxConv;
+ {$endif}
+ {$ifdef realpas}
+  MemAvail:=GetMaxConv+system.MemAvail;
+ {$endif}
+ {$ifdef protpas}
+  MemAvail:=system.MemAvail;
+ {$endif}
+end;
+
+{---------------------------------------------------------------------------
+ Nahrada MaxAvail.
+ ---------------------------------------------------------------------------}
+FUNCTION  MaxAvail:longint;
+begin
+ {$ifdef realdos}
+  MaxAvail:=GetMaxConv;
+ {$endif}
+ {$ifdef realpas}
+  MaxAvail:=maxL(GetMaxConv,system.MaxAvail);
+ {$endif}
+ {$ifdef protpas}
+  MaxAvail:=system.MaxAvail;
+ {$endif}
 end;
 
 {---------------------------------------------------------------------------
@@ -642,6 +686,10 @@ begin
 
  if not dumb and (p=nil) then Halt(erLowMem);
  getmem:=p<>nil;
+
+ {alloc it now!
+ if p<>nil then pbyte(p)^:=0;{
+ fillchar(pbyte(p)^,minl(l,65535),0);{}
 
  {$ifdef beta}
  if p<>nil then AddBlock(p,bytes);
@@ -2117,10 +2165,48 @@ end;
 
 const unita='memo';
 var result:TError;
-    oldmem:longint;
+
+{$ifdef dpmi}
+function MemInitSwapFile;  external 'RTM' index 35;
+function MemCloseSwapFile; external 'RTM' index 36;
+
+procedure InitSwapfile;
+var i:word;
+    st:string;
+begin
+ swapsize:=0;
+ for i:=1 to paramcount do
+  if not paramUsed[i] then begin
+    st:=lcased(paramstr(i));
+    if (length(st)>=4) and (copy(st,length(st)-3,4)='.swp') then begin
+      paramUsed[i]:=true;
+      if (paramcount>i) and (not paramUsed[i+1]) and (valu(paramstr(i+1))<>0) then begin
+        swapsize:=valu(paramstr(i+1))*1048576;
+        paramUsed[i+1]:=true;
+        end
+      else
+        swapsize:=16*1048576;
+      if MemInitSwapFile(Str2Pc(st),swapsize)<>0 then swapsize:=0;
+      exit;
+      end;
+    end;
+end;
+
+procedure CloseSwapFile;
+begin
+ if swapsize<>0 then begin
+   swapsize:=0;
+   MemCloseSwapFile(1);
+   end;
+end;
+{$endif}
 
 procedure UserInit;
  begin
+  debugmem:=false;
+  {$ifdef dpmi}
+  InitSwapfile;
+  {$endif}
   oldmem:=memavail;
   MakeRoom:=fakeMakeRoom;
   {$ifdef beta}
@@ -2134,7 +2220,9 @@ procedure UserInit;
     if dosBlock=nil then result:=erLowMem else
     {$endif}
       begin
-      if not GetMemDos(dosfreeSeg,pointer(dosfree),1024) then result:=erLowDosMem else
+      {$ifdef dosmem}
+      if not GetMemDos(dosfreeSeg,pointer(dosfree),1024) then result:=_erLowDosMem else
+      {$endif}
         exit;
       {$ifdef nt}
       Dispose(dosBlock);
@@ -2150,7 +2238,9 @@ procedure UserInit;
 procedure UserDone;
  var i,used:word;
  begin
+  {$ifdef dosmem}
   FreeMemDos(pointer(dosfree),1024);
+  {$endif}
   {$ifdef nt}
   {$ifdef beta}
   used:=0;
@@ -2167,6 +2257,9 @@ procedure UserDone;
     BiosWriteln('Total mem='+stri(oldmem shr 10)+'K');
     BiosWriteln('Lost mem='+stri(oldmem-memo.memavail));
     end;
+  {$ifdef dpmi}
+  CloseSwapFile;
+  {$endif}
  end;
 
 {$i initdone.inc}

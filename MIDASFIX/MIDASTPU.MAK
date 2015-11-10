@@ -5,7 +5,6 @@
 #* Copyright 1995 Petteri Kangaslampi and Jarno Paananen
 #*
 #* by D.Ment:
-#*  problem with echo \b detected and fixed
 #*  some include directories added to work with CiA
 #*
 #* This file is part of the MIDAS Sound System, and may only be
@@ -20,8 +19,6 @@
 # Compiler directories:
 
 BCDIR = \bc
-ECHOBCDIR = \\\bc
- # echo v MS-DOSu 7 interpretuje \\ jako \ a \b jako backspace i b ??
 LIBDIR = \bc\lib
 PCDIR = \bp
 ASMDIR = \tasm
@@ -31,7 +28,7 @@ CIADIR = \cia
 # Compilers and options:
 
 CC = $(BCDIR)\bin\bcc
-CCOPTS = -c -3 -G- -ml -O1 -I\$(ECHOBCDIR)\include -D__BPREAL__
+CCOPTS = -c -3 -G- -ml -O1 -I$(BCDIR)\include -D__BPREAL__
 PC = $(PCDIR)\bin\bpc
 PCOPTS = /$G+ /$X+ /CD /GS /Q /D__BPREAL__ /U$(PCDIR)\units /U$(CIADIR) /I$(CIADIR)
 ASM = $(ASMDIR)\tasm

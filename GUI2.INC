@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -253,7 +253,7 @@ begin
     if (ResizeX = -1) and (ResizeY = -1) then
       BtF2Box(Pic,X*mulX,Y*mulY)
     else
-      ResizeBtF2Box(Pic,X*mulX,Y*mulY,ResizeX,ResizeY);
+      ResizeBtF2Box(0,Pic,X*mulX,Y*mulY,ResizeX,ResizeY);
 end;
 
 {ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ TGuiInputLine ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ}
@@ -294,7 +294,7 @@ begin
   if Active then begin
     case Char(Event) of
       #32..#255: if not ((Length(Txt) = MaxSirka) and (Cursor=Sirka+Scroll)) then begin
-                   Insert(Char(Event),Txt,Cursor+1);
+                   Insert(csAutoDecodedChar(Char(Event)),Txt,Cursor+1);
                    Inc(Cursor);
                    if (Cursor >= Sirka+Scroll+1){ and
                       (Scroll < length(txt)-sirka)} then Inc(Scroll);

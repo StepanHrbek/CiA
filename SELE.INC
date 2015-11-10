@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -6,7 +6,7 @@
 const
  selMaxFiles  =2048;
  selUpperDir  ='..          ';
- selMark      =1 shl 7;
+ selMark      =1 shl 7; {oznaceny soubor/adresar (zakomponovan do TThisFile.attr)}
  CharsInFile  :set of char=['!'..')','-','.','0'..'9','<'..'>','@'..'[',']'..#255]; {mozne znaky v souboru (kdyz tak uprav)}
  {konstanty pro funkci InputString; bity 0-7 urcuji, ktere znaky je mozno zadat}
  inpNumbers   =1 shl 0; {'0'..'9'}
@@ -20,8 +20,8 @@ const
  inpFileChars =1 shl 7; {CharsInFile + znaky ':\*?;'}
  inpStartCur  =1 shl 8; {pocatecni rezim kurzoru (1=prepisov n¡,0=vkl d n¡)}
  inpBlock     =1 shl 9; {da na zacatku cely text do bloku}
- inpShyBlock  =1 shl 10;{1=cokoli krome oznaceni bloku blok zrusi, 0=blok rusi jen CTRL/Shift-Delete}
- inpPasteCur  =1 shl 11;{po Shift-Ins presunout kurzor ZA vlozeny clipboard}
+ inpShyBlock  =1 shl 10;{1=cokoli krome oznaceni bloku blok zrusi, 0=blok rusi jen CTRL/Shift-Delete nebo preznaceni}
+ inpPasteCur  =1 shl 11;{po Shift-Ins presunout kurzor ZA vlozeny obsah clipboardu}
  stdinp:word  =inpFileChars+inpBlock+inpShyBlock;
  {navratove kody}
  retEsc       =1;
@@ -82,8 +82,9 @@ type
    c2,c2max :word; {ukazatel do tabulky souboru}
    homedir  :word; {index aktualniho adresare (pouze PathBrowser)}
    manager  :word; {jak‚ operace se soubory/adresari jsou povoleny}
-   flags    :word; {vlajky chovani selectoru}
+   flags    :longint;  {vlajky chovani selectoru}
    maska    :string;   {souborova maska; muze jich byt i vic,oddelenych strednikem}
+   lastmasc :string[30];{pro vyberovou masku souboru}
    origdir  :PathStr;  {adresar, z nehoz byl selektor volan}
    event    :TEvent;   {ud lost kl vesnice nebo mysi}
    d        :PDialog;  {dialogov‚ okno selektoru}
@@ -153,9 +154,9 @@ begin {Tselector.Init}
  c1:=0;   c1max:=0;
  c2:=0;   c2max:=0;
  qfind    :='';
- sorting  :=stdsort;
- item     :=stditem;
- scrollbar:=stdbar;
+ sorting  :=sortDefault;
+ item     :=itemDefault;
+ scrollbar:=barDefault;
  manager  :=0;
  clrFiles :=$3E;
  clrDirs  :=$30;
@@ -801,7 +802,7 @@ var
  origmaska,wild,cur:string;
  di:SearchRec;
  oldcount,dirindex:integer;
-
+{ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß }
  procedure SearchFor(mask:PathStr);
  begin
   FindFirst(mask,at and (AnyFile-Directory),di);
@@ -812,7 +813,7 @@ var
    FindNext(di);
   end;
  end;
-
+{ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß }
 begin {Tselector.ReadFiles}
  if dirs_inited then dirs.Done;
  dirs.Init(10,20);
@@ -1085,8 +1086,11 @@ end;  {Tselector.DrawScrollBar}
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
 Procedure Tselector.DrawFileTab;
 {Vypise soubory a adresare v tabulce,editLn,quick-find string a DetailWindow}
-var i:word;
+var
+ i:word;
+ ThisIsDirectory:string[11];
 begin {Tselector.DrawFileTab}
+ ThisIsDirectory:='<'+Left(_(_selAdresar),9)+'>';
  if count>0 then
   for i:=0 to c1max do
    with sez[c2+i]^ do {vypsani vsech souboru videnych v tabulce}
@@ -1097,7 +1101,7 @@ begin {Tselector.DrawFileTab}
    ,x0+(i div h)*(itemw+1),y0+i mod h,
     eitherS(item and itemName=0,'',Copy(name,1,8))+
     eitherS(item and itemExt =0,'',eitherS(flags and dlgHideExt<>0,'    ',Copy(name,9,4)))+
-    eitherS(item and itemSize=0,'',eitherS(attr and Directory<>0,'<DIRECTORY>',Right(stri(size),11)))+
+    eitherS(item and itemSize=0,'',eitherS(attr and Directory<>0,ThisIsDirectory,Right(stri(size),11)))+
     eitherS(item and itemDate=0,'',' '+
      WithZeroes(TimeSlice(time,sortDay),2)+'.'+
      WithZeroes(TimeSlice(time,sortMonth),2)+'.'+
@@ -1116,7 +1120,7 @@ begin {Tselector.DrawFileTab}
   with sez[c1+c2]^ do
   begin {detail window}
    d^.wrixy(clrDetail,x0,ydetail,Left(
-    eitherS(attr and Directory=0,Right(stri(size),11),'<DIRECTORY>')+
+    eitherS(attr and Directory=0,Right(stri(size),11),ThisIsDirectory)+
     eitherS(editw<24,'',' '+name)
     ,editw));
    d^.wrixy(clrDetail,x0,ydetail+1,Left(
@@ -1137,18 +1141,19 @@ begin {Tselector.DrawFileTab}
 end;  {Tselector.DrawFileTab}
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
 Function  Tselector.NumSelected(what:byte):word;
+{Vrati pocet oznacenych souboru a/nebo adresaru}
 var i,j:word;
 begin {Tselector.NumSelected}
  j:=0;
  if count>0 then
   case what of
-  1: for i:=0 to count-1 do
+  1: for i:=0 to count-1 do {oznacene adresare}
       with sez[i]^ do
       if (attr and (Directory+selMark)=Directory+selMark) then inc(j);
-  2: for i:=0 to count-1 do
+  2: for i:=0 to count-1 do {oznacene soubory}
       with sez[i]^ do
       if (attr and (Directory+selMark)=selMark) then inc(j);
-  3: for j:=0 to count-1 do
+  3: for j:=0 to count-1 do {oznacene adresare a soubory}
       with sez[i]^ do
       if attr and selMark<>0 then inc(j);
   end;
@@ -1333,6 +1338,9 @@ begin {Tselector.MouseEvents}
 end;  {Tselector.MouseEvents}
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
 Procedure Tselector.HandleEvents;
+{zpracuje udalosti mysi (v ramci dialogoveho okna) a ty udalosti z klavesnice,
+ktere jsou spolecn‚ pro Selector a PathBrowser. Jinak oba dva selektory si
+jeste vyhodnocuji udalosti, ktere pro ne nejsou spolecne.}
 var
  i:word;
 begin {Tselector.HandleEvents}
@@ -1382,10 +1390,12 @@ begin {Tselector.HandleEvents}
  kEsc:
   ret:=retEsc;
  kBackSpace:
-  begin {BackSpace:pro rychle vyhledavani}
+  begin {BackSpace:pro rychle vyhlod v n¡}
    if qfind[0]>#0
    then dec(qfind[0]);
    qfind:=lcased(qfind);
+   {kdyz vymazete posledni znak qfind stringu, zustane tam, kde je (neskoci na zacatek)
+   if qfind<>'' then}
    for i:=0 to count-1 do
     if lcased(Copy(WithoutChar(' ',sez[i]^.name),1,length(qfind)))=qfind then
      begin {nasel soubor zacinajici na qfind}
@@ -1410,12 +1420,13 @@ begin {Tselector.HandleEvents}
     if qfind[0]<#12
     then qfind:=qfind+char(event);
     qfind:=lcased(qfind);
+    event:=0; {nevim, k cemu to je, ale myslim si, ze k necemu asi jo}
     for i:=0 to count-1 do
      if lcased(Copy(WithoutChar(' ',
          sez[either(flags and dlgSearchFromCursor=0,i,(c2+i) mod count)]^.name),1,length(qfind)))=qfind then
       begin {nasel string zacinajici na qfind}
        c1:=0;
-       c2:=i;
+       if flags and dlgSearchFromCursor<>0 then inc(c2,i) else c2:=i;
        for i:=1 to (w*h) shr 1 do
         if (c2>0) and (c1<c1max) then
          begin
@@ -1447,6 +1458,7 @@ begin {Tselector.HandleEvents}
 end;  {Tselector.HandleEvents}
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
 Procedure Tselector.ReRead;
+{Vykona znovunacteni z adresare(u).}
 begin {Tselector.ReRead}
  ReadFiles;
  Arrange;
@@ -1454,6 +1466,7 @@ begin {Tselector.ReRead}
 end;  {Tselector.ReRead}
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
 Procedure Tselector.Arrange;
+{Pripravi okno pro selektor. Zaroven reaguje na "nepriznive situace".}
 var
  j:word;
  s:Tstopky;
@@ -1514,7 +1527,7 @@ begin {Tselector.Arrange}
 end;  {Tselector.ReRead}
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
 Function  Tselector.SelectFile(preselect:string):string;
-{Nech  u‘ivatele vybrat si jeden ze soubor– (adres ©–).}
+{Hlavni funkce: nech  u‘ivatele vybrat si jeden ze soubor– (adres ©–).}
 var
  i:word;
  res:string;
@@ -1572,7 +1585,7 @@ begin {Tselector.SelectFile}
        parent:=PathSlice(PathSlice(dirCur,psPascalPath),psFile);
        ReRead;
       end;
-  kEnter:
+  kEnter,kkEnter:
    if count>0 then
     if (char(event)=#10) and {CTRL-Enter}
        (sez[c1+c2]^.attr and Directory<>0) and
@@ -1615,10 +1628,14 @@ begin {Tselector.SelectFile}
     end;
   kkPlus:
    if (count>0) and (manager>0) then
-    for i:=0 to count-1 do
-     if sez[i]^.name<>selUpperDir
-     then sez[i]^.attr:=sez[i]^.attr or selMark
-     else sez[i]^.attr:=sez[i]^.attr and AnyFile;
+    repeat
+     res:=dlgLine(0,_(_selZadejMasku),Lastmasc);
+     if res<>'' then LastMasc:=res else break;
+     for i:=0 to count-1 do
+      if (sez[i]^.name<>selUpperDir) and (hkNalezi(sez[i]^.name,LastMasc))
+      then sez[i]^.attr:=sez[i]^.attr or selMark
+      else sez[i]^.attr:=sez[i]^.attr and AnyFile;
+    until true;
   kkMinus:
    if (count>0) and (manager>0) then
     for i:=0 to count-1 do
@@ -1714,12 +1731,12 @@ begin {Tselector.SelectFile}
    else SelectFile:=preselect
  else
   if sez[c1+c2]=nil then SelectFile:=''
-   else SelectFile:=finddir(sez[c1+c2]^.dirc)+WithoutChar(' ',sez[c1+c2]^.name);
+   else SelectFile:=fExpand(finddir(sez[c1+c2]^.dirc)+WithoutChar(' ',sez[c1+c2]^.name));
  if flags and dlgUpdateDir=0 then
   dirChange(origdir);
 end;  {Tselector.SelectFile}
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
-FUNCTION  dlgSelector(flagy:word;popisek,masc,preselect:string):string;
+FUNCTION  dlgSelector(flagy:longint;popisek,masc,preselect:string):string;
 var
  f:Pselector;
  sloupcu,radek:byte;
@@ -1746,21 +1763,21 @@ var
   if flagy and dlgRatherBig<>0 then
    begin
     vys:=maxvys*9 div 10;
-    sloupcu:=(maxsir-3-byte(stdbar=barVertical)) div (f^.itemw+1);
-    sir:=3+byte(stdbar=barVertical)+sloupcu*(f^.itemw+1);
+    sloupcu:=(maxsir-3-byte(barDefault=barVertical)) div (f^.itemw+1);
+    sir:=3+byte(barDefault=barVertical)+sloupcu*(f^.itemw+1);
    end
   else
    begin
     vys:=maxvys shr 1;
     sloupcu:=(maxsir*4 div 10) div f^.itemw;
-    sir:=3+byte(stdbar=barVertical)+sloupcu*(f^.itemw+1);
+    sir:=3+byte(barDefault=barVertical)+sloupcu*(f^.itemw+1);
     if sir>maxsir then sloupcu:=1;
    end
  end;  {GetSize}
 {ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß ß }
 begin {dlgSelector}
  dlgSelector:='';
- if stditem=0 then exit;
+ if itemDefault=0 then exit;
  New(f,Init);
  if NewDialog(f^.d,0,0,@GetSize) then
   with f^ do
@@ -1792,7 +1809,10 @@ begin {dlgSelector}
   until true;
 end;  {dlgSelector}
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
+{Nasleduji metody pro PathBrowser}
 Procedure Tselector.ReadDirectories;
+{nacte do seznamu vsechny adresare z cesty k soucasnemu adresari
+ a vsechny podadresare v aktualnim adresari}
 var
  dir:PathStr;
  di:SearchRec;
@@ -1802,7 +1822,7 @@ begin {Tselector.ReadDirectories}
  dir:=ucased(dirCur);
  with di do
  begin
-  name:='Disky:';
+  name:=_(_selDrives)+':';
   size:=0;
   attr:=0;
  end;
@@ -1841,6 +1861,7 @@ begin {Tselector.ReadDirectories}
 end;  {Tselector.ReadDirectories}
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
 Procedure Tselector.SortDirectories;
+{seradi podadresare v aktualnim adresari (tohle nema ani TurboVision :-))}
 var a,b,minpos:word;
 begin {Tselector.SortDirectories}
  if (sorting and $3F=0) or (homedir+2>=count) then exit;
@@ -1898,6 +1919,7 @@ begin {Tselector.SortDirectories}
 end;  {Tselector.SortDirectories}
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
 Procedure Tselector.ReGain;
+{Jako ReRead ale pro adresare}
 var
  i:byte;
 begin {Tselector.ReGain}
@@ -1915,6 +1937,7 @@ begin {Tselector.ReGain}
 end;  {Tselector.ReGain}
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
 Function  Tselector.SelectDisk:boolean;
+{necha uzivatele vybrat si disk}
 var
  _c1,_c1max:byte;
  _c2,_c2max,i:word;
@@ -1982,6 +2005,7 @@ begin {Tselector.SelectDisk}
 end;  {Tselector.SelectDisk}
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
 Function  Tselector.SelectDirectory(preselect:string):string;
+{necha uzivatele vybrat si disk a adresar}
 const
  dirw=60;
 var
@@ -2149,7 +2173,7 @@ begin {Tselector.SelectDirectory}
  if flags and dlgUpdateDir=0 then dirChange(origdir);
 end;  {Tselector.SelectDirectory}
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
-FUNCTION  dlgPathBrowser(flagy:word;popisek,masc,preselect:string):string;
+FUNCTION  dlgPathBrowser(flagy:longint;popisek,masc,preselect:string):string;
 var
  f:Pselector;
  sloupcu,radek:byte;

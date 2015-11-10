@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -14,27 +14,43 @@ Procedure Done;
                        Uvod k INI souborum
 ---------------------------------------------------------------------------
 
- Takovy ten WIN.INI a spol, znas to, neco jako konfiguracni soubor.
+ INI soubory jsou textove soubory pro ukladani konfiguracnich udaju
+ a komentaru tak, aby je uzivatel mohl menit i rucne.
+
+ Priklad INI souboru:
+   [sekce1]
+    promenna1=10 ;komentar
+    promenna2=5,3,7,4,0,-1,-1,9,9 ;komentar
+   [sekce2]
+    promenna1=yes ;komentar
+    rozliseni=640x480/32
+
+ O maximalne efektivni parsovani/generovani obsahu INI souboru se stara unita.
+
+ Veskere chyby zjistene pri parsovani jsou standardnim zpusobem reportovany
+ uzivatelsky definovatelnou procedurou ReportErr.
+
  Procedurou iniRead nactes hodnoty promennych z INI souboru.
  Procedurou iniWrite zapises promenne do existujiciho souboru.
 
  K tomu potrebujes nejprve
- - provest iniSetup
  - mit seznam promennych, ktere chces ukladat do ini souboru
    (priklad takoveho seznamu je v souboru priklad.pas)
    (vsechny promenne musi lezet v datasegmentu)
-   (jsou podporovany jen nektere typy (promennych), dalsi si muzes doplnit)
+   (jsou podporovany vybrane typy (promennych), dalsi si muzes doplnit)
+ - predat tento seznam procedure iniSetup
 
  Pokrocilejsi programatori si mohou navic vytvorit vlastni SecSelector
- pro praci se sekcemi INI souboru.
+ pro presnejsi praci se sekcemi INI souboru (bez nej jsou vsechny promenne
+ dostupne na stejne urovni, jako by sekce nebyly).
 
- Poznamka: tato unita pouziva freeseg (viz memo.pas).
- Diky tomu nemusi alokovat zadnou pamet.
+ Poznamky: tato unita pouziva freeseg (viz memo.pas),
+  diky tomu nemusi alokovat zadnou pamet.
  Velikost INI souboru je omezena zhruba na 20K.
  V INI souboru lze kdeco, zatim ale pozor na:
   -tabelatory jsou povazovany za normalni znaky jako treba X
   -komentar nesmi byt za nazvem sekce (na stejne radce)
- Pri nacitani cisel i INI se nehlida prekroceni mezi, v betaverzi to hodi
+ Pri nacitani cisel z INI se nehlida prekroceni mezi, v betaverzi to hodi
   runtime error, v ostre se cislo orizne.
 
 ---------------------------------------------------------------------------
@@ -106,8 +122,9 @@ const i_bool =0;   {boolean   (Ano=true,Ne=false)}
       i_stri =7;   {string}
       i_lost =8;   {lostring  (po nacteni ho automaticky locasne)}
       i_upst =9;   {upstring  (po nacteni ho automaticky upcasne)}
-      i_8sho =10;   {pole osmi shortintu}
-      i_2wor =11;  {dva wordy}
+      i_9sho =10;  {pole deviti shortintu}
+      i_2wor =11;  {dva wordy ve tvaru 640x480}
+      i_mode =12;  {tri wordy ve tvaru 640x480/16}
 
 {---------------------------------------------------------------------------
  Priznaky jednotlivych promennych.
@@ -355,7 +372,7 @@ end;
   function SaveText(st:PathStr;txt:PText2):boolean;
   var   written:TError;
   begin
-   SaveText:=fileSave(st,txt^.startPtr,txt^.FileSize);
+   SaveText:=fileSave(fileOverwrite,st,txt^.startPtr,txt^.FileSize);
   end;
 
   {v radce st ("var=value;comment") zmeni value na newvalue}
@@ -471,7 +488,8 @@ end;
   begin
    {*bug: odsud vola Replace, Replace by si pak mel do UserSec nastavit to co
           JE TED v pass_sekce, ne co tam BUDE az se Replace zavola
-   chyba se projevuje jen pri upgradu a opravovat ji nebudu}
+   oprava by byla narocna, chyba ale neni nijak fatalni, jen trochu meni
+     chovani upgradu, tak ji toleruju}
    if pass_result<>'' then begin
      if LoadText(pass_result,@extr)
       then PassThruIni(@extr,SelAllSec,#0,SelAllVar,Skip,WriteUnmodified,Replace);
@@ -504,7 +522,7 @@ end;
       ReportErr(_(_msgChybneCisloVIni)+#13#10+st);
       exit;
       end;
-    if (decoded<min) or (decoded>max) then ReportErr(_2(___msgMimoRozsahVIni,stri(min),stri(max))+#13#10+st);
+    if (decoded<min) or (decoded>max) then ReportErr(_2(_msgMimoRozsahVIni,stri(min),stri(max))+#13#10+st);
     DecodeNumber:=Bounded(decoded,min,max);
    end;
 
@@ -552,12 +570,13 @@ end;
                        {somepstring^:=udaj;}
                        move(udaj,somepstring^,length(udaj)+1);
                      end;
-              i_8sho:for i:=1 to 8 do
+              i_9sho:for i:=1 to 9 do
                       if udaj<>''
                        then shortint(mem[dseg:ofsprom+i-1]):=CutNum(udaj);
               i_2wor:for i:=1 to 2 do
-                      if udaj<>''
-                       then memw[dseg:ofsprom+2*(i-1)]:=CutNum(udaj);
+                       memw[dseg:ofsprom+2*(i-1)]:=CutNum(udaj);
+              i_mode:for i:=1 to 3 do
+                       memw[dseg:ofsprom+2*(i-1)]:=CutNum(udaj);
               else ReportErr(_(_msgInterniChybaIni));
               end;
    exit;
@@ -632,19 +651,19 @@ end;
                        somepstring:=ptr(dseg,ofsprom);
                        udaj:=somepstring^;
                      end;
-              i_8sho:begin
+              i_9sho:begin
                        udaj:='';
-                       for i:=1 to 8 do begin
+                       for i:=1 to 9 do begin
                          if i>1 then udaj:=udaj+',';
                          udaj:=udaj+Stri(shortint(mem[dseg:ofsprom+i-1]));
                          end;
                      end;
               i_2wor:begin
-                       udaj:='';
-                       for i:=1 to 2 do begin
-                         if i>1 then udaj:=udaj+'x';
-                         udaj:=udaj+Stri(memw[dseg:ofsprom+2*(i-1)]);
-                         end;
+                       udaj:=Stri(memw[dseg:ofsprom])+'x'+Stri(memw[dseg:ofsprom+2]);
+                     end;
+              i_mode:begin
+                       if memw[dseg:ofsprom+4]=0 then udaj:='' else
+                        udaj:=Stri(memw[dseg:ofsprom])+'x'+Stri(memw[dseg:ofsprom+2])+'/'+Stri(memw[dseg:ofsprom+4]);
                      end;
               else ReportErr(_(_msgInterniChybaIni));
               end;

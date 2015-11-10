@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -80,12 +80,14 @@ begin
      if scrolMethod=movsd then goto vram;
      oldpen:=pen;
      ted:=vramY+Vyska-topYres;
+     {dolni lista}
      if ted>0 then begin
        if ted>Vyska then ted:=Vyska;
        pen:=PEN_VRAM;
        CallSelf(mapX,mapY+Vyska-ted,Sirka,ted,vramX,vramY-topYres+Vyska-ted);
        dec(Vyska,ted);
        end;
+     {horni scrol}
      if Vyska>0 then begin
        pen:=PEN_VIRTUAL;
        CallSelf(mapX,mapY,Sirka,Vyska,vramX+posNow.X div charXres,vramY+posNow.Y div charYres);

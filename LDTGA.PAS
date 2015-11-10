@@ -1,7 +1,20 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
+
+{
+---------------------------------------------------------------------------
+                                Loader
+---------------------------------------------------------------------------
+
+K praci s formatem Xxxx staci Uses Loadery,LdXxxx;
+a dal pracovat s funkcemi z unity Loadery.
+
+Ze zdejsi interface je prazdny neni chyba, loader se automaticky zaregistruje
+a unita loadery o nem vi.
+
+}
 
 Unit      LdTga;
 Interface {$i define.inc}
@@ -51,7 +64,8 @@ begin
      if tga.palette<>0 then GetInfo:=ldUnexpPalette;
      if model=0 then GetInfo:=ldColorDepthNotSup;
      end;
-   3:GetInfo:=ldGrayscaleNotSup;
+   3:model:=model_packed;
+     {GetInfo:=ldGrayscaleNotSup;}
    else GetInfo:=ldComprTypeNotSup;
    end;
 end;
@@ -61,22 +75,34 @@ var y:word;
     c:byte;
     model:word;
     pixel:longint;
+    tmp:byte;
 begin
  Decompress:=erOk;
- if tga.palette>0 then
-  with map^.pal^ do begin
-    Setup(tga.first,tga.first+tga.colors-1,pifUsed);
-    model:=GetModel(tga.bypc8);
-    if model=0 then begin Decompress:=ldColorDepthNotSup;exit;end;
-    for c:=tga.first to tga.first+tga.colors-1 do
-     with pal[c] do begin
-       s^.Read(pixel,tga.bypc8 shr 3);
-       _Rgb(model,nil,pixel,r,g,b);
-       r:=r shr 2;
-       g:=g shr 2;
-       b:=b shr 2;
-       end;
-    end;
+ if map^.pal<>nil then
+  with map^.pal^ do
+   if tga.palette>0 then begin
+     Setup(tga.first,tga.first+tga.colors-1,pifUsed);
+     model:=GetModel(tga.bypc8);
+     if model=0 then begin Decompress:=ldColorDepthNotSup;exit;end;
+     for c:=tga.first to tga.first+tga.colors-1 do
+      with pal[c] do begin
+        s^.Read(pixel,tga.bypc8 shr 3);
+        _RGBA(model,nil,pixel,r,g,b,tmp);
+        r:=r shr 2;
+        g:=g shr 2;
+        b:=b shr 2;
+        end;
+     end
+   else begin
+     Setup(0,255,pifUsed);
+     for c:=0 to 255 do
+      with pal[c] do begin
+        r:=c shr 2;
+        g:=c shr 2;
+        b:=c shr 2;
+        {do a nastavuje nejakou alfu, a=pifUsed}
+        end;
+     end;
  if (tga.flags and 32)>0
   then for y:=0 to map^.sizeY-1     do s^.Read(map^.tab^[y]^,map^.sizeXb)
   else for y:=map^.sizeY-1 downto 0 do s^.Read(map^.tab^[y]^,map^.sizeXb);
@@ -104,9 +130,9 @@ begin
  if map^.pal<>nil then
   with map^.pal^ do
    for c:=first to last do begin
-     col.b:=pal[c].r shl 2;
-     col.g:=pal[c].g shl 2;
-     col.r:=pal[c].b shl 2;
+     col.b:=pal[c].r shl 2+pal[c].r shr 4;
+     col.g:=pal[c].g shl 2+pal[c].g shr 4;
+     col.r:=pal[c].b shl 2+pal[c].b shr 4;
      s^.Write(col,3);
      end;
  for y:=0 to map^.sizeY-1 do s^.Write(map^.tab^[y]^,map^.sizeXb);

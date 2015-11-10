@@ -6,7 +6,6 @@
 ;*
 ;* by D.Ment:
 ;*  dpmiRealModeInt fixed
-;*  dpmiRealModeIntStack added
 ;*
 ;* This file is part of the MIDAS Sound System, and may only be
 ;* used, modified and distributed under the terms of the MIDAS
@@ -613,23 +612,11 @@ ENDP
 PROC    dpmiRealModeInt         FAR     intNum : byte, registers : dword
 USES    di
 
-	mov	al,[intNum]
-	call	dpmiRealModeIntStack LANG, ax, [registers], 0
-
-        ret
-ENDP
-
-
-
-PROC    dpmiRealModeIntStack    FAR     intNum : byte, registers : dword, \
-                                         stacksize : word
-USES    di
-
         mov     ax,0300h                ; 0300h - simulate real mode interrupt
         mov     bl,[intNum]
         mov     bh,1                    ; reset PIC and A20 line
         les     di,[registers]
-	mov	cx,[stacksize]		; bugfix
+	mov	cx,0			; bugfix
         int     31h
         jc      @@err
 

@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -12,11 +12,18 @@ Procedure Done;
 PROCEDURE InitLanguages;
 
 {
-  Pokud das tuto unitu do Uses, budou se vsechny hlasky za behu tahat
-  z prilozeneho souboru 'lang.'+language - napriklad 'lang.cz'.
-  Navic pujde i za behu menit jazyk.
-  Jestli ti staci jeden jazyk a radsi nez v prilozenem souboru bys mel
-  hlasky uvnitr programu, podivej se na unitu Lang1.
+ ---------------------------------------------------------------------------
+             Ulozeni textovych resourcu (chybovych hlasek apod)
+ ---------------------------------------------------------------------------
+
+ Pokud ve svem programu chces mit chybove hlasky, ne jen kody chyb,
+ mel bys v jeho Uses uvest prave jednu Lang* unitu.
+
+ Lang1    zajisti ze soucasti vysledneho .exe budou hlasky v jednom jazyce.
+ Lang2    zajisti ze soucasti vysledneho .exe budou hlasky ve dvou jazycich
+          s moznosti za behu prepinat.
+ LangFile zajisti ze hlasky v libovolne mnoha jazycich budou v samostatnych
+          souborech, samozrejme s moznosti za behu prepinat.
 }
 
 Implementation
@@ -42,7 +49,7 @@ Implementation
     path:=dirLang+'lang.'+language;
     if not fileExists(path)
      then ReportErr('Missing language file '+path+'.')
-     else if fileLoad2Pchar(path,nil,p)
+     else if fileLoadPchar(path,nil,p)
            then New(textpack,Init(p,StrLen(p)+1));
     end;
   if textpack=nil
@@ -76,12 +83,10 @@ procedure UserInit;
  begin
   old_     :=_;
   _        :=my_;
-  language :='eng';{implicitni jazyk nastaveny po spusteni programu}
   textpack :=nil;
   lastlang :='';
-  for i:=1 to paramcount do
-   if (copy(paramstr(i),1,1)=':') and (length(paramstr(i))>1)
-    then language:=copy(paramstr(i),2,255);
+  language :=GetCmdlineLanguage;
+  if language='' then language :='eng';{implicitni jazyk nastaveny po spusteni programu}
   InitLanguages;
  end;
 

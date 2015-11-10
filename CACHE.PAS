@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -14,17 +14,46 @@ Procedure Done;
                                  Cache
 ---------------------------------------------------------------------------
 
-Filosofie je tato.
-Kdyz pozadujes nejaky objekt, vytvoris 'identifikator' toho co chces
-a zavolas cache. Ta hledany objekt bud hned najde ve svem seznamu
-nebo ho necha vytvorit metodou identifikatoru. Az ti objekt doslouzi,
-zahodis ho zpatky do cache. Tam zustane lezet do prvniho nedostatku pameti.
+TEORIE
 
-Jak sis jiste vsiml, klicem ke vsemu je 'identifikator'. Je to potomek
-zde zavedeneho objektu TCacheId. V jeho dvou metodach musis
-naprogramovat vytvoreni objektu a porovnani dou identifikatoru.
+ Pro cachovani objektu se nabizeji dve koncepce.
+ Nejprve ale co maji spolecne.
 
-Ukazka pouziti je v unite fonty, funkce caFontGet.
+ 1. Musi existovat jednoznacny identifikator objektu ktery zadame.
+    V nejtrivialnejsim pripade je to jmeno souboru,
+    ve slozitejsim treba soubor a nejake parametry.
+ 2. Nekdo musi vedet kolikrat je objekt v obehu aby ho system mohl
+    zrusit ve chvili kdy ho nikdo nepouziva a dojde pamet.
+
+ Ted ony koncepce.
+
+ A. Kazdy cachovatelny objekt ponese svuj 'identifikator' a 'pocet zivotu'.
+ B. Objekty zustanou beze zmen, tyto udaje budou ulozeny kdesi stranou.
+
+ Protoze koncepce A plytva pameti (necachovane objekty zbytecne obsahuji tyto
+ atributy), CiA pouziva efektivnejsi B.
+
+
+PRAXE S POCHOPENIM (abys mohl cachovat vlastni objekty)
+
+ Kdyz pozadujes nejaky objekt, vytvoris identifikator toho co chces
+ a zavolas cache. Ta hledany objekt bud hned najde ve svem seznamu
+ nebo ho necha vytvorit metodou identifikatoru. Az ti objekt doslouzi,
+ zahodis ho zpatky do cache. Tam zustane lezet do prvniho nedostatku pameti.
+
+ Jak sis jiste vsiml, klicem ke vsemu je 'identifikator'. Je to potomek
+ zde zavedeneho objektu TCacheId. V jeho dvou metodach musis
+ naprogramovat vytvoreni objektu a porovnani dvou identifikatoru.
+
+ Ukazky pouziti jsou v unitach fonty a loadery.
+
+
+PRAXE BEZ NUTNOSTI POCHOPENI
+
+ Podivej se na funkce cacheGetFont/cacheGetPic v unitach fonty/loadery.
+ Funkcim predas jmeno souboru s fontem nebo obrazku a ony ti vrati
+ hotovy nahrany objekt.
+ Ten pak nesmis menit a az ho nebudes chtit, zahodis ho funkci caLeave.
 
 
 ---------------------------------------------------------------------------
@@ -39,7 +68,7 @@ do puvodniho stavu. Ne tak slusne jsou TurboVision, ktere zmenou pointeru
 zcela zlikviduji puvodni obsluhu chyb a to natrvalo. Proto si pred volanim
 (resp.po volani) TurboVision stav HeapErroru zapamatuj (resp.obnov).
 Pro lepsi orientaci se muzes podivat na mista kde je HeapError pouzit:
- memory.pas .. InitMemory, HeapNotify
+ memory.pas .. InitMemory, HeapNotify (Borlandi unita)
  memo.pas   .. GetMem
  cache.pas  .. UserInit, NewHeapError, UserDone
 }
@@ -55,6 +84,7 @@ Type
 Function  caGet(id:PCacheId;priority:integer):PObject;
 Procedure caLeave(var p);{p musi byt PObject nebo potomek}
 Function  caMakeRoom:boolean;far;
+Procedure caFreeAllBelow(priority:integer);
 
 var debugC:boolean;
 var caching:boolean; {je cache zapnuta?}
@@ -146,7 +176,7 @@ begin
    fixes:=1;
    prior:=priority;
    thing:=id^.Load;
-   if thing=nil then begin KillObj(mycell);EXIT;end;{bad-objekt nejde vytvorit}
+   if thing=nil then begin fixes:=0;KillObj(mycell);EXIT;end;{bad-objekt nejde vytvorit}
    end;
  {prodlouzi caList - behem toho se muze neco z calistu uvolnit}
  if caList.count+10>caList.limit then caList.SetLimit(caList.count+100);
@@ -195,6 +225,18 @@ begin
  caList.ForEach(@TestPriority);
  if minpr<32767 then caList.Free(mince);
  caMakeRoom:=minpr<32767;
+end;
+
+{---------------------------------------------------------------------
+ Uvolni vse s prioritou mensi nez zadanou.
+ ---------------------------------------------------------------------}
+Procedure caFreeAllBelow(priority:integer);
+var i:integer;
+begin
+ if caList.count>0 then
+  for i:=caList.Count-1 downto 0 do
+   with PCacheCell(caList.At(i))^ do
+    if (fixes=0) and (prior<priority) then caList.Free(caList.At(i));
 end;
 
 {---------------------------------------------------------------------

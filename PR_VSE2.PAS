@@ -1,6 +1,12 @@
-{
- Priklad1 upraveny pro virtualni obrazovku (vyuziva unitu scrol).
- Vyzaduje soubory PRIKLAD.INI, PRIKLAD.TGA, MODERN.FN, MODER_NP.FN.
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
+ ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
+ ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
+ ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+ Priklad: vse v jednom
+
+ Vse v jednom upravene pro virtualni obrazovku (vyuziva unitu scrol).
+ Vyzaduje soubory PRIKLAD.INI, PRIKLAD.GIF, MODERN.FN, MODER_NP.FN.
  Sipkami a mysi lze scrollovat, numpad emuluje mys.
  Pribyla ukazka reakce na eventy a ukazka dialogu.
  Obrazovka S neni TScreen ale TScrolScreen. Z toho plynou tyto odlisnosti:
@@ -9,24 +15,13 @@
    - na obrazovku se nekresli primo (s.MouseHide;s.BtF2Box;s.MouseShow)
      ale pres jeji bitmapu (s.map^.BtF2Box;s.MapRedrawBox)
    - INI soubor nema jen jednu sekci, ale hned dve, proto je zde SecSelector
-   - pozadi neni cerne, dal jsem na nej zvetseny obrazek priklad.tga
+   - pozadi neni cerne, dal jsem na nej zvetseny obrazek priklad.gif
    - po nastaveni modu je paleta cerna, vse si musime nastavit sami
-
- Vesela historka z nataceni - jak jsem hledal chybu.
-  Kdyz zkusis klikanim levym mysitkem menit sipku mysi a vzdy zajedes
-  az k pravemu kraji obrazovky, nekdy tam zustane skvira na 1 pixel.
-  Zoufale jsem hledal chybu nekde v zoomovani textur... Teprv po delsi
-  dobe mi doslo, ze mi mys skace po dvou pixelech a pri liche sirce 'sipky'
-  to proste ke kraji sednout nemuze :).
-  Mam jeden z mnoha hloupych driveru, ktere v SVGA modech skacou po 8
-  pixelech. Tento problem by zcela osetril prikaz mouseSetJump(8,8),
-  ale 8x by klesla maximalni rychlost (citlivost) mysi. Radsi volim kompromis
-  s mouseSetJump(4,4) (je to pouzito v unite vga), hloupe drivery pak skacou
-  po 2 pixelech.
 }
 
 {$i define.inc}
 {$m 20000,80000,80000}
+
 {$ifndef dpmi}
  kompiluj pro protekt (v borland pascalu), v realu by nebylo dost pameti.
  a ne abys dal tuhle hlasku do komentare a jel dal v realu :)
@@ -34,7 +29,7 @@
 
 Uses Chyby,Memo,Dos,Objects,
      Stringy,Sys,Ini,Vga,Scrol,Cache,Fonty,Dialogy,Fajly,Key,Tools,LangFile,
-     Loadery,LdTGA,LdTXT;
+     Loadery,LdGIF,LdTXT;
 
 Var s      :TScrolScreen;{obrazovka}
     s2     :PScreen;{jina obrazovka, pouzita pro dosshell}
@@ -59,6 +54,7 @@ Const
 
   {---------------------------------------------------------------------------
   Seznam promennych v INI souboru.
+  Podporovane typy a flagy jsou nadeklarovane na zacatku ini.pas.
   SYNTAXE: nazev malymi pismeny,0,flags,typ,offset promenne v datasegmentu;
            uplne na konci nula
   ---------------------------------------------------------------------------}
@@ -105,30 +101,30 @@ Const
   ---------------------------------------------------------------------------}
   FUNCTION TestMenu:TEvent;
   var
-    strcol:TdlgCollection;
-    i:word;
+    c:TMenuCollection;
   begin
-    {inicializuje kolekci stringu a zaradi do ni hlasky}
-    strcol.Init(20,20);
-    strcol.InsertStr('Toto menu.                         (F1)',kF1);
-    strcol.InsertStr('Uk zka GUI dialogu.                (F2)',kF2);
-    strcol.InsertStr('Fileselector a viewer.             (F3)',kF3);
-    strcol.InsertStr('Pathbrowser.                       (F4)',kF4);
-    strcol.InsertStr('GUI dialog: zadej string.          (F5)',kF5);
-    strcol.InsertStr('Nejjednodu¨¨¡ dialog: zpr va.      (F6)',kF6);
-    strcol.InsertStr('GUI dialog: choice.                (F7)',kF7);
-    strcol.InsertStr('Dos shell.                          (D)',kD);
-    strcol.InsertStr('Zvˆt¨¡ my¨.              (lev‚ my¨¡tko)',mcLeftPressed);
-    strcol.InsertStr('Zmen¨¡ my¨.        (prost©edn¡ my¨¡tko)',mcCenterPressed);
-    strcol.InsertStr('Konec s dialogem.       (prav‚ my¨¡tko)',mcRightPressed);
-    strcol.InsertStr('Konec hned.                       (Esc)',kEsc);
+    {inicializuje nesetrizenou kolekci a zaradi do ni hlasky}
+    with c do
+    begin
+     Init(false);
+     InsertStr('Toto menu.                         (F1)',kF1);
+     InsertStr('Uk zka GUI dialogu.                (F2)',kF2);
+     InsertStr('Fileselector a viewer.             (F3)',kF3);
+     InsertStr('Pathbrowser.                       (F4)',kF4);
+     InsertStr('GUI dialog: zadej string.          (F5)',kF5);
+     InsertStr('Nejjednodu¨¨¡ dialog: zpr va.      (F6)',kF6);
+     InsertStr('GUI dialog: choice.                (F7)',kF7);
+     InsertStr('Dos shell.                          (D)',kD);
+     InsertStr('Zvˆt¨¡ my¨.              (lev‚ my¨¡tko)',mcLeftPressed);
+     InsertStr('Zmen¨¡ my¨.        (prost©edn¡ my¨¡tko)',mcCenterPressed);
+     InsertStr('Konec s dialogem.       (prav‚ my¨¡tko)',mcRightPressed);
+     InsertStr('Konec hned.                       (Esc)',kEsc);
+    end;
     {zavola dialog a pak kolekci zrusi}
-    i:=dlgMenuCol('',@strcol,1+dlgHotkeys);
-    strcol.Done;
-    {v HiByte(i) ted mame kod klavesy, treba pro treti radek to je kF3}
-    {chceme aby se provedla akce odpovidajici klavese F3, proto}
-    {vratime event odpovidajici teto klavese}
-    TestMenu:=MakeEvent(HiByte(i),#0,#0);
+    dlgHotkeys:=true;{=kody polozek lze povazovat za kody hotkey klaves}
+    TestMenu:=MakeEvent(dlgMenuKod('',@c,kF1),#0,#0);
+    dlgHotkeys:=false;
+    c.Done;
   end;
 
   {---------------------------------------------------------------------------
@@ -306,9 +302,12 @@ Const
 
 Begin
 
+ {povoli interaktivni testy (umozni plynulejsi scrolling)}
+ t_interact:=true;
+
  {nahraje obrazek}
- pic:=picLoad('priklad.tga');
- if pic=nil then Halt(erMsgWritten);
+ pic:=picLoad('priklad.gif');
+ if pic=nil then Halt(_erWritten);
  MarkColorsIn(pic);
 
  {cte promenne z ini}
@@ -317,8 +316,8 @@ Begin
 
  {nahraje si do pameti nejaky font}
  {v teto ukazce kvuli vypsani Ahoj!}
- f:=caFontGet(fnDefault);
- if f=nil then Halt(erMsgWritten);
+ f:=cacheGetFont(fnDefault);
+ if f=nil then Halt(_erWritten);
 
  {toto je pouze optimalizace, lze bez ujmy vymazat}
  nextPal:=pic^.pal;
@@ -331,7 +330,7 @@ Begin
   V direct modelech (bez palety) to samozrejme zadny efekt nema.}
 
  {nastavi nejaky graficky mod (nejblizsi k tomuto rozliseni)}
- if not s.Init(model_scrol,640,480,0) then Halt(erBadMode);
+ if not s.Init(model_packed,640,480,0) then Halt(_erBadMode);
  {muzes si zkusit i jine mody}
  {kdybys chtel nastavit konkretni mod a zadny jiny, volej init treba takto:
   if not s.Init(model_packed,0,0,P640x480) then Halt(erBadMode);
@@ -343,7 +342,7 @@ Begin
  {vygeneruje pozadi nad kterym se scrolluje}
  {muzes si nastavit libovolne rozmery zvetseniny, ale aspon 800x800
   at se nedostane poletujici "ahoj" mimo rozsah}
- pozadi:=pic^.ResizeFulCopy(1200,1200);
+ pozadi:=pic^.ResizeFulCopy(0,1200,1200);
  if pozadi=nil then Halt(erLowMem);
 
  {vygeneruje bitmapku s napisem "ahoj"}
@@ -351,19 +350,19 @@ Begin
  New(ahoj,Init(s.MapModel,50,50));                 {alokuje malou bitmapku}
  if ahoj=nil then Halt(erLowMem);                  {pri neuspechu skonci}
  with ahoj^ do begin
-   Col2Ful(Color(0,0,0));                          {vymaze ji cernou barvou}
-   Col2Box(1,1,47,47,Color(255,255,255));          {vnitrek vyplni bilou}
-   Col2Box(2,2,44,44,Color(0,0,220));              {vnitrek vyplni modrou}
-   OutStr(napis1,ahoj,7,27,f,0,Color(255,255,255));{text pise bilou}
+   Col2Ful(Color(0,0,0,255));                      {vymaze ji cernou barvou}
+   Col2Box(1,1,47,47,Color(255,255,255,255));      {vnitrek vyplni bilou}
+   Col2Box(2,2,44,44,Color(0,0,220,255));          {vnitrek vyplni modrou}
+   OutStr(napis1,ahoj,7,27,f,0,Color(255,255,255,255));{text pise bilou}
    end;
 
- {vygeneruje listu}
- lista:=pic^.ResizeFulCopy(s.Xres,s.Yres div 6);
+ {vygeneruje listu pro dolni cast obrazovky}
+ lista:=pic^.ResizeFulCopy(0,s.Xres,s.Yres div 6);
  if lista=nil then Halt(erLowMem);
  with lista^ do begin
    Clr2Box(0,0,sizeX,1);
-   OutStr(napis2,lista,50,sizeY div 3*1,f,0,Color(255,255,255));
-   OutStr(napis3,lista,90,sizeY div 3*2,f,0,Color(255,255,255));
+   OutStr(napis2,lista,50,sizeY div 3*1,f,0,Color(255,255,255,255));
+   OutStr(napis3,lista,90,sizeY div 3*2,f,0,Color(255,255,255,255));
    end;
 
  {predani pozadi a listy obrazovce}
@@ -375,7 +374,7 @@ Begin
  KillObj(pic);
  {pocatecni vykresleni obrazovky}
  s.MapRedraw;
- {rozsviti paletu}
+ {rozsviti paletu behem 15 snimku}
  s.Fade(+15);
  {zahajeni scrollingu}
  s.SetActivity(syncLetsRock);
@@ -477,7 +476,7 @@ Begin
  s.SetActivity(syncHolocaust);
  s.Fade(-15);
  {uvolneni bitmapy}
- s.MapDone;
+ s.MapDone(true{i listu});
 
  {uvolni bitmapku "ahoj"}
  KillObj(ahoj);

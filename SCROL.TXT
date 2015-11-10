@@ -1,0 +1,616 @@
+================================================================
+Vse co jste chteli vedet o plynulem scrollingu a nikde to nebylo
+================================================================
+
+Tento navod se zabyva hlavne principy a na pouzite funkce nebo registry
+pouze odkazuje, nerozebira jestli se ta a ta hodnota v tom a tom modu
+musi nasobit ctyrmi. Podobne detaily lze nalezt v knihovne CiA
+na adrese www.ms.mff.cuni.cz/~shrb5163/#cia.
+Zde popsane techniky jsou implementovany a volne sireny v CiA,
+jako priklad jejich vyuziti lze ukazat program Deus ex Machina
+na adrese www.ms.mff.cuni.cz/~shrb5163/#machina.
+Navod dale nerozebira chyby ruznych implementaci VESA BIOSu,
+ruznych DirectX driveru apod, jen obcas zminuje kde lze ocekavat problem.
+Podrobny seznam desitek chyb VBE vcetne rad jak je obejt lze najit
+na adrese www.ms.mff.cuni.cz/~shrb5163/#buglist. Implementace
+vetsiny rad je v knihovne CiA.
+Dalsi uzitecne informace lze nalezt v Ralph Brown's interruptlistu.
+
+Informace o scrollingu v DOSu jsou vysledkem petileteho experimentovani,
+informace o ostatnich systemech byly shromazdeny behem jedne dvou hodin
+na webu.
+
+Navod je rozdelen na pomerne nezavisle casti
+
+ - Jak se synchronizovat s paprskem?
+
+ - nastaveni display start
+
+ - nastaveni line offset
+
+ - plynuly scrolling nad nekonecne velkou bitmapou
+
+ - jak scrollovat aby se na to dalo divat
+
+ - prilohy
+
+
+=================================
+Jak se synchronizovat s paprskem?
+=================================
+
+Tento navod se podoba tomu jak by mel byt psan program.
+Nejprve je nasazena technika s nejlepsimi vysledky.
+Kdyz selze, zkusi druhou nejlepsi.
+Retez pokracuje az k nejhorsimu, ovsem vzdy pouzitelnemu reseni.
+
+
+--------
+callback
+--------
+
+Idealni je kdyz system dokaze pri kazdem navratu paprsku zavolat nasi rutinu
+nebo aspon provest to co chceme (napr. nastavit zacatek videopameti).
+Nemusime se zdrzovat sledovanim paprsku a vzdy mame moznost provest
+pro dalsi snimek potrebnou akci.
+
+DOS-vyuziti VGA registru
+ (S)VGA karty mohou a nemusi umet generovat IRQ2. Funkce muze byt i zavisla
+ na nastaveni switche na karte (s jednim pripadem jsem se setkal a tovarni
+ nastaveni bylo IRQ2 nepodporovat). Funkcnost lze snadno ztetekovat
+ a pripadne vyuzit. Potrebne VGA registry:
+
+ 3C2h (R):  Input Status #0 Register
+ bit   7  (EGA Only ??) If set IRQ 2 has happened due to Vertical Retrace.
+          Should be cleared by IRQ 2 interrupt routine by clearing port 3d4h
+          index 11h bit 4.
+
+ 3d4h index 11h (R/W):  CRTC: Vertical Retrace End Register
+ bit   4  if clear Clears pending Vertical Interrupts.
+       5  Vertical Interrupts (IRQ 2) disabled if set. Can usually be left
+          disabled, but some systems (including PS/2) require it to be enabled.
+
+DOS-vyuziti timeru a VGA registru
+ Pokud zjistime, ze je timer dostatecne presny (napr. v DOSovem okne
+ ve Windows nebyva), muzeme pouzit specialni techniku znamou napr.
+ z Midasu (www.s2.org/midas). Nejprve presne zmerime jak dlouha doba ubehne
+ mezi dvema snimky, povesime se na timer (IRQ0) a pak pri kazdem interruptu
+  1. cekame na retrace s pouzitim nize uvedenych metod
+     (viz nespolehlive cekani na retrace)
+  2. nastavime timer counter na takovou hodnotu, aby pristi IRQ0 nastalo
+     chvilku pred zacatkem dalsiho retrace
+ Nekam mezi to se vejdou nase akce typu nastaveni display start.
+
+ Nelze pouzit pokud neni k dispozici presny timer nebo pokud ho uz nekdo
+ pouziva a my mu nemuzeme neustale menit timer counter.
+
+DOS-vyuziti VESA BIOSu
+ Zadna podpora.
+
+Windows-DirectX
+ Funkci WaitForVerticalBlank lze predat nas retrace callback,
+ ale ve verzi 6.1 je dosud oficialne ignorovan.
+ Funkce Flip prepina pri retracu mezi strankami videopameti a mozna
+ ji s urcitou namahou lze pouzit k plynulemu scrollingu, ale nemusi
+ byt ovladacem podporovana.
+
+Linux-SVGAlib
+ Zadna podpora.
+
+Macintosh
+ Vertical Retrace Manager nabizi volani nasich funkci pri kazdem vertical
+ retrace. Neni garantovano, ze funkci zavola opravdu za kazdych okolnosti,
+ ale presto by mel byt dostatecne spolehlivy. Otazkou je zda nesvindluje
+ a nenese svuj nazev Vertical Retrace Manager jen z historickych duvodu
+ (Windows taky maji sluzby na alokovani DOSove pameti ktere vraceji
+ obyc pamet).
+
+
+----------------------------
+spolehlive cekani na retrace
+----------------------------
+
+Spolehlivosti se rozumi, ze kdyz nam nekdo zrovna sebere procesor
+a behem celeho retrace se nedostaneme ke slovu, presto i po jeho skonceni
+pozname ze probehl a muzeme provest pozadovanou akci.
+Diky tomu muze byt nase cekani na retrace vyplneno kratsimi useky prace,
+v nejhorsim se o zacatku retrace dozvime o delku teto odbocky pozdeji,
+ale dozvime se.
+Pokud pri retracu provadena akce netrva temer stejne nebo dele nez jeden
+snimek na monitoru, synchronizace je velmi dobra (oproti absolutni
+synchronizaci nabizene callbackem).
+
+DOS-vyuziti VGA registru
+ Pomoci standardnich VGA registru nelze zjistit kolikaty radek prave paprsek
+ kresli.
+ Ale lze pozadat o generovani IRQ2 a ackoliv ho karta mozna nevygeneruje,
+ muze byt ze stavu VGA registru videt, ze se o to pokusila.
+ Viz popis registru vyse u callbacku, viz priloha function vga_IRQ:shortint.
+
+DOS-vyuziti VESA BIOSu
+ Nektere VESA BIOSy pri zavolani jejich funkce set display start
+ cekaji na retrace. Jev lze snadno zdetekovat. Cekani ovsem muze a nemusi
+ byt implementovano spolehlive.
+
+Windows-DirectX
+ Funkce WaitForVerticalBlank muze byt implementovana jako spolehliva,
+ odhaduji ze nekdy bude a nekdy ne.
+ Pro funkci WaitForSync plati totez (znama neschopnost Microsoftu navrhnout
+ interface bez mnoha duplicitnich funkci), navic nemusi byt ovladacem
+ podporovana.
+ Funkce GetScanline vracejici cislo radku prave kresleneho paprskem taktez
+ nemusi byt podporovana, ale pokud je, lze se orientovat podle ni.
+ Dokud vraci zvysujici se hodoty, ale nizsi nez tu ktere se chceme dockat,
+ cekame, skoncime ve chvili kdy ji prekroci nebo klesne (zacal novy snimek).
+
+Linux-SVGAlib
+ Funkce vga_waitretrace muze byt pro ruzne karty implementovana jako
+ spolehliva, ale pravdepodobne neni a pokud to nekdo ze ctenaru neudela,
+ ani nebude.
+
+Macintosh
+ Netreba nahradni reseni, nejlepsi reseni (callback) je garantovano.
+
+
+------------------------------
+nespolehlive cekani na retrace
+------------------------------
+
+Nespolehlivosti se rozumi, ze kdyz nam nekdo zrovna sebere procesor
+a behem celeho retrace se nedostaneme ke slovu, nedozvime se o nem
+a slepe cekame cely dalsi snimek. Cim casteji je nas proces prerusovan
+interrupty a cim jsou delsi, tim horsi je situace.
+Takto je bohuzel synchronizace resena nejcasteji.
+
+DOS-vyuziti VGA registru
+ 3dAh (R):  Input Status #1 Register
+ bit   0  Either Vertical or Horizontal Retrace active if set
+       3  Vertical Retrace in progress if set
+
+ Nektere SVGA karty hlasici se pomoci VBE chybne jako VGA kompatibilni
+ nastavuji pouze bit 0, pro nas dulezitejsi bit 3 ne.
+ Vertical retrace zde lze uspesne detekovat podle delky po jakou je
+ nastaven bit 0 - kratky interval byl jen horizontal retrace,
+ pri delsi dobe nastaveni pujde o vertical retrace.
+ Nevyhoda: zlomek sekundy trva zdetekovat optimalni delku intervalu
+ (co nejkratsi ale spolehlive delsi nez horizontal retrace),
+ vertical retrace je rozpoznan az po ubehnuti onoho intervalu,
+ ne hned zkraje.
+
+ Co delaji karty hlasici se jako VGA nekompatibilni je ve hvezdach.
+
+ Nektere emulatory, ovladace a mozna i fyzicke karty
+ -nemusi bity nastavovat vubec
+ -mohou stridat nulu a jednicku po kazdem cteni z portu
+ -mohou stridat delsi a realneji vypadajici sekvenci cisel,
+  ovsem stale bez jakehokoliv vztahu k realnemu paprsku
+ Tyto pripady lze zdetekovat a osetrit scrollingem pri pevne frekvenci,
+ viz nize.
+
+ Misto registru 3dah lze na stejne principu (zhruba behem retrace
+ maji jinou hodnotu) mozna pouzit i jine, ale neocekaval bych lepsi
+ vysledky.
+
+DOS-vyuziti VESA BIOSu
+ Viz spolehlive cekani.
+
+Windows-DirectX
+ Viz spolehlive cekani.
+ Navic lze pouzit funkci GetVerticalBlankStatus vracejici jinou hodnotu behem
+ navratu paprsku.
+
+Linux-SVGAlib
+ Viz spolehlive cekani.
+
+Macintosh
+ Netreba nahradni reseni, nejlepsi reseni (callback) je garantovano.
+
+
+------------------
+frekvence monitoru
+------------------
+
+Nelze-li rozlisit smer behu paprsku, musime si zvolit nejakou frekvenci
+a drzet se ji naslepo, je to lepsi nez nic.
+Vysledny dojem bude nejlepsi, kdyz vystihneme frekvenci s jakou se obraz
+na monitoru vykresluje. Rusivym jevum nezabranime, ale bude jich mene
+nez pri zvoleni nizsi ci vyssi frekvence.
+
+DOS-vyuziti VGA registru
+ Zadna spolehliva podpora.
+
+DOS-vyuziti VESA BIOSu
+ Do VBE 2.0 zadna podpora.
+ Objevila se asi ve VBE 3.0, ovsem za specifikaci standardu chce VESA
+ nekolikset dolaru. Tuudle.
+
+Windows-DirectX
+ Mame funkci GetMonitorFrequency, ale nemusi byt podporovana.
+
+Linux-SVGAlib
+ Zadna podpora.
+
+Macintosh
+ Netreba nahradni reseni, nejlepsi reseni (callback) je garantovano.
+ Ale jinak funkce GetMonitorFrequency.
+
+
+---------------
+pevna frekvence
+---------------
+
+Kdyz uz neni jina moznost, zvolime treba 70 Hz, takovou beznou hodnotu.
+Pokud si muze uzivatel pridavat/ubirat, udelali jsme vsechno co slo.
+
+
+
+=======================
+nastaveni display start
+=======================
+
+K rychlemu, tedy hardwarovemu scrollingu je potreba mit moznost posouvat
+monitorem predstavovane "okno" do videopameti.
+
+DOS-vyuziti VGA registru
+ Pomoci nasledujicich registru lze nastavit display start kamkoliv
+ do prvnich 256KB s presnosti 1 pixel (i v textmodu).
+
+ 3d4h index  Ch (R/W):  CRTC: Start Address High Register
+ bit 0-7  Upper 8 bits of the start address of the display buffer
+
+ 3d4h index  Dh (R/W):  CRTC: Start Address Low Register
+ bit 0-7  Lower 8 bits of the start address of the display buffer
+
+ 3d4h index  8  (R/W):  CRTC: Preset Row Scan Register
+ bit 0-4  Number of lines we have scrolled down in the first character row.
+          Provides Smooth Vertical Scrolling.
+     5-6  Number of bytes to skip at the start of scanline. Provides Smooth
+          Horizontal Scrolling together with the Horizontal Panning Register
+          (3C0h index 13h).
+
+ 3C0h index 13h (R/W):  Attribute: Horizontal PEL Panning Register
+ bit 0-3  Indicates number of pixels to shift the display left
+          Value  9bit textmode   256color mode   Other modes
+            0          1               0              0
+            1          2              n/a             1
+            2          3               1              2
+            3          4              n/a             3
+            4          5               2              4
+            5          6              n/a             5
+            6          7               3              6
+            7          8              n/a             7
+            8          0              n/a            n/a
+
+ Karty se lisi tim kdy je posledni moznost ten ktery registr nastavit tak,
+ aby se zmena uz v nasledujicm snimku projevila. Nekdy je tim okamzikem
+ konec retrace, nekdy uz zacatek, asi nema cenu snazit se definovat
+ a analyzovat vsechny moznosti, resenim je nastavit vse jeste pred zacatkem
+ retrace, pripadne dostatecne robustni scrollovaci rutina s par
+ interaktivnimi testy jejichz vysledky seridi nacasovani operaci.
+
+DOS-vyuziti VESA BIOSu
+ Funkce 4f07h: set display start. Nekdy ceka na retrace,
+ casteji probehne hned s tim ze se zmena projevi v pristim snimku, ovsem
+ neni jiste co se stane pri zavolani behem retrace, zda bude ovlivnen
+ uz snimek po retrace nebo az dalsi.
+ V ose X casto ignoruje dolni bity.
+
+Windows-DirectX
+ Funkce SetOverlayPosition. Nemusi byt podporovana. Vzhledem ke strucnosti
+ dokumenatce ocekavam stejnou neurcitost v chovani jako u VESA BIOSu.
+
+Linux-SVGAlib
+ Funkce vga_setdisplaystart. Predpokladam ze nikdy neceka na retrace,
+ ale ostatni bych povazoval za stejne nejiste jako u VESA BIOSu.
+
+Macintosh
+ Nenasel jsem v dokumentaci zadnou funkci, ale docetl jsem se, ze display
+ device nemusi podporovat page flipping. Hardwarovy scrolling je
+ pravdepodobne obtiznejsi nez na jinych platformach.
+
+
+
+=====================
+nastaveni line offset
+=====================
+
+Line offset je cislo udavajici o kolik bajtu dal ve videopameti zacina dalsi
+radek. Typicky to byva delka radku a ty tak na sebe navazuji. Pokud lze
+hodnotu menit, muzeme si jejim zvysenim vedle obrazovky vytvorit skryty
+buffer nebo jejim snizenim nechat cast obrazu zdvojit nebo i zvicenasobit.
+
+Btw, jine architektury dovoluji treba zacit kazdy radek na libovolne
+adrese, toto se tyka (S)VGA karet.
+
+A k cemu nam to bude?
+Pokud se rozhodneme scrollovat do stran a zmenime display start,
+na obrazovce se v pristim snimku objevi to co bylo jeste v minulem
+ve videopameti vedle obrazovky. Ovsem pokud na sebe radky navazuji a
+vedle obrazovky neni zadny bufer, vedle praveho kraje obrazovky
+je levy. Tudiz nemame moznost predem si vse do videopameti nakreslit
+a pak posunout display start, muselo by se to vsechno stihnout
+ve skvire mezi jednim a druhym pruletem paprsku, pri prvnim se jeste
+zobrazi stara bitmapa ve stare poloze, pri druhem (po set display start)
+v nove poloze uz by musela byt bitmapa dokreslena. Spolehat se ze to vzdycky
+vyjde je hazard. Lepsi je mit buffer a vsechno si nakreslit predem,
+az nakonec nastavit display start. Buffer ziskame zmenou line offsetu.
+
+DOS-vyuziti VGA registru
+
+ 3d4h index 13h (R/W):  CRTC: Offset register
+ bit 0-7  Number of bytes in a scanline / K. Where K is 2 for byte mode, 4 for
+          word mode and 8 for Double Word mode.
+
+DOS-vyuziti VESA BIOSu
+ Funkce 4f06h: set logical scan line length. Muze selhat.
+ Muze nastavit vyssi hodnotu nez pozadujeme a vetsinou to dela prinejmensim
+ u nekolika dolnich bitu, kazda karta ma urcitou granularitu s jakou je
+ schopna line offset nastavovat.
+ Vetsinou nelze nastavit delku mensi nez odpovida sirce obrazovky,
+ vetsi az do urcite hranice (na kterou se da zeptat) lze.
+
+Windows-DirectX
+ Nejaka funkce. Asi nemusi byt podporovana ale nejspis byva, chovani
+ ocekavam podobne tomu u VESA BIOSu.
+
+Linux-SVGAlib
+ Nejaka funkce. Chovani ocekavam podobne tomu u VESA BIOSu.
+
+Macintosh
+ V dokumentaci jsem zadnou takovou funkci nenasel.
+
+
+===============================================
+plynuly scrolling nad nekonecne velkou bitmapou
+===============================================
+
+Tentokrat zminim nejdriv tu posledni zachrannou metodu kdyz vsechno selze:
+kopirovat kazdy snimek cely do videopameti. Protoze je to velmi pomale,
+budeme se zabyvat hlavne hardwarovym scrollingem, kdy se obraz
+posouva nastavenim display start a do videopameti se pripadne kopiruje
+jen mala okrajova cast bitmapy.
+
+Vzhledem ke konecnosti videopameti je treba resit poblem jak zobrazit
+bitmapu, ktera se do ni nevejde cela.
+
+Zaroven vyvstava otazka co se stane, kdyz nastavime display start
+tesne pred konec videopameti. Uvidime neco za koncem?
+Prekvapive mozna ano. Nejprve ale jeden pojem.
+
+--------------
+pojem wrapping
+--------------
+
+Karta behem vykreslovani obrazu posouva svuj interni ukazatel do videopameti.
+Kazda (S)VGA karta ma urcitou hranici pri jejimz dosazeni ukazatel pretece
+a zbytek obrazu se bere znovu od nuly. Byva to mocnina dvou.
+Bylo by krasne, kdyby tato hranice odpovidala velikosti videopameti
+nebo dokonce sla posouvat, ale ve skutecnosti se muze mod od modu lisit
+a nehneme s ni. Nekdy je mensi nez velikost videopameti (zvlast neprijemne),
+nekdy stejna (juu), nekdy vetsi. V poslednim pripade tedy muzeme videt
+za konec (ja tomu efektu na monitoru rikam sum na sbernici).
+
+Hranici wrappingu lze detekovat pouze interaktivne, co je videt na obrazovce
+nam v zadnem systemu zadna funkce nezodpovi, ani z VGA registru to vycist
+nejde.
+
+-----------------------------
+mezni nastaveni display start
+-----------------------------
+
+Uz tedy vime co se muze stat, kdyz nastavime display start
+tesne pred konec videopameti, pripadne i jinam.
+Ale neselze funkce na invalid arguments?
+
+DOS-vyuziti VGA registru
+ Registry si nastavujeme sami, tedy nikdy neselzeme.
+
+DOS-vyuziti VESA BIOSu
+ Funkce ma podle normy VBE 2.0 selhat, ale zatim jsem ji vzdy videl
+ uspesne probehnout.
+
+Windows-DirectX
+ Funkce muze selhat s vysvetlenim 'invalid arguments'. Zda to opravdu
+ vzdy dela mi neni znamo.
+
+Linux-SVGAlib
+ Chovani pokud vim neni zdokumentovano a nevim ani jake skutecne je.
+ Ocekaval bych ze nastaveni vzdy probehne a to s jiz popsanym vizualnim
+ efektem (jde stale o stejny hardware).
+
+Macintosh
+ Velky otaznik zda a jak vubec display start nastavit.
+
+--------------
+metoda wrappin
+--------------
+
+Nejsnazsi a nejefektivnejsi zpusob jak v konecne videopameti scrollovat
+nad nekonecnou bitmapou je vyuzit wrappingu. Jedina podminka je aby byla
+hranice wrappingu na konci nebo uvnitr videopameti, ne za koncem.
+Postup je trivialni: pri dokreslovani okraju obrazu s tim jak odscrollovava
+nekreslime bitmapu do videopameti na adresu nase_poloha_v_bitmape, ale
+nase_poloha_v_bitmape mod hranice_wrappingu. Stejne jako orizne adresu
+pri zobrazovani karta, tak ji orizneme i my pri kresleni do videopameti.
+
+Metodu nelze pouzit pokud karta wrapuje za koncem videopameti nebo
+pokud nechceme uzivatele obtezovat kratkym interaktivnim testem.
+
+---------------
+metoda slpittin
+---------------
+
+DOS-vyuziti VGA registru, pripadne spolu s VESA BIOSem
+ Na VGA kompatibilni karte muzeme nastavit registr Line Compare
+ (jine systemy takovou sluzbu nemaji).
+ Karta si po vykresleni prvnich n radek (n je cislo v registru) vynuluje
+ ukazatel do videopameti, zbytek obrazu se tak kresli od adresy 0.
+ Vysledkem je tzv. split screen - obrazovka rozdelena na horni pohyblivou
+ cast (reaguje na set disply start) a dolni statickou (vzdy zacatek
+ videopameti).
+ V SVGA modech registr nekdy nefunguje i kdyz se karta hlasi jako VGA
+ kompatibilni, proto je nutny interaktivni test.
+ Nektere karty se lisi v interpretaci hodnoty o jeden radek, ale je to vyjimka.
+
+ 3d4h index 18h (R/W):  CRTC: Line Compare Register
+ bit 0-7  Lower 8 bits of the Line Compare. When the Line counter reaches this
+          value, the display address wraps to 0. Provides Split Screen
+          facilities. Bit 8 is found in 3d4h index 7 bit 4.
+          Bit 9 is found in 3d4h index 9 bit 6.
+
+ 3d4h index  7  (R/W):  CRTC: Overflow Register
+ bit   4  Bit 8 of Line Compare Register
+
+ 3d4h index  9  (R/W):  CRTC: Maximum Scan Line Register
+ bit   6  Bit 9 of Line Compare Register
+
+ 3C0h index 10h (R/W):  Attribute: Mode Control Register
+ bit   5  If set the PEL panning register (3C0h index 13h) is temporarily set
+          to 0 from when the line compare causes a wrap around until the next
+          vertical retrace when the register is automatically reloaded with
+          the old value, else the PEL panning register ignores line compares.
+
+ A nyni k vyuziti splittingu.
+ Pomoci nej muzeme zcasti naemulovat wrapping, o nic jine nejde.
+ Pokud chceme aby adresa na zacatku n-teho radku wrapla, nastavime
+ na n-ty radek zacatek split screenu.
+ Wrap presne na zacatku radku bohuzel chceme jen pri vertikalnim scrollingu
+ s x=0, pri horizontanim posunu se posune i hranice wrapu a jinde
+ nez na zacatku radku pomoci splitscreenu naemulovat nelze.
+
+ Metodu tedy nelze pouzit pokud karta neni VGA kompatibilni, nastaveni
+ registru ignoruje, potrebujeme scrollovat i do stran nebo pokud nechceme
+ uzivatele obtezovat kratkym interaktivnim testem.
+
+Jine systemy
+ Zadna podpora.
+
+---------------------
+metoda smoothbufferin
+---------------------
+
+Idea: kdyz odscrollujeme tak blizko ke konci videopameti ze dalsim posunem
+by kraj obrazovky presahl kraj videopameti, preneseme se skokem
+na druhy konec videopameti a pokracujeme dal s novym volnym prostorem
+pred sebou. To provadime i v opacnem smeru pri pohybu zpatky.
+Implementace: aby nevznikla v jednom okamziku narazova potreba
+zkopirovat celou obrazovku na nove misto ve videopameti, zdvojujeme
+kresleni v krajnich usecich delky jedne obrazovky i do opacneho konce.
+Pri doscrollovani na konec videopameti uz mame identicky obraz
+pripraven i na druhem konci a preskok neni spojen s zadnou narazovou rezii.
+
+Metodu nelze pouzit pokud nemame k dispozici souvisly blok videopameti
+dlouhy aspon 2 obrazovky.
+
+--------------------
+metoda flickbufferin
+--------------------
+
+Pokud nezdvojime kresleni v krajnich usecich, bude pravidelne vyvstavat
+potreba zkopirovat celou obrazovku na druhy konec videopameti
+a s ni spojene neprijemne cuknuti. Oproti smothbufferinu nam staci
+libovolne mnozstvi videopameti vetsi nez obrazovka, ovsem cim mensi ten
+prebytek bude, tim casteji prijde cuknuti.
+Ja osobne pouzivam vsechny metody krome flickbuferinu.
+
+------------
+metoda movsd
+------------
+
+Byla zminena jiz v uvodu, jde o fyzicke kopirovani kazdeho snimku
+do videopameti. Je o rady pomalejsi a funguje vsude jako posledni zachrana.
+
+PCI karty dosahuji pri kopirovani do videopameti maximalne kolem 80MB/s
+(ET6000), beznejsi je 20MB/s (ostatni). AGP karty by mely nekolikrat
+posunout teoreticky rychlostni limit, ale zatim jsem videl jen jednu
+s prenosovou rychlosti v konkretnim pocitaci 40MB/s.
+Pri malem rozliseni to na plynuly scrolling bohate staci, pri beznem
+nebo vyssim rozliseni je to malo.
+
+
+======================================
+jak scrollovat aby se na to dalo divat
+======================================
+
+Vzhledem k dnes uz znacnemu rozpeti mezi snimkovymi frekvencemi kvalitnich
+a nekvalitnich monitoru je treba ridit chovani programu podle hodin,
+ne podle poctu snimku. Nejen ze jedna karta a monitor mohou zvladnout
+150Hz a jina jen 60Hz, ale pri pouziti metody movsd ve velkem rozliseni
+klesne frekvence se kterou se stiha prekreslovat treba na 5Hz.
+O tom kam nastavime display start by tedy mely rozhodovat hodiny,
+uzivatel pozada o nejakou akci (priklad: stiskne Page Down)
+a program svou reakci rozlozi do dalsi jedne sekundy, ne do dalsich
+70 snimku.
+
+Dalsi vec uz zavisi na vkusu, ale mne neni prijemne, kdyz se obraz
+po stisku klavesy nahle rozjede, chvili se konstantni rychlosti pohybuje
+a nakonec nahle zastavi. Staci pridat setrvacnost, pak se bude rozjizdet
+i brzdit plynule.
+
+
+=======
+prilohy
+=======
+
+{---------------------------------------------------------------------------
+ Vznasi VGA pozadavek na preruseni, ono legendami opredene IRQ2 generovane
+ pri navratu paprsku?
+ Pri prvnim zavolani po nastaveni modu vraci -1.
+ Dokud nezacal retrace, vraci 0.
+ Kdykoliv od konce genrovani obrazu (tesne pred zacatkem navratu, uz se
+ kresli jen dolni border) do zavolani teto funkce vraci 1.
+ (To je jen idealni stav, funkcnost musi byt pred pouzivanim otestovana.
+  Pokud stale vraci -1, je dobre ji radsi nevolat.)
+ ---------------------------------------------------------------------------}
+FUNCTION  vga_IRQ:shortint;assembler;
+ asm
+      {is irq2 enabled?}
+      mov dx,3d4h
+      mov al,11h
+      out dx,al
+      inc dx
+      in  al,dx
+      and al,16+32
+      cmp al,16
+      jz @enabled
+      {disable irq2 in interrupt controller on motherboard}
+      {danger: it corrupts running eventwait}
+      in  al,21h
+      or  al,4
+      out 21h,al
+      {enable irq2 on vga}
+      mov dx,3d4h
+      mov al,11h
+      out dx,al
+      inc dx
+      in  al,dx
+      and al,not (16+32)
+      out dx,al
+      or  al,16
+      out dx,al
+      mov al,-1
+      jmp @end
+      @enabled:
+
+      {test interrupt state}
+      mov dx,3c2h
+      in  al,dx
+      and al,128
+      jz  @end
+
+      {clear interrupt state}
+      mov dx,3d4h
+      mov al,11h
+      out dx,al
+      inc dx
+      in  al,dx
+      and al,not (16+32)
+      out dx,al
+      or  al,16
+      out dx,al
+      mov al,1
+
+     @end:
+ end;
+
+

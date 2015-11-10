@@ -5,42 +5,46 @@
                     ฐฐฐฐ ฑÛฒ ฐฐฐฐฐฐฐ ฑÛฒ ฐฐฐฐ ฑÛฒ ฑÛฒ ฐฐฐฐฐฐฐ
                    ฐฐฐฐ ฑÛฒ ฐฐฐฐฐฐฐ ฑÛฒ ฐฐฐฐ ฑÛÛÛÛÛÛÛฒ ฐฐฐฐฐ
                   ฐฐฐฐ ฑÛฒ ฐฐฐฐฐฐฐ ฑÛฒ ฐฐฐฐ ฑÛฒ ฐฐฐ ฑÛฒ ฐฐฐ
-                 ฐฐฐฐฐ ฑÛÛÛÛฒ ฐฐ ฑÛÛÛÛฒ ฐฐ ฑÛฒ ฐฐฐฐฐ ฑÛฒ ฐ     verze 1.00
+                 ฐฐฐฐฐ ฑÛÛÛÛฒ ฐฐ ฑÛÛÛÛฒ ฐฐ ฑÛฒ ฐฐฐฐฐ ฑÛฒ ฐ    verze 2.00
                 ฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐฐ
-               ฐฐฐฐฐฐฐฐฐฐฐฐฐ Code It Again, Sam ฐฐฐฐฐฐฐฐ    6.listopad 1998
+               ฐฐฐฐฐฐฐฐฐฐฐฐฐ Code It Again, Sam ฐฐฐฐฐฐฐฐ    2.2. 2002
 
  อออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออ
    Zakladni informace:
  ฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤ
- þ Jde o sadu pascalskych unit snazicich se pokryt nejnizsi vrstvu stavby
-   programu (pamet, klavesnice, mys, text/256/hi/truecolor, scrolling...)
-   a trochu i tu vyssi (prohlizec bitmap, fileselector a dalsi dialogy...).
+   OBSAH
+ þ Jde o sadu pascalskych unit pokryvajicich nejnizsi vrstvu stavby
+   programu (pamet, klavesnice, mys, grafika/text, scrolling...)
+   a i trochu vyssi (loadery/playery, fileselector a dalsi dialogy...).
+ þ Neresi hudbu/zvuk, k tomu je doporucen RAIN, viz dee.webpark.cz/rain.
+ þ V souborech pr_*.pas jsou priklady nekterych zakladnich veci.
+   V pripade zajmu rad napisu jednoduchy priklad k jakoukoliv dalsimu tematu.
+
+   KOMPILACE
  þ Zdrojaky jsou urceny pro kompilaci Turbo/Borland Pascalem 7, pro DOS,
    pro realmod nebo protected mod, procesory od 386 vys. Lze je pouzivat
    i v DLL. Funkcnost v jinem prostredi neni zarucena.
-   Na rychlych pocitacich nezpusobuji runtime error 200 (nepouzivaji Crt).
+   Na rychlych pocitacich nezpusobuji znamy Borlandi runtime error 200.
  þ Ke zkompilovani jsou nutne unity standardne dodavane k Borland Pascalu 7.
- þ Tam kde zalezi na rychlosti je optimalizovano na rychlost na 386/486.
-   V ostatnich pripadech na jednoduchost.
- þ V souborech priklad*.* je ukazka par zakladnich veci.
- þ Pokud je nekde cestina (chybove hlasky, fonty), je v kodovani Kamenickych.
 
 
  อออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออ
-   Jak na to (rada pro zacatecniky)
+   Jak zacit (rada pro zacatecniky)
  ฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤ
  þ Porid si Borland Pascal 7 (na neco staci i Turbo Pascal, na neco ne).
-   Spust BP, vlez do dialogu Options/Directories. Nastav Include Directories
-   na adresar s CiA (treba \CIA). Nastav Unit Directories na CiA a na adresar
-   se standardnimi Borlandimi unitami (treba \CIA;\BP\UNITS). Nastaveni uloz
-   napriklad pomoci Options/Save as/BP.TP.
-   Ted muzes zkusit spustit priklady dodavane k CiA.
+   Spust BP.EXE, vlez do dialogu Options/Directories a nastav
+   - Include Directories na adresar s CiA (treba \CIA)
+   - Unit Directories    na CiA a na adresar se standardnimi Borlandimi
+                         unitami (treba \CIA;\BP\UNITS).
+   - Object Directories  na adresar s CiA (treba \CIA)
+   Nastaveni uloz napriklad pomoci Options/Save as/BP.TP.
+   Ted muzes zkusit spustit priklady dodavane k CiA (PR_*.PAS).
 
 
  อออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออ
    Poznamky k uprave zdrojaku:
  ฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤ
- þ Popisy procedur a promennych jednou budou v helpu (*.TPH), zatim jsou
+ þ Popisy procedur a promennych by mohly byt v helpu (*.TPH), zatim jsou
    roztrousene po zdrojacich takto:
    Hlavni komentar k unite je na zacatku, komentare k promennym a spol
    jsou u deklaraci, komentare k proceduram a spol u jejich tel.
@@ -56,6 +60,9 @@
    (stack pouziva pokud ma parametry, lokalni promenne nebo je to metoda).
  þ Komentar {* oznacuje mista kde je neco nedodelane, v oficialnim releasu
    by se nemel vyskytovat prehnane casto :)
+ þ Tam kde zalezi na rychlosti je peclive optimalizovano na rychlost,
+   v ostatnich pripadech na jednoduchost.
+ þ Pokud je nekde cestina (chybove hlasky, fonty), je v kodovani Kamenickych.
 
 
  อออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออ
@@ -63,28 +70,34 @@
  ฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤ
    UNITA    POPIS                  CO STOJI ZA POZORNOST
 
+ þ Baby     grafika pro deti      -jednodussi uz to nemuze byt
  þ Cache    cache pro objekty
+ þ CS       konverze kodovani
  þ Chyby    sprava chyb
  þ DPMI     DPMI sluzby
  þ Fajly    disky, soubory, PCK
+ þ Flc*     dekoder/player FLI/FLC
+ þ FnExpand podpora editoru fontu
  þ Fonty    bitmapove fonty       -format FN
  þ INI      konfiguracni soubory  -format INI
  þ Key      handler klavesnice
  þ Lang1    podpora pro jeden jazyk
+ þ Lang2    podpora pro dva jazyky
  þ LangFile podpora pro vice jazyku
- þ LdTGA    loader a writer TGA
+ þ Ld*      loadery GIF/PCX/X/TGA/TXT
  þ Loadery  prace s obrazky       -snadna rozsiritelnost o nove formaty
  þ Memo     sprava pameti         -univerzalnost pro real i protekt, alokace
  þ Mys      sprava mysi             souvislych bloku 64KB a delsich
  þ Num      ciselne soustavy
- þ Scrol    scrolling             -scrollovaci engine z Masiny
- þ Stringy  prace se stringy        libovolny mod/libovolne velka bitmapa
+ þ Scrol    scrolling             -scrollovaci engine z Masiny,
+ þ Streamy  uzitecne streamy        libovolny mod/libovolne velka bitmapa
+ þ Stringy  prace se stringy
  þ Sys      systemove drobnosti   -nahrada casti crt makry, presne mereni casu
  þ Texty    prace s texty v pameti
  þ Timer    synchronizace s paprskem
  þ Tools    vetsi sikovne kusy kodu
  þ VGA      vga, vesa, bitmapy    -univerzalnost pro vsechny podporovane mody,
-                                   resi chyby nekterych karet a vesa biosu
+                                   resi chyby grafickych karet a vesa biosu
 
    Podrobnejsi informace jsou v jednotlivych unitach.
 
@@ -96,6 +109,7 @@
 
  þ bit2scr.inc    dvojnasobny include k vga.pas
  þ define.inc     globalni nastaveni $define pro vsechny unity
+ þ fn.pas         zdrojak samostatne sireneho konvertoru fontu fn.exe
  þ gui1.inc       interface GUI
  þ gui2.inc       implementation GUI
  þ initdone.inc   standardni init/done include ke vsem unitam
@@ -106,9 +120,10 @@
  þ lang1inc.*     generator souboru lang1.inc
  þ modern.fn      jeden proporcionalni font
  þ moder_np.fn    jeden neproporcionalni font
- þ priklad*.*     ukazky prace s CiA...
- þ readme         dokumentace
+ þ pr*.*          priklady prace s CiA...
+ þ readme.txt     dokumentace
  þ sbit2scr.inc   dvojnasobny include k scrol.pas
+ þ scrol.txt      vse o scrollingu
  þ sele.inc       dialogy fileselector a pathbrowser
 
  þ dpmi.*,timer.* podmnozina Midasu nezbytna kdyz ho nepouzijes
@@ -118,23 +133,71 @@
  อออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออ
    Zavislosti mezi unitami:
  ฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤ
-         timer               lang1
+         timer               lang1/2
         /                   /
    chyby-----key-----sys--fajly-------------------
-        \           /       \                     \
-   dpmi--memo--stringy--mys--VGA---loadery--ldtga  \
+        \  (/)      /  \    \                     \
+   dpmi--memo==stringy--mys--VGA---loadery--ldtga  \
            \     \  \         \           \         \
             \     \  cache-----fonty-------ldtxt     >-langfile,ini
              \     \            \         /         /
-              \     num          dialogy /         /
+   streamy    \     cs,num       dialogy /         /
                \                /       /         /
                 texty-----------------------------
 
-                                         timer+ini+fonty--scrol--tools
+  --- to vlevo je nutne pro to vpravo
+  (/) jen v protektu                        timer+ini+fonty--scrol--tools
+  === obousmerne
+
+ อออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออ
+   Parametry z prikazove radky:
+ ฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤ
+   Kazda unita muze mit a nacitat nejake 'sve' parametry z prikazove radky.
+   Ty ktere povazuje za svoje a zpracuje je oznaci v poli paramUsed, takze
+   dalsi unity uz si jich nevsimaji.
+
+ þ Memo
+     soubor.swp [megabajtu]   zvetsi pamet o tolik MB vytvorenim swapace
+                              (implicitni velikost 16MB)
+ þ Chyby
+     :lang                    nastavi aktualni jazyk
+                              (implicitne eng)
+ þ Vga
+     +bits        lets only models with this # of bits per pixel
+      bits        lets only -"-
+     -bits        removes   -"-
+                   where "4 bits" is textmode
+     AxisRelLimit lets only resolutions which pass this test, where
+                   Axis  is X or Y
+                   Rel   is one from
+                             <
+                             <=
+                             =<
+                             =
+                             ==
+                             !=
+                             =>
+                             >=
+                             >
+                             lt (Less Than)
+                             eq (EQual to)
+                             gt (Greater Than)
+                             le (Less or Equal to)
+                             ne (Not Equal to)
+                             ge (Greater or Equal to)
+                   Limit is number of pixels (chars in textmode)
+
+     Note that < and > symbols have special meaning (redirection) in DOS.
+     If you want to use them in parameter, enclose whole parameter into ""
+      (it works under MS-DOS 7.00, not yet tested elsewhere).
+     Examples: xlt800 "y<600"
+
 
  อออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออ
    Co udelat pro spolupraci s Midasem 0.40:
  ฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤ
+ þ Pozn: podpora Midasu 0.40 je zde ponechana z nostalgie,
+   jako mocnejsi nastroj je doporucen RAIN, viz dee.webpark.cz/rain.
  þ Midas 0.40 si muzes stahnout treba z www.s2.org.
  þ Z adresare s CiA odstran dpmi.*, timer.*.
  þ Obsahem podadresare MIDASFIX prepis zdrojaky Midasu.
@@ -151,30 +214,29 @@
  þ Ulozeni promennych v pameti v urcitem poradi, navaznosti.
  þ Smer stacku na x86 architekture.
  þ Predavani vysledku funkci v registrech.
- þ Ukoncovani procedur retem.
+ þ Ukoncovani procedur instrukci ret.
  þ Pro uplnost jeste: objekty, direktivy, absolute, asm...
 
  þ Nase konvence: predpokladame DF=0; kdo ho nastavi, at ho i vynuluje
  þ Volne pouzivame registry FS a GS. Borland nema osetreny pripad, kdy ve FS
-   nebo GS zustane FreeMem-em ruseny selektor a pod DPMI 0.9 (nejake Win NT)
+   nebo GS zustane FreeMem-em ruseny selektor a pod DPMI 0.9 (stare Win NT)
    se nekdy hrouti (s DPMI 1.0 uz je vse ok). Proto v nasem FreeMemu FS a GS
    nulujeme. Dispose bohuzel pretizit nejde, zde riziko zhrouceni trva.
+   Nastesti jde opravdu jen o nejake zastarale NT.
 
 
  อออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออ
    Dalsi vyvoj:
  ฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤ
- þ Nikdo neni dokonaly a zejmena tyto unity ne.
-   Zde je prostor pro celou obec programatorskou,
-   radi do unit zaclenime vase vylepseni, opravy atd.
- þ Jakekoliv pripominky jsou vitany.
+ þ Pripominky a komentare jsou vitany, bez nich se ridi vyvoj potrebami
+   pouhych dvou lidi.
  þ Plany do budoucna
-    - Help ve formatu TPH.
-    - Dalsi loadery... zalezi jestli je nekdo udela.
+    - Psat dalsi priklady na vsechna temata o jaka bude zajem.
+    - Pridat barevne fonty a antialiasing
+    - Opravovat vsechny nalezene a ohlasene chyby.
+    - V pripade masivniho zajmu napsat help ve formatu TPH.
  þ Zname problemy
-    - Nektere funkce selhavaji v protektu:
-       - dskID(cdromka) vraci dskNet
-       - dskSerialNumber vraci scestne udaje
+    - dskID() detekuje CD-ROMku jako sitovou jednotku
 
 
  อออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออ
@@ -272,6 +334,33 @@
      (cilem teto zmeny je sjednotit chovani fci v textmodu a grafice)
     -pokud zaroven pouzivas Midas, rid se pokyny ve zde prilozenem midas.pas
 
+ þ 2.unor 2002 - verze 2.00
+    -plna funkcnost pod Windows NT/2000 (zasadni zmeny na mnoha mistech)
+    -pribyly loadery GIF/PCX/X a player FLI/FLC; TGA loader umi cist grayscale;
+     existuji PNG/JPG loadery, ale ne volne sirene, kontakt patera@pictview.com
+    -prilozene priklady pr_*.pas
+    -unita Baby: grafika pro kazdeho
+    -k ozvuceni programu uz neni doporucovan Midasu 0.40, ale RAIN,
+     ke stazeni na dee.webpark.cz/rain
+    -nicmene adresar MIDASFIX obohacen o dalsi opravy a vylepseni Midasu 0.40
+    -vyvinuta nova a pro DOSovou aplikaci nejlepsi mozna metoda synchronizace
+     s paprskem, zalozena na zjistovani pozadavku karty na IRQ2
+    -65536x presnejsi stopky, presnost 1 mikrosekunda, procedury Delay*
+    -dukladnejsi podpora alfakanalu (metody RGBA,Color a dalsi)
+    -resizovani bitmap volitelne rychle nebo kvalitni (novy parametr method)
+    -unita FnExpand: podpora pro editry a konvertory do .fn fontu
+    -konvertor fontu fn.pas poprve siren v podobe zdrojaku
+    -unita CS: podpora cestiny a slovenstiny
+    -unita Streamy: zatim obsahuje stream na konverze znakovych sad
+    -unita Lang2: podpora cestiny a anglictiny uvnitr exace
+     (Lang1=cestina uvnitr exace, LangFile=libovolne jazyky v souborech)
+    -menu pokud se nevejde cele na obrazovku scrolluje
+    -vice cache (nova fce cacheGetPic; stara cacheGetFont(=drive caFontGet))
+    -v ruznych unitach pribyly ruzne funkce
+    -pro hlubsi studium prilozen text o scrollingu scrol.txt
+    -mnoho optimalizaci a oprav
+    -pri oslavach 6 let od vzniku CiA nebyla snedena zadna zviratka
+
 
  อออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออ
    Podminky:
@@ -283,16 +372,17 @@
  อออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออ
    Autori:
  ฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤ
- þ Dement         dement@email.cz          kdeco
- þ Carlos         seidl.b.98.ps@vosji.cz   selector, pathbrowser,
-                                           cast disku, fajlu, num, atd
- þ Jezek 2        karel.dvorak@telecom.cz  vse kolem GUI
+ þ Dee            dee@mail.cz
+ þ Carlos         crs@centrum.cz           selector, pathbrowser,
+                                           cast disku, fajlu, num, stringu atd
+ þ Jan Patera     patera@pictview.com      GIF/PCX/X, FLI/FLC dekoder, cast VBE
+ þ Jezek 2        jezek.2@seznam.cz        vse kolem GUI
  þ Sahara Surfers http://www.s2.org        dpmi, timer
- þ Jan Patera     patera@km1.fjfi.cvut.cz  cast prace s VBE
  þ Erixon         sysop@foxone.fido.cz     cast prace s disky, PCK
- þ ReDox          redox@bbs.infima.cz      nastaveni X-modu
+ þ ReDox          redox@volny.cz           nastaveni X-modu
+ þ Waclaw         waclaw@email.cz          dskSerialNumber
 
 
- Aktualni informace, nove verze a dalsich pres 80 fontu
- najdes na strance www.ms.mff.cuni.cz/~shrb5163.
+ Aktualni informace, nove verze a balik s radove 200 fonty a nastroji k nim
+ najdes na strance http://dee.webpark.cz/cia.
 

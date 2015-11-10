@@ -6,7 +6,6 @@
  *
  * by D.Ment:
  *  dpmiRealCallRegs.clr added
- *  dpmiRealModeIntStack added
  *
  * This file is part of the MIDAS Sound System, and may only be
  * used, modified and distributed under the terms of the MIDAS
@@ -359,8 +358,6 @@ function dpmiSetIntVect(intNum : byte; intVector : pointer) : integer;
 
 function dpmiRealModeInt(intNum : byte; registers : PdpmiRealCallRegs) :
     integer;
-function dpmiRealModeIntStack(intNum : byte; registers : PdpmiRealCallRegs;
-    stacksize : word) : integer;
 
 
 
@@ -395,7 +392,6 @@ function dpmiSetRealIntVect(intNum : byte; segment, offset : word) : integer; ex
 function dpmiGetIntVect(intNum : byte; intVector : Ppointer) : integer; external;
 function dpmiSetIntVect(intNum : byte; intVector : pointer) : integer; external;
 function dpmiRealModeInt(intNum : byte; registers : PdpmiRealCallRegs) : integer; external;
-function dpmiRealModeIntStack(intNum : byte; registers : PdpmiRealCallRegs; stacksize : word) : integer; external;
 {$L DPMI.OBJ}
 
 

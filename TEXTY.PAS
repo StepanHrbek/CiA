@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -23,6 +23,12 @@ Samozrejme si to muzes zmenit.
 
 TText2 pridava psani textu, vkladani, mazani, konverze.
 
+TText3 pridava operace s bloky a vlastnim clipboardem.
+
+Odstranit zde omezeni na 64K by tak den zabralo,
+vetsina peclive optimalizovanych metod v asm by si vyzadala upravy.
+Slo by pak hned zpracovavat giganticke INI soubory nebo nacitat
+velke TXT soubory do bitmap (LdTxt.pas), zatim to ale nebylo potreba.
 
 {---------------------------------------------------------------------------
                                 TEXT 1
@@ -115,13 +121,34 @@ type  PText2 = ^TText2;
                      procedure    RewriteWith(st:string);
                      procedure    DelSpaces(adr,kolik:word);
                      procedure    InsSpaces(adr,kolik:word);
+                     function     InsPc(adr,space:word;pc:pchar;len:word):integer;
                      function     InsStr(adr,space:word;st:string):integer;
                      procedure    Write(st:string);
                      procedure    WriteLn(st:string);
+                     procedure    WritePc(pc:pchar);
                      procedure    Konverze(konfig:PText1;oddelovac:char);
                    end;
 
 
+type  TBlkStatus = (blkNoChange,blkMovinStart,blkMovinEnd,blkMakingNew);
+
+type  PText3 = ^TText3;
+      TText3 = object(TText2)
+                     blkStatus    :TBlkStatus;{co se prave v editoru deje s blokem}
+                     procedure    blkShiftedActionInit(shiftPressed:boolean);
+                     function     blkShiftedActionDone:boolean;
+                     procedure    blkCopy;
+                     procedure    blkPaste;
+                     procedure    blkDelete;
+                     procedure    blkCut;
+                     {destructor   Done;virtual;}
+                    private
+                     blkNew       :word;{offset noveho kraje, stane se startem nebo endem}
+                     blkPrevKonec :word;{konec pri ShiftedInitu}
+                   end;
+
+var                  blkPtr       :pointer;{pointer na clipboard}
+                     blkSize      :word;{velikost clipboardu}
 
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
                           IMPLEMENTATION
@@ -611,12 +638,13 @@ Procedure TText2.DelSpaces(adr,kolik:word);assembler;
  asm
      PUSH DS
      lds di,self
-     mov cx,[di+konec];sub cx,adr;inc cx
+     mov cx,[di+konec];inc cx
      mov ax,word ptr [di+pos+2]
      mov ds,ax
      mov es,ax
      mov si,adr;add si,kolik
      mov di,adr
+     sub cx,si
      call REP_MOVSB_si
      mov ax,adr
      mov cx,kolik
@@ -673,8 +701,8 @@ Procedure TText2.InsSpaces(adr,kolik:word);assembler;
      lds di,self
      add [di+konec],bx
 
-     cmp word ptr [di+blkStart],ax;jc @no1;add word ptr [di+blkStart],bx;@no1:
-     cmp word ptr [di+blkEnd  ],ax;jc @no2;add word ptr [di+blkEnd  ],bx;@no2:
+     cmp word ptr [di+blkStart],ax;jbe @no1;add word ptr [di+blkStart],bx;@no1:
+     cmp word ptr [di+blkEnd  ],ax;jbe @no2;add word ptr [di+blkEnd  ],bx;@no2:
      cmp word ptr [di+pos     ],ax;jc @no3;add word ptr [di+pos     ],bx;@no3:
      POP DS
  end;
@@ -688,8 +716,15 @@ Procedure TText2.InsSpaces(adr,kolik:word);assembler;
                          priinsertne nebo oddeletne
  Vraci kolik znaku musel insertnout (zaporne cislo = deletnout).
  ---------------------------------------------------------------------------}
+Function TText2.InsPc(adr,space:word;pc:pchar;len:word):integer;
+begin
+ DelSpaces(adr,space);
+ InsSpaces(adr,len);
+ move(pc^,ptr(PtrRec(pos).Seg,adr)^,len);
+ InsPc:=integer(len)-space;
+end;
+
 Function TText2.InsStr(adr,space:word;st:string):integer;
-var   oldpos:word;
 begin
  DelSpaces(adr,space);
  InsSpaces(adr,length(st));
@@ -715,6 +750,18 @@ var   i:word;
 begin
  if insert then i:=0 else i:=length(st)+length(newln);
  InsStr(word(pos),i,st+newln);
+end;
+
+{---------------------------------------------------------------------------
+ Obdoba write do fajlu, ale s podporou insert modu.
+ ---------------------------------------------------------------------------}
+Procedure TText2.WritePc(pc:pchar);
+var   i,len:word;
+begin
+ if pc=nil then exit;
+ len:=strlen(pc);
+ if insert then i:=0 else i:=len;
+ InsPc(word(pos),i,pc,len);
 end;
 
 {---------------------------------------------------------------------------
@@ -754,15 +801,104 @@ begin
 end;
 
 
+{---------------------------------------------------------------------------
+ Zacatek a konec operace behem ktere je drzen shift.
+ Pokud operace hne kurzorem (zmeni pos), zmeni se i blkStart/End.
+ ---------------------------------------------------------------------------}
+Procedure TText3.blkShiftedActionInit(shiftPressed:boolean);
+begin
+ if shiftPressed then begin
+   if word(pos)=blkEnd then blkStatus:=blkMovinEnd else
+   if word(pos)=blkStart then blkStatus:=blkMovinStart else begin
+     blkNew:=word(pos);
+     blkStatus:=blkMakingNew;
+     end;
+   blkPrevKonec:=konec;
+   end
+ else
+   blkStatus:=blkNoChange;
+end;
+
+Function TText3.blkShiftedActionDone:boolean;
+begin
+ blkShiftedActionDone:=false;
+ if konec<>blkPrevKonec then exit;
+ case blkStatus of
+   blkMovinStart:blkStart:=word(pos);
+   blkMovinEnd:blkEnd:=word(pos);
+   blkMakingNew:begin blkStart:=blkNew;blkEnd:=word(pos);end;
+   else exit;
+   end;
+ if blkStart>blkEnd then xchgw(blkStart,blkEnd);
+ blkStatus:=blkNoChange;
+ blkShiftedActionDone:=true;
+end;
+
+{---------------------------------------------------------------------------
+ Standardni operace s bloky.
+ ---------------------------------------------------------------------------}
+Procedure TText3.blkCopy;
+begin
+ if blkEnd>blkStart then begin
+   if blkPtr<>nil then FreeMem(blkPtr,blkSize);
+   blkSize:=blkEnd-blkStart;
+   GetMem(blkPtr,blkSize);
+   Move(mem[PtrRec(pos).Seg:blkStart],blkPtr^,blkSize);
+   end;
+end;
+
+Procedure TText3.blkPaste;
+begin
+ blkStatus:=blkNoChange;
+ if blkPtr<>nil then begin
+   blkStart:=word(pos);
+   InsSpaces(blkStart,blkSize);
+   blkEnd:=word(pos);
+   dec(pos,blkSize);
+   Move(blkPtr^,pos^,blkSize);
+   end;
+end;
+
+Procedure TText3.blkDelete;
+begin
+ if blkEnd>blkStart then
+   DelSpaces(blkStart,blkEnd-blkStart);
+end;
+
+Procedure TText3.blkCut;
+begin
+ blkStatus:=blkNoChange;
+ blkCopy;
+ blkDelete;
+end;
+
+{
+Destructor TText3.Done;
+begin
+ if blkPtr<>nil then FreeMem(blkPtr,blkSize);
+ inherited Done;
+end;
+}
+
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
-function Init:TError;
+const unita='texty';
+var result:TError;
+
+procedure UserInit;
  begin
-  Init:=erOk;
+  blkPtr:=nil;
+  blkSize:=0;
  end;
 
-procedure Done;
+procedure UserDone;
  begin
+  if blkPtr<>nil then FreeMem(blkPtr,blkSize);
  end;
 
+{$i initdone.inc}
+{$ifdef autoinit}
+BEGIN
+ erCheck(Init);
+{$endif}
 END.

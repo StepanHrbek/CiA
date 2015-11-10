@@ -37,67 +37,6 @@ Selh†n° DPMI.
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 Nedostatek konvenán° pamàti.
 Pot©ebuji DOS verze p©inejmen®°m
 Neplatny disk
@@ -110,10 +49,8 @@ P©°li® velkò soubor.
 V readonly m¢du nelze zapisovat na disk.
 Sluëba Event Wait je obsazena.
 DialogovÇ okno je vàt®° neë obrazovka, zkus vy®®° rozli®en°.
-Nebyl nalezen ani jeden soubor
-odpov°daj°c° masce
-M†lo pamàti na vol†n° shellu
-Ne£spà®nÇ vol†n° shellu
+M†lo pamàti na vol†n° shellu "$".
+Ne£spà®nÇ vol†n° shellu "$".
 Selhalo naáten° souboru.
 Selhalo uloëen° souboru.
 Selhalo vol†n° shellu.
@@ -121,6 +58,7 @@ Adresa
 Nejde nastavit zobrazovac° m¢d.
 Vadnò VESA BIOS. Po©iÉ si slu®nàj®° nebo pouëij VGA rozli®en°.
 Screen=nil. Je pot©eba nejprve nastavit nàjakò m¢d.
+Bitmapy maj° rñznÇ modely. Je pot©eba je p©evÇst na spoleánò.
 Vadnò font.
 Pokus o nastaven°/konverzi fontu pro tyto £áely p©°li® velkÇho.
 Chyba v INI souboru na ©†dce:
@@ -131,10 +69,9 @@ Promànn† m† bòt á°slo v INI souboru na ©†dce:
 ReadOnly m¢d, vynech†v†m pr†ci s
 Alokuje® moc blokñ konvenán° pamàti. Pro autora: zvy® si maxDosBlocks.
 blokñ konvenán° pamàti neuvolnàno.
+Tvoje grafick† karta se zbl†znila. Volej doktora d.ment@email.cz!
 Nenahazuje se ret, intern° chyba.
 Fuj bios, sluëba load user font zmànila doublescanning.
-Pro tento model nen° k dispozici bitmapa my®i, dodej vlastn°.
-Selhalo ukl†d†n° bitmapy.
 minulò m¢d neuvolnil timer
 ë†dn† bitmapa na vstupu.
 p©°li® velk† li®ta.
@@ -150,6 +87,7 @@ Stiskni ENTER.
 Stiskni ESC.
 Je-li vidàt jen pñlkruënice, stiskni ESC.
 Stiskni ENTER, je-li cel†.
+Stiskni MEZERNãK, je-li cel†.
 Je-li sloupec textu uprost©ed obrazovky, stiskni ENTER. Je-li vychòlen doprava nebo doleva, stiskni ESC.
 Pokud se kurzor pohybuje kolmo (v jednom sloupci), stiskni ENTER. Jinak ESC.
 Pokud se text pohybuje plynule, stiskni ENTER. Jinak ESC.
@@ -178,7 +116,7 @@ Nelze vytvo©it adres†©
 Nelze vstoupit do adres†©e
 Nelze smazat adres†©
 Bàhem akce nastala chyba.
-Pokraáovat;Ignorovat v®e;Skonáit
+Pokraáuj;Pok.vëdy;Skonái;Sko.vëdy
 õpatn† á°seln† soustava
 õpatn† cifra na vstupu.
 Chyba p©°stupu ke streamu
@@ -198,6 +136,68 @@ SOUBOR¶!
 Äekejte,
 pros°m
 ûad°m..
+Zadej masku.
+ADRESèû
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Dàlen° nulou.
 P©ekroáen° mez° pole nebo typu.
 P©eteáen° stacku.
@@ -259,6 +259,7 @@ Pouziti: FN [options] [zdroj [cil]]
   -i jen vypise informace o fontech zdroj
   -f jen vypise informace o formatech
   -p prevede font na proporcionalni
+  -ncislo prevede font na neproporcionalni, cislo je sirka, zadne cislo=detekce
   -r umozni prejmenovat font (nazev v headeru, ne nazev souboru)
   -first-last rika, ze font obsahuje pouze znaky first az last (napr. -32-255)
   -wcislo udava sirku znaku ve FNT v pixelech, implicitne 8
@@ -278,30 +279,33 @@ Formaty (serazene od nejjednodussiho k nejkomplexnejsimu):
   RIF - magic "af"; pchar copyright; word vyska(0-24),lastchar (firstchar=32);
         tablo[word ofs_od_zacatku_bitmap,sirka(0-16)]; hromada bitmap
   FN  - magic "Îm’onÁ "; pchar name; char firstchar,lastchar; short sizeover,
-        sizeunder; byte addspace,future; tablo[short relx,rely; byte sir,vys,
-        shift; word ofs_od_zacatku_souboru]; hromada bitmap
+        sizeunder; short addspace; byte future; tablo[short relx,rely;
+        byte sir,vys,shift; word ofs_od_zacatku_souboru]; hromada bitmap
   FON - copyright, copyright, copyright, chaos, copyright...
 
 Nejak moc parametru.
+Nezn†mò parametr
 Chaos 1, sezen mi popis formatu FON.
 Chaos 2, sezen mi popis formatu FON.
 Fontu:
 Pouzit font cislo
 Font
 Vyska
-Velikost
-neodpovida parametrum - neni nasobkem
+õ°©ka $ neodpovida parametrum - neni nasobkem $ (znaku*sirka).
 Prilis velky font.
 Interni chyba, spatna velikost vygenerovaneho fn.
 Expand failed.
 Shrink failed.
 Z†pis do form†tu .
 nen° podporov†n.
+Load $.
 Rename (zadej libovolne dlouhe jmeno fontu, uklada se do headeru):
 Proporc.
+Noprop.
 Superscript.
 Show.
 Save
+Nezn†mò form†t souboru.
 
 Pro takovò form†t nem†m loader.
 Pro takovò form†t nem†m writer.
@@ -310,3 +314,35 @@ Nepodporovanò typ komprese!
 Nepodporovan† barevn† hloubka!
 Postr†d†m paletu!
 Neoáek†van† paleta!
+Chyba v datech!
+P©°li® mnoho Huffmanovòch tabulek!
+P©°li® mnoho kvantizaán°ch tabulek!
+P©°li® mnoho barevnòch sloëek!
+Neprokl†danÇ obr†zky nejsou podporov†ny!
+Nespr†vnò poáet barevnòch sloëek!
+Chybn† velikost znaáky DRI!
+Chybn† velikost hlaviáky souboru!
+DHL nen° podporov†no!
+Nalezena nezn†m† znaáka v datech!
+Barevnò model CMYK nen° podporov†n!
+Barevnò model YIQ nen° podporov†n!
+Nezn†mò barevnò model!
+Aritmetick† komprese nen° podporov†na!
+Soubory typu HSI JPEG nejsou podporov†ny!
+Neoáek†van† znaáka konce souboru!
+Nebyla definov†na ë†dn† Huffmanova dekompresn° tabulka!
+Nepodporovanò typ prokl†d†n°!
+Neoáek†van† znaáka v datech!
+Prokl†d†n° obr†zkñ nen° podporov†no!
+P©°li® velkò obr†zek!
+Podporov†ny jsou pouze 256barevnÇ obr†zky!
+Chyba CRC v hlaviáce souboru!
+Nalezen neoáek†vanò konec souboru!
+Obr†zky v progresivn°m m¢du nejsou podporov†ny!
+Nezn†mò typ komprese!
+Dekompresn° buffer vàt®° neë 32KB nen° podporov†n!
+Nezn†mò typ filtru!
+Chybn† velikost nekomprimovanÇho bloku!
+Alfa kan†l nen° podporov†n!
+P©°li® velk† animace pro indirect player.
+Pamàü staá° jen na $% obr†zku.

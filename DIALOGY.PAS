@@ -1,4 +1,4 @@
-{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 1.00ƒƒƒø
+{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 2.00ƒƒƒø
  ≥S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi≥
  ≥v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.≥
  ¿ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒŸ}
@@ -6,7 +6,7 @@
 Unit      Dialogy;
 Interface {$i define.inc}
 Uses      Chyby,Memo, Dos,Objects,Strings,
-          Sys,Stringy,Key,Vga,Fonty,Cache,Texty,Fajly;
+          Sys,Stringy,CS,Key,Vga,Fonty,Cache,Texty,Fajly;
 Function  Init:TError;
 Procedure Done;
 
@@ -29,12 +29,13 @@ Procedure Done;
       Implicitne je nastaven modern.fn.
       Kdyz pracujes ve vice rozlisenich a chces mit vzdy spravne velky
       font, idealni reseni je serizovat dlgFont v dlgPreInit.
-    - Az tady, kdyz je nahran font, vime jak velky dialog se jeste
+    - Az tady, kdyz je nahran font, vime jak velky dialog se skutecne jeste
       vejde na obrazovku a co uz by bylo moc.
       Pokud byla jako parametr zadana procedure GetSize, zavola se.
       Je to vnorena procedura typu
         procedure(var sir,vys:word;maxsir,maxvys:word);far;
-      Tato procedura na zaklade maxsir a maxvys urci sirku a vysku dialogu.
+      Tato procedura na zaklade maxsir a maxvys urci definitivni
+      sirku a vysku dialogu.
     - Je dost pameti?, vejde se dialog na obrazovku? apod.
       Pokud zde dojde k chybe, zobrazi se chybova hlaska. Kdyz selze i zobrazeni
       chybove hlasky, program skonci a hlaska se vypise v textmodu, v opacnem
@@ -87,18 +88,25 @@ Procedure Done;
 }
 
 Type      PPChar  = ^PChar;
-          PdlgCollection = ^TdlgCollection;
-          TdlgCollection = object(TCollection)
-            procedure InsertStr(st:string;kod:byte);
-            procedure FreeItem(item:pointer);virtual;
+          PMenuCollection = ^TMenuCollection;
+          TMenuCollection = object(TStrCollection)
+            constructor Init(sort:boolean);
+            function    KodOf(item:pointer):PLong;
+            procedure   InsertSt(txt:string);
+            procedure   InsertStr(txt:string;kod:longint);
+            procedure   FreeItem(item:pointer);virtual;
+            function    StrAndKod(st:string;kod:longint):pchar;
+            function    Compare(key1,key2:pointer):integer;virtual;
+           private
+            sorted      :boolean;
             end;
+          FGetMenuLine=function(p:pointer;w:word):pchar;
 
-Const     dlgHotkeys          =100;
-          dlgOverwrite        =1 shl 0;{pocatecni chovani kurzoru}
+Const     dlgOverwrite        =1 shl 0;{pocatecni chovani kurzoru}
           dlgEscReturnsNothing=1 shl 1;{co vraci kdyz stisknes esc}
           dlgCursorToStart    =1 shl 2;{pocatecni umisteni kurzoru v dlgLine}
           dlgHideExt          =1 shl 3;{ve fileselectoru nezobrazuje koncovku}
-          dlgForbidNew        =1 shl 4;{zakaze zadani neexistujiciho souboru}
+          dlgForbidNew        =1 shl 4;{nedovoli zadani neexistujiciho souboru}
           dlgUpdateDir        =1 shl 5;{zustava na poslednim adresari/vraci se na puvodni}
           dlgRatherBig        =1 shl 6;{jestli ma byt dialog radsi mensi nebo vetsi}
           dlgShowQuickFindStr =1 shl 7;{zobrazovat "Quick-Find" string nebo nezobrazovat}
@@ -127,7 +135,7 @@ Const     dlgHotkeys          =100;
           sortSeparate        =14;  {pouze oddàlit adres†©e od souborñ}
           sortFilesFirst      =$40; {za©adit adres†©e aë za soubory (defaultnà jsou adres†©e na zaá†tku)}
           sortFlipList        =$80; {obr†tit seznam od konce do zaá†tku}
-          stdsort:byte        =sortName;
+          sortDefault:byte    =sortName;
           {udaje, ktere se zobrazi u kazdeho souboru (v selectoru)}
           itemName            =1 shl 0;
           itemExt             =1 shl 1;
@@ -135,13 +143,13 @@ Const     dlgHotkeys          =100;
           itemDate            =1 shl 3; {den.mesic.posledni dvojcisli roku}
           itemTime            =1 shl 4; {hodina:minuta}
           itemAttr            =1 shl 5; {od '----' az do 'arhs'}
-          stditem:byte        =itemName+itemExt;
+          itemDefault:byte    =itemName+itemExt;
           {typy scrollbary v selectoru}
           barNone             =0;
           barVertical         =1;
           barHorizontal       =2;
           barArrows           =3;
-          stdbar:byte         =barHorizontal;
+          barDefault:byte     =barHorizontal;
 
 {Pomoci nasledujicich promennych muzes upravit chovani vsech dialogu.}
 {Pokud ti vyhovyje standardni chovani, nemusis na ne ani sahnout.}
@@ -151,19 +159,25 @@ Var       dlgPreInit :TProc;     {co se zavola tesne pred otevrenim dialogu}
           dlgHelp    :TProc;     {co se zavola pri stisku F1}
           dlgEvents  :string[10];{jake eventy se nezpracuji a ukonci dialog}
           dlgFont    :PathStr;   {jmeno fontu pro dialogy}
+          dlgHotkeys :boolean;   {kod polozky v menu povazuje za kod klavesy a reaguje na ni}
 
 FUNCTION  dlgMsg(msg:pchar):TEvent;
 FUNCTION  dlgStr(msg:string):TEvent;
+FUNCTION  dlgMsgOpen(msg:pchar):PObject;
+FUNCTION  dlgStrOpen(msg:string):PObject;
 FUNCTION  dlgError(errorcode:TError):TError;
 FUNCTION  dlgChoice(popisek,tlacitka:string):word;
 FUNCTION  dlgExit:char;
-FUNCTION  dlgLine(flags:word;popisek:string;preselect:string):string;
-FUNCTION  dlgPathBrowser(flagy:word;popisek,masc,preselect:string):string;
-FUNCTION  dlgSelector(flagy:word;popisek,masc,preselect:string):string;
+FUNCTION  dlgLine(flags:longint;popisek:string;preselect:string):string;
+FUNCTION  dlgPathBrowser(flagy:longint;popisek,masc,preselect:string):string;
+FUNCTION  dlgSelector(flagy:longint;popisek,masc,preselect:string):string;
 FUNCTION  dlgChar:char;
-FUNCTION  dlgMenu(popisek:string;polozek:byte;p:ppchar;addofs,preselect:word):word;
-FUNCTION  dlgMenuCol(popisek:string;c:PdlgCollection;preselect:word):word;
+{FUNCTION  dlgMenu(popisek:string;polozek:byte;p:ppchar;addofs,preselect:word):word;}
+FUNCTION  dlgMenu(popisek:string;polozek:byte;f:FGetMenuLine;p:pointer;preselect:word):word;
+FUNCTION  dlgMenuNdx(popisek:string;c:PStrCollection;preselect:word):word;
+FUNCTION  dlgMenuKod(popisek:string;c:PMenuCollection;preselect:longint):longint;
 FUNCTION  dlgSelectLanguage:boolean;
+
 
 {$I GUI1.INC}
 
@@ -174,405 +188,31 @@ PROCEDURE erStdoutAndDialog(st:string);
                           IMPLEMENTATION
 {‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹}
 
+Uses Dialog;
 
-Type
- PGetSize=procedure(var sir,vys:word;maxsir,maxvys,bp:word);
- PDialog=^TDialog;
- TDialog=object(TBitmap)
-   x1,y1     :integer;{pen_screen souradnice leveho horniho rohu dialogwindow}
-   chrX,chrY :byte;   {rozmery dialogu ve znacich}
-   mulX,mulY :byte;   {velikost jednoho znaku (v textmodu ve znacich, v grafice v pixelech)}
-   eventpos  :TPoint; {souradnice znaku nad kterym prisel posledni event}
-   press     :TPoint; {souradnice znaku nad kterym bylo stisknuto leve mysitko}
-   stored    :PBitmap;
-   font      :PFont;
-   s         :PScreen;
-   oldpen    :byte;
-   oldcursor :boolean;
-   oldmouse  :boolean;
-   oldmoving :boolean;
-   kurzor    :TPoint;
-   kurzorOn  :boolean;
-   constructor Init(sir,vys:word;GetSize:PGetSize;LocVar:word;var result:TError);
-   procedure   WriXY(textattr:byte;x,y:word;st:string);
-   procedure   Frame;
-   procedure   StoreFull;
-   procedure   FreshFull;
-   procedure   Fresh(x,y,sir,vys:word);
-   procedure   RestoreFull;
-   procedure   Gotoxy(x,y:word);
-   function    GetEvent:TEvent;
-   destructor  Done;virtual;
-
-  public
-   {buttony, dialog je vubec nemusi vyuzit, muze si vsechno delat sam}
-   buttons   :word;
-   button    :array[0..600] of record x,y,locol,hicol:byte; st:pstring end;
-   buttM     :word; {button vybrany mysi, kod spolecny pro vsechny dialogy}
-   buttK     :word; {button vybrany klavesnici, kod v dlgXXXX, vyssi priorita}
-   buttfresh :boolean;
-   noEventsYet:boolean;
-   procedure   PutButton(x,y:word;locol,hicol:byte;st:string);
-   procedure   Butt(but:word;hilight:boolean); {nedivejte se do slovniku, co to znamena :)}
-   function    ButtUnder(pos:TPoint):word;
- end;
-
-
-Const
- framelo  =1;         {barvy dialogu zadane jako textmodove atributy}
- framehi  =1;         {v grafice se konverti na RGB}
- framein  =$30;
- textbut  =$1F;
- texthi   =15+framein;
- textlo   =8 +framein;
- frameline=1 +framein;
-
- {vcXXXX - virtual code, nesmi kolidovat s kody klaves}
- vcRepos  =89;        {kod rikajici ze doslo k hilightnuti jineho buttonu}
- vcEndGui =90;        {kod normalne ukoncujici GUI dialog (kEsc abortne)}
-
-Function WordNaBP:word;inline($8b/$46/$00);{mov ax,[bp]}
-
-Constructor TDialog.Init(sir,vys:word;GetSize:PGetSize;LocVar:word;var result:TError);
-var   mx,my  :byte;
-      f      :PFont;
-      i      :integer;
-      maxSir :word;
-      maxVys :word;
-
- function AvgSir:byte;
- var sir,
-     sum1sir,sum1count,
-     sum2sir,sum2count,max2sir:word;
-     c:char;
- begin
-  sum1sir:=0;
-  sum2sir:=0;
-  sum1count:=0;
-  sum2count:=0;
-  max2sir:=0;
-  for c:=f^.firstchar to f^.lastchar do begin
-    sir:=f^.tablo^[c].shift;
-    inc(sum1sir,sir);
-    inc(sum1count);
-    if c in ['A'..'Z'] then begin
-      inc(sum2sir,sir);
-      inc(sum2count);
-      max2sir:=maxW(max2sir,sir);
-      end;
-    end;
-  if sum1count=0 then AvgSir:=(f^.sizeOver+f^.sizeUnder) div 2 else
-  if sum2count=0 then AvgSir:=(sum1sir+sum1count-1) div sum1count else
-                      AvgSir:=(sum2sir+sum2count-1) div sum2count;
- end;
-
+{---------------------------------------------------------------------------
+ Vypise zpravu a necha ji viset na obrazovce.
+ Zrusis ji prostym zrusenim vraceneho objektu.
+ Pchar msg neuvolni.
+ ---------------------------------------------------------------------------}
+FUNCTION  dlgMsgOpen(msg:pchar):PObject;
+var   d:PDialog;
+      t:TText1;
+      sir,vys,y:word;
 begin
- TObject.Init;
- if CurScreen=nil then result:=erNoScreen else begin
-   if @dlgPreInit<>nil then dlgPreInit;
-   f:=caFontGet(dlgFont);
-   if f=nil then result:=erBadFont else begin
-     if CurScreen^.MapModel=model_text
-       then begin mX:=1;mY:=1;end
-       else begin mX:=AvgSir;mY:=f^.sizeOver+f^.sizeUnder;end;
-     maxSir:=CurScreen^.Xres div mX;
-     maxVys:=CurScreen^.Yres div mY;
-     if @GetSize<>nil then GetSize(sir,vys,maxSir,maxVys,LocVar);
-     if (sir>maxSir) or (vys>maxVys) then result:=erDialogBig else begin
-       nextPal:=CurScreen^.pal;
-       if not inherited Init(CurScreen^.MapModel,sir*mX,vys*mY) then result:=erLowMem else begin
-         font:=f;
-         f:=nil;
-         s:=CurScreen;
-         chrX:=sir;
-         chrY:=vys;
-         mulX:=mX;
-         mulY:=mY;
-         x1:=(s^.Xres-sizeX) div 2;
-         y1:=(s^.Yres-sizeY) div 2;
-         s^.SwapMoving(oldmoving);
-         oldcursor:=vga_HideCursor;
-         oldmouse:=s^.MouseShow;
-         oldpen:=s^.pen;
-         s^.pen:=PEN_SCREEN;
-         New(stored,Init(s^.MapModel,sizeX,sizeY));
-         if stored=nil then result:=erLowMem else begin
-           StoreFull;
-           Clr2Ful;
-           result:=erOk;
-           if @dlgPostInit<>nil then dlgPostInit;
-           {kdyz je ztmavena paleta a ani PostInit ji nerozsvitil, udela to sam}
-           if (s^.pal<>nil) and (s^.pal^.nowbright<100) then s^.pal^.SetBright(255);
-           buttK:=0;
-           buttM:=0;
-           noEventsYet:=true;
-           exit;
-           end;
-         Done;
-         end;
-       end;
-     caLeave(f);
+ dlgMsgOpen:=nil;
+ if t.Init(msg) then begin
+   t.ScanSize(sir,vys);
+   if NewDialog(d,sir+4,vys+2,nil) then begin
+     d^.Frame;
+     for y:=1 to vys do
+       d^.wrixy(textlo,2,y,t.nlRead);
+     d^.FreshFull;
+     dlgMsgOpen:=d;
      end;
-   end;
- Fail;
-end;
-
-{
- Toto je spravny postup pri inicializaci dialogu - do resultu dat nejdriv
- erLowMem. Kdyz selze uz alokace d^, vubec se nevola konstruktor.
- V resultu tak zustane erLowMem a chyba je pote ohlasena.
- ---
- Aby mela funkce GetSize pristup k lokalnim promennym nadrazene fce,
- je treba ji jako posledni parametr predat to, co je ted na adrese BP.
- Tenhle trik mam z metody ForEach v unite Objects.
-}
-FUNCTION NewDialog(var d:PDialog;sir,vys:word;GetSize:pointer):boolean;
-var   result:TError;
-begin
- result:=erLowMem;
- New(d,Init(sir,vys,PGetSize(GetSize),WordNaBP,result));
- if d=nil then dlgError(result);
- NewDialog:=d<>nil;
-end;
-
-Procedure TDialog.WriXY(textattr:byte;x,y:word;st:string);
-var backcol,forecol:longint;
-    proporc:byte;
-    over:integer;
-begin
- if MapModel=model_text then begin
-   forecol:=textattr;
-   over:=1;
-   end
- else begin
-   forecol:=s^.TextColor(textattr mod 16);
-   backcol:=s^.TextColor(textattr div 16);
-   Col2Box(x*mulX,y*mulY,length(st)*mulX,mulY,backcol);
-   over:=font^.sizeOver;
-   end;
- OutStr(st,@self,x*mulX,y*mulY+over,font,mulX,forecol);
-end;
-
-Procedure TDialog.Butt(but:word;hilight:boolean);
-var col:byte;
-begin
- if but=0 then exit;
- if hilight then col:=button[but].hicol else col:=button[but].locol;
- WriXY(col,button[but].x,button[but].y,button[but].st^);
- if buttfresh then Fresh(button[but].x*mulX,button[but].y*mulY,length(button[but].st^)*mulX,mulY);
-end;
-
-Procedure TDialog.PutButton(x,y:word;locol,hicol:byte;st:string);
-begin
- inc(buttons);
- button[buttons].x:=x;
- button[buttons].y:=y;
- button[buttons].locol:=locol;
- button[buttons].hicol:=hicol;
- button[buttons].st:=NewStr(st);
- Butt(buttons,false);
-end;
-
-{vraci cislo buttonu pod pozici pos (PEN_SCREEN)}
-Function TDialog.ButtUnder(pos:TPoint):word;
-var  i:integer;
-begin
- for i:=buttons downto 0 do
-  with button[i] do
-   if (i=0) or ((y=(pos.y-y1) div mulY) and (x<=(pos.x-x1) div mulX)
-    and (x+length(st^)>(pos.x-x1) div mulX))
-     then begin
-      ButtUnder:=i;
-      exit;
-      end;
- ButtUnder:=0;
-end;
-
-Procedure TDialog.Frame;
-const cols=9;
-      fram=2;
-
- function packedCol(i:integer):longint;
- var fore:byte;
- begin
-  if i=cols then packedCol:=s^.TextColor(framein div 16) else begin
-    {nasledujici radek zplosti ramecek}
-    if i in [fram..cols-1-fram] then i:=cols div 2;
-    {prevede intenzitu z 0..cols-1 nekam dovnitr 0..255}
-    fore:=byte(255*(i+3) div (cols+1));
-    packedCol:=s^.Color(fore,fore,fore);
-    end;
- end;
-
-var   i,x,y:word;
-begin
- if MapModel=model_text then begin
-   Col2Ful(256*framein+32);
-   for i:=0 to chrY-1 do begin wrixy(framelo,0,i,'€');wrixy(framehi,chrX-1,i,'€');end;
-   for i:=1 to chrX-2 do begin wrixy(framein+framelo,i,0,'ﬂ');wrixy(framein+framehi,i,chrY-1,'‹');end;
-   end
- else begin
-   for i:=0 to cols do begin
-     x:=i*mulX div cols;
-     y:=(i*mulX*longint(s^.Yres)*4) div (longint(s^.Xres)*cols*3);
-     Col2Box(x,y,sizeX-2*x,sizeY-2*y,packedCol(i));
-     end;
+   t.Done;
    end;
 end;
-
-Procedure TDialog.Fresh(x,y,sir,vys:word);
-var   oldm:boolean;
-begin
- oldm:=s^.MouseHide;
- s^.BtB2Box(@self,x,y,sir,vys,x1+x,y1+y);
- if oldm then s^.MouseShow;
-end;
-
-Procedure TDialog.StoreFull;
-var   oldm:boolean;
-begin
- if (stored<>nil) and (s<>nil) then begin
-   oldm:=s^.MouseHide;
-   s^.Box2BtF(stored,x1,y1);
-   if oldm then s^.MouseShow;
-   end;
-end;
-
-Procedure TDialog.FreshFull;
-var   oldm:boolean;
-begin
- oldm:=s^.MouseHide;
- s^.BtF2Box(@self,x1,y1);
- if oldm then s^.MouseShow;
- buttfresh:=true;
-end;
-
-Procedure TDialog.RestoreFull;
-var   oldm:boolean;
-begin
- if (stored<>nil) and (s<>nil) then begin
-   oldm:=s^.MouseHide;
-   s^.BtF2Box(stored,x1,y1);
-   if oldm then s^.MouseShow;
-   end;
-end;
-
-Procedure TDialog.Gotoxy(x,y:word);
-var   oldm:boolean;
-begin
- kurzorOn:=true;
- kurzor.x:=x;
- kurzor.y:=y;
- if MapModel=model_text
-   then begin
-        s^.Gotoxy(x1+x,y1+y);
-        vga_ShowCursor;
-        end
-   else begin
-        oldm:=s^.MouseHide;
-        s^.Col2Box(x1+mulX*x,y1+mulY*y+mulY-2,mulX,2,s^.Color(255,255,255));
-        if oldm then s^.MouseShow;
-        end;
-end;
-
-Function TDialog.GetEvent:TEvent;
-
-var   dlgHelpPtr:pointer absolute dlgHelp;
-      event:TEvent;
-      pos,pos2:TPoint;
-      dlgRect:TRect;
-      swapB:PBitmap;
-      swapP:TPoint;
-      oldm:boolean;
-      dx,dy:integer;
-      oldbuttfresh:boolean;
-      i:word;
-label 1,2;
-begin
- if noEventsYet then buttM:=ButtUnder(s^.mouse);
- Butt(buttK,true);
- 1:
- if kurzorOn then gotoxy(kurzor.x,kurzor.y);
- while not s^.GetEvent(event,pos) do begin
-   s^.Sync;
-   i:=ButtUnder(s^.mouse);
-   if i<>buttM then begin
-     buttM:=i;
-     GetEvent:=MakeEvent(vcRepos,#0,#0);
-     goto 2;
-     end;
-   end;
- dlgRect.Assign(x1,y1,x1+chrX*mulX,y1+chrY*mulY);
- eventpos.x:=(pos.x-x1) div mulX;
- eventpos.y:=(pos.y-y1) div mulY;
- case code(event) of
-   kF1    :if dlgHelpPtr=nil then GetEvent:=event else begin
-             RestoreFull;
-             dlgHelp;
-             FreshFull;
-             goto 1;
-             end;
-   mcLeftPressed
-          :begin
-           press.x:=(pos.x-x1) div mulX;
-           press.y:=(pos.y-y1) div mulY;
-           if noEventsYet and (buttM>0) and (buttM<>buttK)
-             then GetEvent:=MakeEvent(vcRepos,#0,#0)
-             else GetEvent:=event;
-           end;
-   mcRightPressed
-          :GetEvent:=MakeEvent(kEsc,#27,#0);
-   mcCenterPressed
-          :begin
-           if dlgRect.Contains(pos) then begin
-             if kurzorOn and (MapModel=model_text) then vga_HideCursor;
-             RestoreFull;
-             swapB:=@self;
-             swapP.x:=pos.x-x1;
-             swapP.y:=pos.y-y1;
-             s^.MouseSwapPointer(swapB,0,0,swapP);
-             oldm:=s^.MouseShow;
-             repeat
-               s^.Sync;
-             until s^.GetEvent(event,pos2) and (code(event)=mcCenterReleased);
-             if not oldm then s^.MouseHide;
-             dx:=s^.mouse.x-pos.x;
-             dy:=s^.mouse.y-pos.y;
-             inc(x1,dx);
-             inc(y1,dy);
-             s^.MouseSwapPointer(swapB,0,0,swapP);
-             StoreFull;
-             FreshFull;
-             end;
-           goto 1;
-           end;
-   else    if system.pos(chr(code(event)),dlgEvents)=0 then GetEvent:=event else begin
-             s^.PushEvent(event);
-             GetEvent:=MakeEvent(kEsc,#27,#0);
-             end;
-   end;
- 2:
- Butt(buttK,false);
- noEventsYet:=false;
-end;
-
-Destructor TDialog.Done;
-var i:integer;
-begin
- for i:=1 to buttons do DisposeStr(button[i].st);
- RestoreFull;
- KillObj(stored);
- caLeave(font);
- if oldcursor then vga_ShowCursor else vga_HideCursor;
- if oldmouse then s^.MouseShow else s^.MouseHide;
- s^.pen:=oldpen;
- s^.SwapMoving(oldmoving);
- inherited Done;
- if @dlgDone<>nil then dlgDone;
-end;
-
-
-
 
 {---------------------------------------------------------------------------
  Vypise zpravu a ceka na event.
@@ -581,32 +221,29 @@ end;
 FUNCTION  dlgMsg(msg:pchar):TEvent;
 var   event:TEvent;
       d:PDialog;
-      t:TText1;
-      sir,vys,y:word;
 begin
  event:=0;
- if t.Init(msg) then begin
-   t.ScanSize(sir,vys);
-   if NewDialog(d,sir+4,vys+2,nil) then begin
-     d^.Frame;
-     for y:=1 to vys do
-       d^.wrixy(textlo,2,y,t.nlRead);
-     d^.FreshFull;
-     repeat
-       event:=d^.GetEvent;
-     until not (code(event) in (mcHolds+mcReleases));
-     d^.Free;
-     end;
-   t.Done;
+ {$ifdef debug}writeln('dlgMsg1=',pc2str(msg));msg:='dlgMsg1';readkey;{$endif}
+ d:=PDialog(dlgMsgOpen(msg));
+ {$ifdef debug}writeln('dlgMsg2=',pc2str(msg));msg:='dmgMsg2';readkey;{$endif}
+ if d<>nil then begin
+   repeat
+     event:=d^.GetEvent;
+   until not (code(event) in (mcHolds+mcReleases));
+   d^.Free;
    end;
  dlgMsg:=event;
+end;
+
+FUNCTION  dlgStrOpen(msg:string):PObject;
+begin
+ dlgStrOpen:=dlgMsgOpen(Str2Pc(msg));
 end;
 
 FUNCTION  dlgStr(msg:string):TEvent;
 begin
  dlgStr:=dlgMsg(Str2Pc(msg));
 end;
-
 
 {---------------------------------------------------------------------------
  Ohlasi chybu.
@@ -655,28 +292,78 @@ end;
  ---------------------------------------------------------------------------}
 FUNCTION dlgChoice(popisek,tlacitka:string):word;
 var  P: PCollection;
-     le,nadpis,nadpislines,j: integer;
-     i,tlacitek,nejsirsi,le4butts:integer;
+     nadpis,nadpislines,j: integer;
+     i,tlacitek,nejsirsi:integer;
+     dlgside,butsir,mezibut,butside:word;
+     stejnasire:boolean;
+     x,fntwidth:word;
+     le4nadp,le4butts,le4dlg:word;
+label 1,2;
 begin
   New(P,Init(20,20));
-  le := 40-6;
+
+ {umisti nadpis}
+
+  le4nadp:=0;
   nadpislines:=CharsIn(#13,popisek)+1;
   if popisek='' then nadpis:=0 else nadpis:=1+nadpislines;
-  for j:=1 to 1+CharsIn(#13,popisek) do le:=MaxW(le,length(GetString(popisek,#13,j)));
+  for j:=1 to 1+CharsIn(#13,popisek) do le4nadp:=MaxW(le4nadp,length(GetString(popisek,#13,j)));
   with P^ do
    for j:=1 to nadpis-1 do
     Insert(New(PGuiText,Init(-1,j,cutString(popisek,#13),$30)));
   nejsirsi:=0;
   for tlacitek:=1 to CharsIn(';',tlacitka)+1 do
    nejsirsi:=MaxI(nejsirsi,length(GetString(tlacitka,';',tlacitek)));
-  le4butts:=tlacitek*(nejsirsi+6);
-  le:=MaxI(le,le4butts);
+
+ {pocita kolik mista to nakonec zabere a kdyztak vse trochu srazi}
+
+  dlgside:=2;{mista pred prvnim butt v dlg}
+  butside:=1;{mista pred prvnim pismenem v butt}
+  mezibut:=2;{mista mezi butts}
+  stejnasire:=true;{vsechny butt stejne siroky}
+ 1:
+  if stejnasire then begin
+    butsir:=nejsirsi+2*butside+2;{zapocte kraje ve vyrazu "> slovo <"}
+    le4butts:=tlacitek*(butsir+mezibut)-mezibut;
+    end
+  else begin
+    le4butts:=length(tlacitka)+tlacitek*(2*butside+2+mezibut-1)-mezibut+1;
+    end;
+  le4dlg:=MaxW(le4nadp,le4butts)+2+2*dlgside;
+  {jednoducha heuristika: typicky ma uzivatel nastaven font sirky 8
+   a i kdyz ho v dlgPreInit zmeni, zas bude mit 8}
+  if screen^.MapModel=model_text then fntwidth:=1 else fntwidth:=8;
+  if le4dlg*fntwidth<=screen^.Xres then goto 2;
+  if mezibut=2 then mezibut:=1 else
+  if dlgside=2 then dlgside:=1 else
+  if stejnasire then stejnasire:=false else
+  if butside=1 then butside:=0 else
+  goto 2;
+  goto 1;
+ 2:
+
+ {umisti tlacitka a pusti dialog}
+
+  x:=1+dlgside+(MaxW(le4nadp,le4butts)-le4butts) div 2;
+  i:=1;
   with P^ do
-   for i:=1 to tlacitek do
-    Insert(New(PGuiButton,Init((i-1)*(nejsirsi+6)+4+(le-le4butts) div 2,nadpis+1,nejsirsi+4,
-     Middle(cutString(tlacitka,';'),nejsirsi+4),MakeEvent(vcEndGui,#0,#0),i)));
-  dlgChoice:=dlgGUI(le+6,nadpis+3,p,i{jakakoliv promenna},nil);
+   while tlacitka<>'' do begin
+     if not stejnasire
+      then butsir:=length(GetString(tlacitka,';',1))+2*butside+2;
+     Insert(New(PGuiButton,Init(x,nadpis+1,butsir,
+      cutString(tlacitka,';'),MakeEvent(vcEndGui,#0,#0),i)));
+     inc(x,butsir+mezibut);
+     inc(i);
+     end;
+  dlgChoice:=dlgGUI(le4dlg,nadpis+3,p,i{jakakoliv promenna},nil);
   Dispose(P,Done);
+end;
+
+FUNCTION myDlgChoice(popisek,tlacitka:string):word;far;
+begin
+ if curscreen=nil
+  then myDlgChoice:=0
+  else myDlgChoice:=dlgChoice(popisek,tlacitka);
 end;
 
 {---------------------------------------------------------------------------
@@ -741,13 +428,13 @@ end;
  ---------------------------------------------------------------------------}
 PROCEDURE dlgLine_Idle; far;
 begin
-  if Code(guiEvent) = kEnter then begin
+  if Code(guiEvent) in [kEnter,kkEnter] then begin
     guiD^.s^.PushEvent(MakeEvent(vcEndGui,#0,#0));
     guiCommand:=kEnter;
     end;
 end;
 
-FUNCTION dlgLine(flags:word;popisek:string;preselect:string):string;
+FUNCTION dlgLine(flags:longint;popisek:string;preselect:string):string;
 var  P: PCollection;
      txt: string;
      le,nadpis,j: integer;
@@ -763,7 +450,7 @@ begin
     end;
   txt := preselect;
   case dlgGUI(le+6,nadpis+3,p,txt,dlgLine_Idle) of
-    kEnter: dlgLine := txt;
+    kEnter, kkEnter: dlgLine := txt;
     else if flags and dlgEscReturnsNothing<>0 then dlgLine := ''
           else dlgLine := preselect;
     end;
@@ -773,7 +460,7 @@ end;
 {---------------------------------------------------------------------------
  Stara inputlajna, delka stringu omezena velikosti obrazovky.
  ---------------------------------------------------------------------------}
-FUNCTION dlgLine(flags:word;popisek,preselect:string):string;
+FUNCTION dlgLine(flags:longint;popisek,preselect:string):string;
 var   i,j,le,x2,maxlen:integer;
       path,popisek2:string;
       event:TEvent;
@@ -837,7 +524,7 @@ end;
 {---------------------------------------------------------------------------
  Jednoduchy fileselector, pocet souboru omezen velikosti obrazovky.
  ---------------------------------------------------------------------------}
-FUNCTION dlgFile(flags:word;popisek,mask,preselect:string):string;
+FUNCTION dlgFile(flags:longint;popisek,mask,preselect:string):string;
 const qw=0;
 var   list:TStringCollection;
       j,lines,newnamepos:integer;
@@ -917,7 +604,7 @@ begin
      d^.gotoxy(newnamepos+length(st),qw+1);
      event:=d^.GetEvent;
      case code(event) of
-       {*zde zatim igoruje dlgForbidNew flag}
+       {zde zatim igoruje dlgForbidNew flag}
        kLeft     :begin dec(d^.buttK,lines);keyb:=false;end;
        kRight    :begin inc(d^.buttK,lines);keyb:=false;end;
        kUp       :begin dec(d^.buttK);      keyb:=false;end;
@@ -952,32 +639,44 @@ begin
 end;
 *)
 
+
+type TPchars=array[0..16370] of pchar;
+     PPchars=^TPchars;
+
+function GetColItem(p:pointer;w:word):pchar;far;
+begin
+ GetColItem:=PPchars(p)^[w];
+end;
+
+
 {---------------------------------------------------------------------------
+ Menu - zakladni low level verze... nemusis ji vubec pouzivat.
+ Pokud seznam polozek vytvaris dynamicky (v kolekci),
+ muzes pouzit pohodlnejsi dlgMenuNdx nebo dlgMenuKod.
+
  Zepta se, pocka na reakci a vrati
-   0          - esc
+   0          - nevybrano nic, menu zruseno
    1..polozek - cislo vybrane polozky
  Parametry:
    popisek    - nadpis, lze i viceradkovy, pricemz oddelovac je #13
    polozek    - pocet polozek v menu
-   p          - pointer na prvni z nich
-   addofs     - kolik pricist k pointeru p aby ukazoval na dalsi polozku
+   f          - funkce vracejici pointer na n-tou polozku
+   p          - pointer taky predavany fci f (cosi jako pointer na 1.polozku)
    preselect  - kolikata polozka je oznacena na zacatku
-
- Hotkeys
- -------
- Pokud je preselect zvysen o dlgHotkeys, znamena to, ze za kazdou polozkou
- je bajt udavajici kod hotkey klavesy. dlgMenu pak nevraci jen cislo vybrane
- polozky, ale cislo_polozky+256*kod_hotkey_klavesy.
+   dlgHotkeys - zda kody povazovat za kody hotkey klaves a reagovat na ne
  ---------------------------------------------------------------------------}
-FUNCTION dlgMenu(popisek:string;polozek:byte;p:ppchar;addofs,preselect:word):word;
+FUNCTION dlgMenu(popisek:string;polozek:byte;f:FGetMenuLine;p:pointer;preselect:word):word;
 var   b,i,j,le:integer;
       event:TEvent;
       d:PDialog;
       nadpis:word;
+      viditelnych:byte; {rozhodne program, podle toho, jestli se vsechny polozky vejdou na obrazovku nebo ne}
+      segment,segmentmax:integer;
 
   function get(n:byte):pchar;
   begin
-   get:=ppchar(ptr(PtrRec(p).Seg,PtrRec(p).Ofs+(n-1)*addofs))^;
+   get:=f(p,n-1);
+   {get:=ppchar(ptr(PtrRec(p).Seg,PtrRec(p).Ofs+(n-1)*addofs))^;}
   end;
 
   function kod(n:byte):byte;
@@ -985,14 +684,21 @@ var   b,i,j,le:integer;
    kod:=pline(get(n))^[StrLen(get(n))+1];
   end;
 
+  procedure GetSize(var sir,vys:word;maxsir,maxvys:word);far;
+  begin
+   if vys>maxvys then vys:=maxvys*7 shr 3;
+   viditelnych:=vys-2-nadpis;
+  end;
+
 begin
  if polozek=0 then begin dlgMenu:=0;exit;end;
  le:=0;
  b:=0;
+ segment:=0;
  if popisek='' then nadpis:=0 else nadpis:=2+CharsIn(#13,popisek);
  for i:=1 to polozek do le:=MaxW(le,StrLen(get(i)));
  for i:=1 to 1+CharsIn(#13,popisek) do le:=MaxW(le,length(GetString(popisek,#13,i)));
- if NewDialog(d,le+4,polozek+2+nadpis,nil) then begin
+ if NewDialog(d,le+4,polozek+2+nadpis,@GetSize) then begin
    d^.Frame;
    if popisek<>'' then begin
      j:=1;
@@ -1002,35 +708,139 @@ begin
        end;
      d^.wrixy(framein,1,j,rep('ƒ',le+2));
      end;
-   for i:=1 to polozek do
-     d^.PutButton(1,i+nadpis,textlo,textbut,' '+Left(Pc2Str(get(i)),le+1));
-   d^.FreshFull;
-   d^.buttK:=MaxI(preselect mod dlgHotkeys,1);
    b:=-1;
+   if polozek>viditelnych then segmentmax:=polozek-viditelnych else segmentmax:=0;
+   if preselect>viditelnych then segment:=Bounded(preselect-viditelnych div 2,0,segmentmax);
+   d^.buttK:=Bounded(preselect,1,polozek)-segment;
    repeat
+     for i:=1 to viditelnych do
+      d^.PutButton(1,i+nadpis,textlo,textbut,' '+Left(Pc2Str(get(segment+i)),le+1));
+     d^.FreshFull;
      event:=d^.GetEvent;
      case code(event) of
        kEsc       :b:=0;
-       kUp        :d^.buttK:=(d^.buttK+polozek-2) mod polozek+1;
-       kDown      :d^.buttK:=d^.buttK mod polozek+1;
-       kHome,kPgUp:d^.buttK:=1;
-       kEnd,kPgDwn:d^.buttK:=polozek;
+       kUp        :if d^.buttK=1 then segment:=MaxI(segment-1,0)
+                   else d^.buttK:=(d^.buttK+polozek-2) mod polozek+1;
+       kDown      :if d^.buttK=viditelnych then segment:=MinI(segment+1,segmentmax)
+                   else d^.buttK:=d^.buttK mod polozek+1;
+       kHome      :begin
+                    segment:=0;
+                    d^.buttK:=1;
+                   end;
+       kPgUp      :if segment>=viditelnych then
+                    dec(segment,viditelnych)
+                   else
+                    begin
+                     d^.buttK:=MaxI(integer(d^.buttK)+segment-viditelnych,1);
+                     segment:=0;
+                    end;
+       kEnd       :begin
+                    segment:=segmentmax;
+                    d^.buttK:=viditelnych;
+                   end;
+       kPgDwn     :if segment+viditelnych>segmentmax then
+                    begin
+                     d^.buttK:=MinI(d^.buttK+viditelnych-(segmentmax-segment),viditelnych);
+                     segment:=segmentmax;
+                    end
+                   else
+                    inc(segment,viditelnych);
        kEnter,
-       kkEnter    :b:=d^.buttK;
+       kkEnter    :b:=segment+d^.buttK;
        mcLeftPressed
-                  :if (d^.buttM=d^.buttK) then b:=d^.buttK;
+                  :if (d^.buttM=d^.buttK) then b:=segment+d^.buttK;
        vcRepos    :if d^.buttM<>0 then d^.buttK:=d^.buttM;
-       else        if preselect>=dlgHotkeys then
+       else        if dlgHotkeys then
                     for i:=1 to polozek do
                      if kod(i)=code(event) then b:=i;
        end;
+     d^.DeleteButtons;
    until b>=0;
    d^.Free;
    end;
- if (b=0) or (preselect<dlgHotkeys)
-  then dlgMenu:=b
-  else dlgMenu:=MakeWord(kod(b),b);
+ dlgMenu:=b;
 end;
+
+{---------------------------------------------------------------------------
+ Menu.
+ Seznam polozek ocekavan v kolekci.
+ Preselect i result jsou indexy do kolekce polozek, cislovano od 1.
+ ---------------------------------------------------------------------------}
+FUNCTION dlgMenuNdx(popisek:string;c:PStrCollection;preselect:word):word;
+begin
+ dlgMenuNdx:=dlgMenu(popisek,c^.count,GetColItem,pointer(c^.items),preselect);
+end;
+
+{---------------------------------------------------------------------------
+ Menu.
+ Seznam polozek ocekavan v kolekci.
+ Preselect i result jsou kody polozek. Kod se polozkam dava v InsertStr.
+ ---------------------------------------------------------------------------}
+FUNCTION dlgMenuKod(popisek:string;c:PMenuCollection;preselect:longint):longint;
+var index:integer;
+ function KodMatches(item:pointer):boolean;far;
+ begin
+  inc(index);
+  KodMatches:=c^.KodOf(item)^=preselect;
+ end;
+begin
+ index:=0;
+ if c^.FirstThat(@KodMatches)=nil then index:=0;
+ index:=dlgMenuNdx(popisek,c,index);
+ if index=0 then dlgMenuKod:=0 else dlgMenuKod:=c^.KodOf(c^.At(index-1))^;
+end;
+
+{---------------------------------------------------------------------------
+ TMenuCollection pro dlgMenuKod.
+ ---------------------------------------------------------------------------}
+Constructor TMenuCollection.Init(sort:boolean);
+begin
+ inherited Init(50,50);
+ sorted:=sort;
+ duplicates:=false;
+end;
+
+Function TMenuCollection.StrAndKod(st:string;kod:longint):pchar;
+var p:pointer;
+begin
+ GetMem(p,length(st)+1+sizeof(kod));
+ if p=nil then Halt(erLowMem);
+ {$ifdef beta}
+ if pos(#0,st)>0 then erBetaMsg('TMenuCollection: #0 in str.');
+ {$endif}
+ Move(st[1],p^,length(st));
+ (pchar(p)+length(st))^:=#0;
+ Move(kod,(pchar(p)+length(st)+1)^,sizeof(kod));
+ StrAndKod:=p;
+end;
+
+Function TMenuCollection.KodOf(item:pointer):PLong;
+begin
+ KodOf:=@meml[PtrRec(item).Seg:PtrRec(item).Ofs+StrLen(item)+1];
+end;
+
+Procedure TMenuCollection.InsertSt(txt:string);
+begin
+ InsertStr(txt,0);
+end;
+
+Procedure TMenuCollection.InsertStr(txt:string;kod:longint);
+begin
+ if sorted
+  then TSortedCollection.Insert(StrAndKod(txt,kod))
+  else TCollection.Insert(StrAndKod(txt,kod));
+end;
+
+Procedure TMenuCollection.FreeItem(item:pointer);
+begin
+ if item<>nil then FreeMem(item,StrLen(item)+5);
+end;
+
+Function TMenuCollection.Compare(key1,key2:pointer):integer;
+begin
+ Compare:=StrIComp(key1,key2);
+end;
+
 
 {---------------------------------------------------------------------------
  Necha uzivatele vybrat libovolny znak
@@ -1103,36 +913,10 @@ begin {dlgChar}
  dlgChar:=chr(i);
 end;  {dlgChar}
 
-{---------------------------------------------------------------------------
- dlgMenuCol je jako dlgMenu, ale polozky jsou v TdlgCollection.
- ---------------------------------------------------------------------------}
-Procedure TdlgCollection.InsertStr(st:string;kod:byte);
-var p:pointer;
-begin
- GetMem(p,length(st)+2);
- if p=nil then Halt(erLowMem);
- {$ifdef beta}
- if pos(#0,st)>0 then erBetaMsg('TdlgCollection.InsertStr: #0 in str.');
- {$endif}
- st:=copy(st,1,253)+#0+chr(kod);
- Move(st[1],p^,length(st));
- Insert(p);
-end;
-
-Procedure TdlgCollection.FreeItem(item:pointer);
-begin
- FreeMem(item,StrLen(item)+2);
-end;
-
-FUNCTION dlgMenuCol(popisek:string;c:PdlgCollection;preselect:word):word;
-begin
- dlgMenuCol:=dlgMenu(popisek,c^.count,pointer(c^.items),4,preselect+dlgHotkeys);
-end;
-
 {$i SELE.INC}
 
 FUNCTION dlgSelectLanguage:boolean;
-var c:TdlgCollection;
+var c:TMenuCollection;
     mask:string;
     inserted,presel,sel:integer;
     ext:string[10];
@@ -1141,7 +925,7 @@ begin
  dlgSelectLanguage:=false;
  if CurScreen<>nil then s:=nil else New(s,Init(model_packed+model_gfx,640,480,0));
  if CurScreen<>nil then begin
-   if c.Init(10,10) then begin
+   if c.Init(true) then begin
      mask:=fileMask(isLanguage);
      inserted:=0;
      presel:=1;
@@ -1150,12 +934,12 @@ begin
        if ext=language then presel:=inserted+1;
        if ext='cz' then ext:='Äesky';
        if ext='eng' then ext:='English';
-       if ext<>'' then begin c.InsertStr(ext,0);inc(inserted);end;
+       if ext<>'' then begin inc(inserted);c.InsertStr(ext,inserted);end;
        end;
      if s<>nil then with s^ do MouseSetPos(Xres*3 div 5,Yres div 2);
      CurScreen^.Sync;
      CurScreen^.ResetEvents;
-     if c.count=1 then sel:=1 else sel:=dlgMenuCol('',@c,presel);
+     if c.count=1 then sel:=1 else sel:=dlgMenuKod('',@c,presel);
      mask:=fileMask(isLanguage);
      while mask<>'' do begin
        ext:=LoCased(copy(CutString(mask,';'),3,255));
@@ -1182,9 +966,13 @@ end;
 var insideErDialog:boolean;
 PROCEDURE erDialog(st:string);
 begin
+ {$ifdef debug}writeln('erDialog1=',st);st:='erDialog1';readkey;{$endif}
  if insideErDialog then erWrite(st) else begin
    insideErDialog:=true;
-   if (CurScreen=nil) or (dlgStr(st)=0) then erWrite(st);
+   {$ifdef debug}writeln('erDialog2=',st);st:='erDialog2';readkey;{$endif}
+   if (CurScreen=nil) then erWrite(st){vypis byl zakomentovan (hrozi ze je nastaven gfx.mod a psani dopadne jako 
+     sypani caje), ale jeste vic mi vadilo, ze az do setmode nehlasi zadne chyby}
+    else if (dlgStr(st)=0) then {erWrite(st)};{tady zakomentovani nechame, sypani caje by bylo temer jiste}
    insideErDialog:=false;
    end;
 end;
@@ -1209,10 +997,11 @@ procedure UserInit;
   dlgHelp     :=nil;
   dlgFont     :=fnDefaultNp;
   dlgEvents   :='';
+  dlgHotkeys  :=false;
   insideerror :=false;
   ReportErr   :=erDialog;
   insideErDialog:=false;
-  _dlgChoice  :=dlgChoice;
+  _dlgChoice  :=myDlgChoice;{unite fajly rekne cim se ptat v dlgCont}
  end;
 
 procedure UserDone;
@@ -1225,3 +1014,65 @@ BEGIN
  erCheck(Init);
 {$endif}
 END.
+
+FUNCTION dlgMenu(popisek:string;polozek:byte;f:FGetMenuLine;p:pointer;preselect:word):word;
+var   b,i,j,le:integer;
+      event:TEvent;
+      d:PDialog;
+      nadpis:word;
+
+  function get(n:byte):pchar;
+  begin
+   get:=f(p,n-1);
+   {get:=ppchar(ptr(PtrRec(p).Seg,PtrRec(p).Ofs+(n-1)*addofs))^;}
+  end;
+
+  function kod(n:byte):byte;
+  begin
+   kod:=pline(get(n))^[StrLen(get(n))+1];
+  end;
+
+begin
+ if polozek=0 then begin dlgMenu:=0;exit;end;
+ le:=0;
+ b:=0;
+ if popisek='' then nadpis:=0 else nadpis:=2+CharsIn(#13,popisek);
+ for i:=1 to polozek do le:=MaxW(le,StrLen(get(i)));
+ for i:=1 to 1+CharsIn(#13,popisek) do le:=MaxW(le,length(GetString(popisek,#13,i)));
+ if NewDialog(d,le+4,polozek+2+nadpis,nil) then begin
+   d^.Frame;
+   if popisek<>'' then begin
+     j:=1;
+     while popisek<>'' do begin
+       d^.wrixy(textlo,1,j,' '+cutString(popisek,#13));
+       inc(j);
+       end;
+     d^.wrixy(framein,1,j,rep('ƒ',le+2));
+     end;
+   for i:=1 to polozek do
+     d^.PutButton(1,i+nadpis,textlo,textbut,' '+Left(Pc2Str(get(i)),le+1));
+   d^.FreshFull;
+   d^.buttK:=MaxI(preselect,1);
+   b:=-1;
+   repeat
+     event:=d^.GetEvent;
+     case code(event) of
+       kEsc       :b:=0;
+       kUp        :d^.buttK:=(d^.buttK+polozek-2) mod polozek+1;
+       kDown      :d^.buttK:=d^.buttK mod polozek+1;
+       kHome,kPgUp:d^.buttK:=1;
+       kEnd,kPgDwn:d^.buttK:=polozek;
+       kEnter,
+       kkEnter    :b:=d^.buttK;
+       mcLeftPressed
+                  :if (d^.buttM=d^.buttK) then b:=d^.buttK;
+       vcRepos    :if d^.buttM<>0 then d^.buttK:=d^.buttM;
+       else        if dlgHotkeys then
+                    for i:=1 to polozek do
+                     if kod(i)=code(event) then b:=i;
+       end;
+   until b>=0;
+   d^.Free;
+   end;
+ dlgMenu:=b;
+end;

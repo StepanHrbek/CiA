@@ -1,4 +1,4 @@
-{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 1.00ƒƒƒø
+{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 2.00ƒƒƒø
  ≥S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi≥
  ≥v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.≥
  ¿ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒŸ}
@@ -132,36 +132,51 @@ type      TEvent = longint;
 function  MakeEvent(code:byte;char,extchar:char):TEvent; inline($5a/$58/$5b/$8a/$e3);{pop dx;pop ax;pop bx;mov ah,bl}
 function  code(e:TEvent):byte; inline($66/$58/$8a/$c4);{pop eax;mov al,ah}
 function  extchar(e:TEvent):char; inline($58/$58);{pop ax;pop ax}
+var       switchYZ:boolean;
 
 FUNCTION  GuessCode:byte;
 FUNCTION  ReadEvent:TEvent;
 
 
 {---------------------------------------------------------------------------
- Klasicke stopky.
+ HODINY
  ---------------------------------------------------------------------------}
 
+{ Klasicke stopky.}
+
 Type  TStopky = object
-                  cas        :longint; {po Start a Stop je tu ubehly cas v ms}
-                  ticks      :longint; {po Start a Stop je tu ubehly cas v 'ticich' (asi 55 ms)}
+                  mili       :longint; {po Start a Stop je tu ubehly cas v ms (pretece asi za 25 dni)}
+                  mikro      :longint; {po Start a Stop je tu ubehly cas v Ês (pretece asi za 35 minut)}
+                  ticks      :longint; {po Start a Stop je tu hlavni cast ubehleho casu
+                                        v ticich=1h/2^16=asi 55 ms (pretece asi za 4 roky)}
+                  mticks     :longint; {po Start a Stop je tu zbyla mala (muze byt i zaporna)
+                                        cast ubehleho casu v mikroticich=1h/2^32=0.838 Ês}
                   procedure  Start;
                   function   LookAt:longint;
                   function   Stop:longint;
                   procedure  Cont;
+                  procedure  Eat(eatmikro:longint);{uber z casu na bezicich hodinkach tolik mikrosekund}
                 end;
 
 
-{---------------------------------------------------------------------------
- Kolik ubehlo milisekund od resetu? (o neco presnejsi nez systemove hodiny)
- ---------------------------------------------------------------------------}
+{ Kolik ubehlo milisekund od resetu? }
 
 FUNCTION  GetMs:longint;
-PROCEDURE IncMs(delta:longint);
 
 
-{---------------------------------------------------------------------------
- Jeste presnejsi mereni casu.
- ---------------------------------------------------------------------------}
+{ Presnost... TStopky i GetMs mohou byt presne(mikrosec)/nepresne(5milisec) }
+
+FUNCTION  GetPreciseClock:boolean;
+PROCEDURE SetPreciseClock(precise:boolean);
+
+
+{ Cekani, nahrada Delay z Crt }
+
+PROCEDURE DelayS(s:real);
+PROCEDURE Delay(ms:real);
+
+
+{ Jeste presnejsi mereni casu. }
 
 var       EventWaitOk:boolean; {funguji nasledujici funkce?}
 
@@ -185,14 +200,15 @@ Const
   MDOS      =0;
   OS2       =1;
   Windows   =2;
-  DesqView  =3;
-  NetWare   =4;
-  DoubleDOS =5;
+  NT        =3;
+  DesqView  =4;
+  NetWare   =5;
+  DoubleDOS =6;
+  DOSemu    =7;
 
-  os:array[0..5] of pchar=('DOS','OS/2','Windows','DesqView','NetWare','DoubleDos');
+  os:array[-1..7] of pchar=('?','DOS','OS/2','Windows','Windows NT','DesqView','NetWare','DoubleDos','DOSemu');
 
-Var
-  Ops:Byte; {po volani CheckOs je zde zdetekovany operacni system}
+  Ops:shortint=-1; {po volani CheckOs je zde zdetekovany operacni system}
 
 PROCEDURE CheckOS;
 FUNCTION  DosVersion:word; inline($b4/$30/$cd/$21/$86/$c4);{mov ah,30h;int 21h;xchg al,ah}
@@ -202,6 +218,8 @@ FUNCTION  EquipList:word; inline($cd/$11); {fakt dlouha :-)}
 PROCEDURE GiveTimeSlice;
 
 FUNCTION  WhatCpu:word;
+
+FUNCTION  PParams:PString;
 
 
 {ﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂ}
@@ -626,6 +644,28 @@ begin
  co:=GuessCode;
  ch:=ReadKey;
  if ch=#0 then ext:=ReadKey else ext:=#0;
+ {na pozadani aspon zcasti prehodi Y a Z}
+ if switchYZ then
+   case co of
+     kY:begin
+        co:=kZ;
+        case ch of
+          'y':ch:='z';
+          'Y':ch:='Z';
+          #25:ch:=#26;
+          #0 :if ext=#21 then ext:=#44;
+          end;
+        end;
+     kZ:begin
+        co:=kY;
+        case ch of
+          'z':ch:='y';
+          'Z':ch:='Y';
+          #26:ch:=#25;
+          #0 :if ext=#44 then ext:=#21;
+          end;
+        end;
+     end;
  ReadEvent:=MakeEvent(co,ch,ext);
 end;
 
@@ -680,7 +720,302 @@ begin {TypeWrite}
 end;  {TypeWrite}
 
 
+{€€€€€€€€€€€€€€€€ HODINY €€€€€€€€€€€€€€€€}
+
+{$define new8} {vlastni pocitani tiku, bez toho tikaji dolni a horni bity hodin ve windows asynchronne}
+{$define _squarewave} {pouziti jineho modu timeru, ve windows ovsem neni emulovan, takze dolni bity hodin sumi}
+
+const preciseClock:boolean=false;
+
+{$ifdef new8}
+var new8ticks:longint;
+{$endif}
+
+{---------------------------------------------------------------------------
+ Precte aktualni relativni cas v jednotkach 0.838 Ês.
+ ticks - hornich 32 bitu
+ mticks - dolnich 16 bitu
+ ---------------------------------------------------------------------------}
+{$ifndef squarewave}
+PROCEDURE ReadTimeInitAsm;assembler;
+ asm
+   mov al,34h
+   out 43h,al
+   mov al,0
+   out 40h,al
+   out 40h,al
+ end;
+
+PROCEDURE ReadTimeDoneAsm;assembler;
+ asm
+ end;
+
+PROCEDURE ReadTime(var ticks:longint;var mticks:word);assembler;
+ asm
+   cmp preciseClock,false
+   jne @precise
+
+   mov es,seg0040
+   db 66h;mov cx,word ptr es:[6ch]{v ecx jsou 16-47.bit vysledku}
+   xor bx,bx
+   jmp @return
+
+  @precise:
+   {pripravi registry}
+{$ifndef new8}
+   mov es,seg0040
+{$endif}
+  @repeat:
+   mov al,0
+   {co nejrychlejc nacte cas}
+   out 43h,al
+   in al,40h
+   mov bl,al
+   in al,40h
+{$ifdef new8}
+   db 66h;mov cx,word ptr new8ticks{v ecx jsou 16-47.bit vysledku}
+{$else}
+   db 66h;mov cx,word ptr es:[6ch]{v ecx jsou 16-47.bit vysledku}
+{$endif}
+   {znova nacte cas a kdyz pretek, opakuje}
+   mov bh,al
+   test al,80h
+   jnz @nepretek
+   mov al,0
+   out 43h,al
+   in al,40h
+   in al,40h
+   test al,80h
+   jnz @repeat
+  @nepretek:
+   {dopocita mticks}
+   not bx
+
+  @return:
+   {zapise mticks z bx}
+   les di,mticks
+   mov es:[di],bx
+   {zapise ticks z ecx}
+   les di,ticks
+   db 66h;mov word ptr es:[di],cx
+ end;
+{$else}
+{
+  to nahore je rate generator verze, dole square wave generator verze
+}
+PROCEDURE ReadTimeInitAsm;assembler;
+ asm
+   mov al,36h
+   out 43h,al
+   mov al,0
+   out 40h,al
+   out 40h,al
+ end;
+
+PROCEDURE ReadTimeDoneAsm;assembler;
+ asm
+ end;
+
+PROCEDURE ReadTime(var ticks:longint;var mticks:word);assembler;
+ asm
+   cmp preciseClock,false
+   jne @precise
+
+   mov es,seg0040
+   db 66h;mov cx,word ptr es:[6ch]{v ecx jsou 16-47.bit vysledku}
+   xor ax,ax
+   jmp @return
+
+  @precise:
+   {pripravi registry}
+{$ifndef new8}
+   mov es,seg0040
+{$endif}
+   {ulozi si nebezpecny 15.bit vysledku}
+  @repeat:
+   mov al,0e2h
+   out 43h,al
+   in al,40h {7.bit je 15.bit vysledku}
+   mov bl,al
+   {nacte cas}
+   in al,40h {1-7.bit jsou 0-6.bit vysledku}
+   db 66h;ror ax,7
+   in al,40h {0-7.bit jsou 7-14.bit vysledku}
+   db 66h;ror ax,8
+{$ifdef new8}
+   db 66h;mov cx,word ptr new8ticks{v ecx jsou 16-47.bit vysledku}
+{$else}
+   db 66h;mov cx,word ptr es:[6ch]{v ecx jsou 16-47.bit vysledku}
+{$endif}
+   mov al,0e2h
+   out 43h,al
+   in al,40h {7.bit je 15.bit vysledku}
+   {porovna starsi a novejsi 15.bit, jde opakovat cteni pokud se zmenil}
+   xor bl,al
+   test bl,80h
+   jnz @repeat
+   {dopocita mticks}
+   shr al,7
+   db 66h;rol ax,15
+   not ax
+
+  @return:
+   {zapise mticks z ax}
+   les di,mticks
+   mov es:[di],ax
+   {zapise ticks z ecx}
+   les di,ticks
+   db 66h;mov word ptr es:[di],cx
+ end;
+{$endif}
+
+{$ifdef new8}
+var old8:pointer;
+
+procedure new8;interrupt;
+begin
+ inc(new8ticks);
+ asm pushf;call dword ptr old8;end;
+end;
+{$endif}
+
+PROCEDURE ReadTimeInit;
+begin
+ {$ifdef new8}
+ new8ticks:=meml[seg0040:$6c];
+ GetIntVec(8,old8);
+ SetIntVec(8,@new8);
+ {$endif}
+ ReadTimeInitAsm;
+end;
+
+PROCEDURE ReadTimeDone;
+begin
+ ReadTimeDoneAsm;
+ {$ifdef new8}
+ SetIntVec(8,old8);
+ {$endif}
+end;
+
+FUNCTION GetPreciseClock:boolean;
+begin
+ GetPreciseClock:=preciseClock;
+end;
+
+PROCEDURE SetPreciseClock(precise:boolean);
+begin
+ if not preciseClock and precise then ReadTimeInit else
+  if preciseClock and not precise then ReadTimeDone;
+ preciseClock:=precise;
+end;
+
+{---------------------------------------------------------------------------
+ Kolik asi milisekund ubehlo od posledniho resetu?
+ ---------------------------------------------------------------------------}
+FUNCTION  GetMs:longint;
+var nowticks:longint;
+    nowmticks:word;
+begin
+ ReadTime(nowticks,nowmticks);
+ GetMs:=round(nowticks*54.931640625+nowmticks*0.00083819031715);
+end;
+
+{---------------------------------------------------------------------------
+ Ceka tolik sekund.
+ Parametr je real, cekat lze s presnosti az mikrosekund.
+ ---------------------------------------------------------------------------}
+PROCEDURE DelayS(s:real);
+var startticks,nowticks:longint;
+    startmticks,nowmticks:word;
+begin
+ ReadTime(startticks,startmticks);
+ repeat
+  ReadTime(nowticks,nowmticks);
+ until nowticks*0.054931640625+nowmticks*0.00000083819031715>
+       startticks*0.054931640625+startmticks*0.00000083819031715+s;
+end;
+
+{---------------------------------------------------------------------------
+ Nahrada Delay z Crt, ceka tolik milisekund.
+ ---------------------------------------------------------------------------}
+PROCEDURE Delay(ms:real);
+begin
+ DelayS(ms/1000);
+end;
+
+
 {€€€€€€€€€€€€€€€€ STOPKY €€€€€€€€€€€€€€€€}
+
+{---------------------------------------------------------------------------
+ Zacne merit cas.
+ ---------------------------------------------------------------------------}
+Procedure TStopky.Start;
+begin
+ mticks:=0;
+ ReadTime(ticks,word(mticks));
+end;
+
+{---------------------------------------------------------------------------
+ Zastavi mereni casu.
+ Ubehlou dobu vraci v milisekundach.
+ Mimo to ji nastavi do promennych mili a mikro.
+ ---------------------------------------------------------------------------}
+Function TStopky.Stop:longint;
+var nowticks:longint;
+    nowmticks:word;
+begin
+ ReadTime(nowticks,nowmticks);
+ ticks:=nowticks-ticks;
+ mticks:=longint(nowmticks)-mticks;
+ mili:=round(ticks*54.931640625+mticks*0.00083819031715);
+ mikro:=round(ticks*54931.640625+mticks*0.83819031715);
+ Stop:=mili;
+end;
+
+{---------------------------------------------------------------------------
+ Koukne se na bezici stopky.
+ Ubehlou dobu vraci v milisekundach.
+ Mimo to ji nastavi do promennych mili a mikro.
+ ---------------------------------------------------------------------------}
+Function TStopky.LookAt:longint;
+var nowticks:longint;
+    nowmticks:longint;
+begin
+ nowmticks:=0;
+ ReadTime(nowticks,word(nowmticks));
+ {write('t=',hexed(nowticks),' mt=',hexed(nowmticks),' ');}
+ dec(nowticks,ticks);
+ dec(nowmticks,mticks);
+ mili:=round(nowticks*54.931640625+nowmticks*0.00083819031715);
+ mikro:=round(nowticks*54931.640625+nowmticks*0.83819031715);
+ LookAt:=mili;
+end;
+
+{---------------------------------------------------------------------------
+ Opet rozbehne stopky od casu na kterem byly naposled stopnuty.
+ ---------------------------------------------------------------------------}
+Procedure TStopky.Cont;
+var nowticks:longint;
+    nowmticks:word;
+begin
+ ReadTime(nowticks,nowmticks);
+ ticks:=nowticks-ticks;
+ mticks:=longint(nowmticks)-mticks;
+end;
+
+{---------------------------------------------------------------------------
+ Ubere z bezicich stopek tolik mikrosekund.
+ ---------------------------------------------------------------------------}
+Procedure TStopky.Eat(eatmikro:longint);
+var hi:integer;
+begin
+ inc(mticks,round(eatmikro/0.83819031715));
+ hi:=HiInt(mticks);
+ inc(ticks,hi);
+ dec(mticks,hi*65536);
+end;
+
+{€€€€€€€€€€€€€€€€ EVENT WAIT €€€€€€€€€€€€€€€€}
 
 Var       DelaySeg    :word;
           DelayFlag   :^boolean;
@@ -769,70 +1104,6 @@ begin
  TestEventWait:=TestEventWaitMs(1) or TestEventWaitMs(10) or TestEventWaitMs(100);
 end;
 
-
-{---------------------------------------------------------------------------
- Zacne merit cas.
- ---------------------------------------------------------------------------}
-Procedure TStopky.Start;
-begin
- ticks:=meml[seg0040:$6c];
-end;
-
-{---------------------------------------------------------------------------
- Zastavi mereni casu. Ubehlou dobu vraci v promenne Cas i jako result.
- ---------------------------------------------------------------------------}
-Function TStopky.Stop:longint;
-begin
- ticks:=meml[seg0040:$6c]-ticks;
- Cas:=round(ticks*54.925493);
- Stop:=Cas;
-end;
-
-{---------------------------------------------------------------------------
- Koukne se na bezici stopky a vrati cas v ms.
- ---------------------------------------------------------------------------}
-Function TStopky.LookAt:longint;
-begin
- LookAt:=round((meml[seg0040:$6c]-ticks)*54.925493);
-end;
-
-{---------------------------------------------------------------------------
- Pokracuje v mereni casu.
- ---------------------------------------------------------------------------}
-Procedure TStopky.Cont;
-begin
- ticks:=meml[seg0040:$6c]-ticks;
-end;
-
-
-{€€€€€€€€€€€€€€€€ HODINY €€€€€€€€€€€€€€€€}
-
-var milisekund:longint;
-
-{---------------------------------------------------------------------------
- Kolik asi milisekund ubehlo od posledniho resetu?
- Nevim co udela kdyz nechas pocitac pustenej vic jak 25 dni...
- ---------------------------------------------------------------------------}
-FUNCTION  GetMs:longint;
-begin
- milisekund:=maxL(milisekund,meml[seg0040:$6c]*55);
- GetMs:=milisekund;
-end;
-
-{---------------------------------------------------------------------------
- Timto oznamujes ze zas ubehlo tolik a tolik casu.
- Kdyz budes casto a pravdive informovat, bude cas velmi presnej.
- Kdyz nebudes informovat vubec, bude cas stejne nepresnej jako
- systemovy hodiny.
- Btw, IncMs vola unita Vga pri kazdym syncu, takze maximalni chyba hodin
- se bezne pohybuje kolem 15ms (oproti 55ms systemovych hodin).
- ---------------------------------------------------------------------------}
-PROCEDURE IncMs(delta:longint);
-begin
- inc(milisekund,delta);
-end;
-
-
 {€€€€€€€€€€€€€€€€ DTA €€€€€€€€€€€€€€€€}
 
 var   oldDTA:pointer;
@@ -866,6 +1137,22 @@ PROCEDURE RestoreDTA;assembler;
  end;
 
 
+FUNCTION PParams:PString;assembler;
+asm{dos 3.0+}
+ push 30h
+ call DosAtLeast
+ mov  ah,0
+ xor  dx,dx
+ or   al,al
+ jz   @olddos
+ mov  ah,62h
+ int  21h
+ mov  dx,bx
+ mov  ax,80h
+ @olddos:
+end;
+
+
 {€€€€€€€€€€€€€€€€ TIMESLICE €€€€€€€€€€€€€€€€}
 
 var needDos:word;
@@ -886,6 +1173,9 @@ end;
 Procedure CheckOS;assembler;
 { Currently Supports DesqView, Microsoft Windows and IBM's OS/2 }
 asm
+  cmp ops,-1    { pokud uz zdetekoval, nedetekuje podruhe }
+  jne @finish
+
   mov ops, MDOS { Default DOS }
   mov ah, 30h   { AH = 30h }
   int 21h       { dos version }
@@ -909,6 +1199,25 @@ asm
   test ax,17fh
   jnz @Windows
 
+  mov ax,3306h
+  int 21h       { NT?}
+  cmp bx,3205h
+  jz @NT
+
+  {* detekovat DOSemu:
+	       /* check if running under Linux DOSEMU */
+	       dosmemget(0xFFFF5, 10, buf);
+	       buf[8] = 0;
+	       if (!strcmp(buf, "02/25/93")) {
+		  regs.x.ax = 0;
+		  int86(0xE6, &regs, &regs);
+		  if (regs.x.ax == 0xAA55) {
+		     os_type = OSTYPE_DOSEMU;
+		     windows_version = -1;
+		     windows_sub_version = -1;
+		     i_love_bill = TRUE;     /* (evil chortle) */
+		  }
+
   jmp @Finish   { Nothing found, go to the end }
 
 @IBMOS2:
@@ -923,6 +1232,10 @@ asm
   mov ops, Windows  { Set OS Value }
   jmp @Finish
 
+@NT:
+  mov ops, NT  { Set OS Value }
+  jmp @Finish
+
 @FINISH:
 end;
 
@@ -932,6 +1245,8 @@ asm
   cmp   al, DesqView
   je    @DVwait
   cmp   al, Windows
+  je    @WinOS2wait
+  cmp   al, NT
   je    @WinOS2wait
   cmp   al, OS2
   je    @WinOS2wait
@@ -1048,16 +1363,26 @@ procedure UserInit;
   ops          :=MDOS;
   EventWaitOk  :=true;
   needDos      :=0;
-  if GetMemDos(DelaySeg,pointer(DelayFlag),1) then begin
+  switchYZ     :=false;
+  {$ifdef dosmem}
+  if GetMemDos(DelaySeg,pointer(DelayFlag),1) then
+  {$else}
+  DelaySeg:=$40;
+  DelayFlag:=ptr(seg0040,$fa);
+  {$endif}
+    begin
     EventWaitOk:=TestEventWait;
     exit;
     end;
-  result:=erLowDosMem;
+  result:=_erLowDosMem;
  end;
 
 procedure UserDone;
  begin
+  SetPreciseClock(false);
+  {$ifdef dosmem}
   FreeMemDos(pointer(DelayFlag),1);
+  {$endif}
  end;
 
 {$i initdone.inc}

@@ -1,7 +1,20 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
+
+{
+---------------------------------------------------------------------------
+                                Loader
+---------------------------------------------------------------------------
+
+K praci s formatem Xxxx staci Uses Loadery,LdXxxx;
+a dal pracovat s funkcemi z unity Loadery.
+
+Ze zdejsi interface je prazdny neni chyba, loader se automaticky zaregistruje
+a unita loadery o nem vi.
+
+}
 
 Unit      LdTXT;
 Interface {$i define.inc}
@@ -15,6 +28,12 @@ Function  Compress(s:PStream;map:PBitmap):TError;
 Implementation
 Uses      Memo, Sys,Fonty,Fajly,Texty,Loadery;
 
+{
+ Tato implementace umi nacist jen male textove soubory, u velkych ohlasi
+ trochu matoucne nedostatek pameti.
+ Predelani na libovolne velke je asi 10 minut prace, zatim nebylo potreba.
+}
+
 function GetInfo(s:PStream;var model,x,y:word):TError;
 var   i            :word;
       datasize     :longint;
@@ -26,7 +45,7 @@ begin
  datasize:=65536;
  freesize:=0;
  if not fileLoad('?.txt',s,freeptr,datasize,freesize)
-  then GetInfo:=erFileLoad
+  then GetInfo:=_erFileLoad
   else begin
    mem[freeseg:datasize]:=0;
    t.Init(freeptr,65535);
@@ -54,7 +73,7 @@ begin
  s^.Seek(0);
  map^.Clr2Ful;
  if not fileLoad('?.txt',s,freeptr,datasize,freesize)
-  then Decompress:=erFileLoad
+  then Decompress:=_erFileLoad
   else begin
    mem[freeseg:datasize]:=0;
    t.Init(freeptr,65535);

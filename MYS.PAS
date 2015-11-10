@@ -1,13 +1,56 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
 
 Unit      Mys;
 Interface {$i define.inc}
-Uses      Chyby,Memo, Stringy;
+Uses      Chyby,Memo, Stringy,Sys;
 Function  Init:TError;
 Procedure Done;
+
+{
+---------------------------------------------------------------------------
+                         Low-level prace s mysi
+---------------------------------------------------------------------------
+
+Pokud budes pracovat s obrazovkou T(Scrol)Screen, pouzijes pro snadnou
+praci s mysi jeji metody mouseXxxx.
+
+Ty jsou implementovany s vyuzitim zdejsich low-level rutin, ktere jinak
+nepotrebujes.
+
+
+---------------------------------------------------------------------------
+                  Technicky komentar k mysi v CiA 2.00
+---------------------------------------------------------------------------
+
+ZMENA IMPLEMENTACE
+ Interface mys.pas zustava zachovan, implementace ale prodelala velke zmeny.
+ Zatimco drive jsem spolehal na inteligenci driveru mysi, predaval mu
+ pozadovanou senzitivitu, meze apod a odebiral souradnice v pixelech,
+ po seznameni s tragedii zvanou DOSova mys ve Windows NT/2000
+ (z desitek mysich sluzeb Microsoft vetsinu zcela ignoruje)
+ bylo nutne pristup zcela prehodnotit.
+ Soucasna implementace vyuziva extremne malo sluzeb,
+ pta se pouze na relativni zmenu souradnic v mickeyich;
+ prepocet na pixely, zarazeni o meze apod uz provadi sama.
+
+MOUSEHANDLER
+ Nic se nemeni ani na tom, ze lze pozadat o pouziti mousehandleru
+ (veskery vyznam handleru je v tom, ze implementace pak nemusi driver pollovat
+  cim usetri zlomek casu, driver sam zavola handler kdyz se mys hne),
+ interne je ale momentalne mousehandler mimo provoz, zakomentovan.
+ Na funkcnost to nema zadny vliv.
+
+DOSEMU
+ Nekolik funkci je nyni zbytecnych a zustava jen kvuli zpetne kompatibilite,
+ stale sem lze dosadit starsi verzi mys.pas.
+ Vyznam starsi verze je pouze v optimalni spolupraci s DOSem bezicim
+ v okne, napriklad s DOSemu pod X Windows; poloha mysi v okne presne odpovidala
+ poloze systemove mysi a nedochazelo k mateni tim, ze by se kazda pohybovala
+ jinak rychle (dosahnout tehoz s novou implementaci je obtizne).
+}
 
 const     {mXXXX - mouse buttons, kody tlacitek vracene vzdy v parametru Z}
           mLeft           = 1;
@@ -23,8 +66,8 @@ const     {mXXXX - mouse buttons, kody tlacitek vracene vzdy v parametru Z}
           maCenterReleased=64;
 
 var       mouseButtons :byte;   {pocet tlacitek mysi, 0=neni mys}
-          mouseHandler :boolean;{je na mysi povesen nas handler?}
           mouseDirty   :boolean;{nastavi se pri kazdem eventu}
+const     mouseHandler :boolean=false;{je na mysi povesen nas handler?}
 
 PROCEDURE mouseGet(var x,y:integer;var z:word);
 PROCEDURE mouseGetPos(var x,y:integer);
@@ -34,7 +77,7 @@ FUNCTION  mouseGetZ:word;
 PROCEDURE mouseGetChange(var x,y:integer);
 PROCEDURE mouseSetPos(x,y:integer);
 PROCEDURE mouseSetRange(x1,y1,x2,y2:integer);
-PROCEDURE mouseSetSpeed(x,y:word);
+PROCEDURE mouseSetSpeed(x,y:real);
 FUNCTION  mouseRescanPress(var x,y:integer;var z,actions:word):boolean;
 PROCEDURE mouseSetJump(x,y:word);
 PROCEDURE mouseSetHandler(b:boolean);
@@ -45,22 +88,37 @@ PROCEDURE mouseSetHandler(b:boolean);
 {ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ}
 
 
-var
-      mouseX       :word;   {teoreticka poloha mysi neni-li pritomen driver}
-      mouseY       :word;    {nebo skutecna kterou zachytil mistni handler}
-      mouseZ       :word;   {stav tlacitek zachyceny mistnim handlerem}
-      pressX       :word;   {posledni zachyceny stisk/uvolneni}
-      pressY       :word;
-      pressZ       :word;   {stav tlacitek po nem}
+const MIC=50;{tolikrat jemnejsi jsou nase mickeye nez driverovy}
+             {zjemneni zabrani cukani sipky pri serizovani rychlosti apod}
+
+var   {mickey coords}
+      rngMickeyX1  :longint;{pozadovany rozsah prepocteny do mickeys}
+      rngMickeyY1  :longint;
+      rngMickeyX2  :longint;
+      rngMickeyY2  :longint;
+      nowMickeyX   :longint;{aktualni pozice mysi a stav tlacitek}
+      nowMickeyY   :longint;
+      nowZ         :word;
+      pressMickeyX :longint;{posledni zachyceny stisk/uvolneni}
+      pressMickeyY :longint;
+      pressZ       :word;
       pressActions :word;   {jake konkretni akce se staly}
-      jumpX        :word;   {viz mouseSetJump}
-      jumpY        :word;   {pozn: souradnice mouseXXXX a presXXXX jsou}
-                             {v jednotkach driveru, nedelene jumpem}
+      {conversion}
+      speedX       :real;   {mouseX=mickeyX*speedX}
+      speedY       :real;
+      {user coords}
+      rngUserX1    :word;   {pozadovany rozsah}
+      rngUserY1    :word;
+      rngUserX2    :word;
+      rngUserY2    :word;
+      {getChange}
+      changeX      :integer;
+      changeY      :integer;
 
 {---------------------------------------------------------------------------
  Inicializuje mys. Nutno provest jako prvni vec s mysi.
  ---------------------------------------------------------------------------}
-PROCEDURE mouseInit;assembler;
+procedure mouseInit;assembler;
  asm
      push false
      call mouseSetHandler
@@ -75,15 +133,24 @@ PROCEDURE mouseInit;assembler;
      @dve:
      mov mouseButtons,2
      jmp @end
-
      @nomouse:
-     xor ax,ax
-     mov mouseX,ax
-     mov mouseY,ax
-     mov mouseButtons,al
+     mov mouseButtons,0
 
      @end:
  end;
+
+{---------------------------------------------------------------------------
+ Posune interni pozici o tolik mickeys, zarazi se pritom o range.
+ ---------------------------------------------------------------------------}
+procedure move(deltaX,deltaY:integer);
+begin
+ {ignoruje prilis prudky pohyby (=chyby myho driveru):}
+ if abs(deltaX)+abs(deltaY)>500 then exit;
+
+ nowMickeyX:=bounded(nowMickeyX+longint(deltaX)*MIC,rngMickeyX1,rngMickeyX2);
+ nowMickeyY:=bounded(nowMickeyY+longint(deltaY)*MIC,rngMickeyY1,rngMickeyY2);
+ if (deltaX<>0) or (deltaY<>0) then mouseDirty:=true;
+end;
 
 {---------------------------------------------------------------------------
  Vraci momentalni polohu a stav tlacitek mysi.
@@ -92,16 +159,16 @@ PROCEDURE mouseGet(var x,y:integer;var z:word);
 begin
  if (not mouseHandler) and (mouseButtons>0) then
    asm
-    mov  ax,3
-    int  33h
-    mov  mouseX,cx
-    mov  mouseY,dx
-    xor  bh,bh
-    mov  mouseZ,bx
+     mov ax,0bh;int 33h
+     add changex,cx;add changey,dx
+     push cx;push dx;call move
+
+     mov ax,3;int 33h
+     mov nowZ,bx
    end;
- x:=mouseX div jumpX;
- y:=mouseY div jumpY;
- z:=mouseZ;
+ x:=round(nowMickeyX*speedX);
+ y:=round(nowMickeyY*speedY);
+ z:=nowZ;
 end;
 
 {---------------------------------------------------------------------------
@@ -151,16 +218,20 @@ end;
 
 {---------------------------------------------------------------------------
  Vraci relativni zmenu polohy sipky od posledniho volani teto funkce.
- Jednotkou je asi mickey.
+ Jednotkou je mickey.
  ---------------------------------------------------------------------------}
 PROCEDURE mouseGetChange(var x,y:integer);assembler;
  asm
      xor cx,cx;xor dx,dx
      cmp mouseButtons,0;jz @end
      mov ax,0bh;int 33h
+     pusha
+      push cx;push dx;call move
+     popa
      @end:
-     les di,x;mov [es:di],cx
-     les di,y;mov [es:di],dx
+     {pricte naakumulovanej change}       {vrati vysledek}
+     xor ax,ax;xchg ax,changex;add ax,cx; les di,x;mov [es:di],ax
+     xor ax,ax;xchg ax,changey;add ax,dx; les di,y;mov [es:di],ax
  end;
 
 {---------------------------------------------------------------------------
@@ -168,11 +239,8 @@ PROCEDURE mouseGetChange(var x,y:integer);assembler;
  ---------------------------------------------------------------------------}
 PROCEDURE mouseSetPos(x,y:integer);
 begin
- x:=x*jumpX;
- y:=y*jumpY;
- if mouseButtons>0 then asm mov ax,4;mov cx,x;mov dx,y;int 33h;end;
- mouseX:=x;
- mouseY:=y;
+ nowMickeyX:=round(x/speedX);
+ nowMickeyY:=round(y/speedY);
 end;
 
 {---------------------------------------------------------------------------
@@ -180,31 +248,34 @@ end;
  ---------------------------------------------------------------------------}
 PROCEDURE mouseSetRange(x1,y1,x2,y2:integer);
 begin
- if mouseButtons>0 then begin
-   x1:=x1*jumpX;
-   y1:=y1*jumpY;
-   x2:=x2*jumpX;
-   y2:=y2*jumpY;
-   asm
-    mov ax,7;mov cx,x1;mov dx,x2;int 33h;
-    mov ax,8;mov cx,y1;mov dx,y2;int 33h;
-    mov ax,3;int 33h;mov mouseX,cx;mov mouseY,dx;mov bh,0;mov mouseZ,bx;
-   end;
-  end;
+ rngUserX1:=x1;
+ rngUserY1:=y1;
+ rngUserX2:=x2;
+ rngUserY2:=y2;
+ rngMickeyX1:=round(rngUserX1/speedX);
+ rngMickeyY1:=round(rngUserY1/speedY);
+ rngMickeyX2:=round(rngUserX2/speedX);
+ rngMickeyY2:=round(rngUserY2/speedY);
+ move(0,0);
 end;
 
 {---------------------------------------------------------------------------
  Nastavi rychlost pohybu sipky ve smerech x,y.
  ---------------------------------------------------------------------------}
-PROCEDURE mouseSetSpeed(x,y:word);
+PROCEDURE mouseSetSpeed(x,y:real);
 begin
- if mouseButtons>0 then begin
-   x:=x div jumpX;if x=0 then x:=1;
-   y:=y div jumpY;if y=0 then y:=1;
-   asm
-    mov ax,0fh;mov cx,x;mov dx,y;int 33h;
-   end;
-  end;
+ if x=0 then x:=1;
+ if y=0 then y:=1;
+ x:=x/MIC;
+ y:=y/MIC;
+ nowMickeyX:=round(nowMickeyX*speedX/x);
+ nowMickeyY:=round(nowMickeyY*speedY/y);
+ speedX:=x;
+ speedY:=y;
+ rngMickeyX1:=round(rngUserX1/speedX);
+ rngMickeyY1:=round(rngUserY1/speedY);
+ rngMickeyX2:=round(rngUserX2/speedX);
+ rngMickeyY2:=round(rngUserY2/speedY);
 end;
 
 {---------------------------------------------------------------------------
@@ -212,6 +283,7 @@ end;
  bylo-li nejake, jinak nemeni.
  ---------------------------------------------------------------------------}
 FUNCTION mouseRescanPress(var x,y:integer;var z,actions:word):boolean;
+label nopress;
 begin
  if (not mouseHandler) and (mouseButtons>0) then
    asm
@@ -219,37 +291,32 @@ begin
      mov ax,6;mov bx,0;int 33h;or bx,bx;jz @2;or pressActions,maLeftReleased  ;jmp @press;@2:
      mov ax,5;mov bx,1;int 33h;or bx,bx;jz @3;or pressActions,maRightPressed  ;jmp @press;@3:
      mov ax,6;mov bx,1;int 33h;or bx,bx;jz @4;or pressActions,maRightReleased ;jmp @press;@4:
-     cmp mouseButtons,2;jz @end
+     cmp mouseButtons,2;jz @nopress
      mov ax,5;mov bx,2;int 33h;or bx,bx;jz @5;or pressActions,maCenterPressed ;jmp @press;@5:
      mov ax,6;mov bx,2;int 33h;or bx,bx;jz @6;or pressActions,maCenterReleased;jmp @press;@6:
-     jmp @end
+     jmp @nopress
     @press:
-     mov pressX,cx
-     mov pressY,dx
-     mov pressZ,ax
-    @end:
+     mov  pressZ,ax
+     db 66h;mov ax,word ptr nowMickeyX;db 66h;mov word ptr pressMickeyX,ax
+     db 66h;mov ax,word ptr nowMickeyY;db 66h;mov word ptr pressMickeyY,ax
+     mov mouseDirty,true
+    @nopress:
    end;
  mouseRescanPress:=false;
  if pressActions<>0 then begin
    mouseRescanPress:=true;
-   x      :=pressX div jumpX;
-   y      :=pressY div jumpY;
+   x      :=round(pressMickeyX*speedX);
+   y      :=round(pressMickeyY*speedY);
    z      :=0;XchgW(z,pressZ);
    actions:=0;XchgW(actions,pressActions);
    end;
 end;
 
 {---------------------------------------------------------------------------
- Nastavi kolikanasobne se ma zvysit presnost v osach x,y.
- Priklad:
-  V nekterych modech skace sipka po 8 pixelech. Nastavis-li 8 (nebo vic),
-  bude se pohybovat plynule, ale 8-nasobne se snizi maximalni nastavitelna
-  citlivost=rychlost.
+ Pouze pro zpetnou kompatibilitu.
  ---------------------------------------------------------------------------}
 PROCEDURE mouseSetJump(x,y:word);assembler;
  asm
-     mov ax,x;mov jumpX,ax
-     mov ax,y;mov jumpY,ax
  end;
 
 {---------------------------------------------------------------------------
@@ -264,7 +331,7 @@ PROCEDURE mouseSetJump(x,y:word);assembler;
  ---------------------------------------------------------------------------}
 PROCEDURE mouseSetHandler(b:boolean);assembler;
  asm
-     cmp  b,false
+(*     cmp  b,false
      je   @odpoj
 
    @ZAVES:
@@ -272,6 +339,10 @@ PROCEDURE mouseSetHandler(b:boolean);assembler;
      jnz  @end
      cmp  SafeMode,false
      jnz  @end
+     {$ifdef dpmi}
+     db 66h;cmp word ptr SwapSize,0
+     jnz  @end
+     {$endif}
      {set vars}
      mov  mouseZ,0
      mov  pressZ,0
@@ -296,6 +367,14 @@ PROCEDURE mouseSetHandler(b:boolean);assembler;
      pop  es
      int  33h
      mov  mouseHandler,false
+     {clear possibly buffered events}
+     mov ax,5;mov bx,0;int 33h
+     mov ax,6;mov bx,0;int 33h
+     mov ax,5;mov bx,1;int 33h
+     mov ax,6;mov bx,1;int 33h
+     cmp mouseButtons,2;jz @end
+     mov ax,5;mov bx,2;int 33h
+     mov ax,6;mov bx,2;int 33h
      jmp  @end
 
    @HANDLER:
@@ -303,20 +382,23 @@ PROCEDURE mouseSetHandler(b:boolean);assembler;
      push seg @data
      pop  ds
      mov  mouseDirty,true
-      mov  mouseX,cx
-      mov  mouseY,dx
-      mov  mouseZ,bx
+      mov  nowZ,bx
+      PUSHA
+      push si
+      push di
+      call move
+      POPA
       and  ax,3*2ah
       jz   @nopress
-      mov  pressX,cx
-      mov  pressY,dx
       mov  pressZ,bx
       or   pressActions,ax
+      db 66h;mov ax,word ptr nowMickeyX;db 66h;mov word ptr pressMickeyX,ax
+      db 66h;mov ax,word ptr nowMickeyY;db 66h;mov word ptr pressMickeyY,ax
    @nopress:
      POP  DS
      RETF
 
-   @END:
+   @END:*)
  end;
 
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
@@ -327,11 +409,24 @@ var result:TError;
 procedure UserInit;
  begin
   mouseInit;
-  mouseHandler :=false;
-  mouseDirty   :=false;
+  speedX       :=1;
+  speedY       :=1;
+  rngMickeyX1  :=0;
+  rngMickeyY1  :=0;
+  rngMickeyX2  :=640;{nastavuje jen tak at tam na zacatku nejsou nesmysly}
+  rngMickeyY2  :=480;
+  asm mov ax,0bh;int 33h;end;{pro jistotu vynuluje deltax/y v mousedriveru}
+  nowMickeyX   :=0;
+  nowMickeyY   :=0;
+  nowZ         :=0;
   pressActions :=0;
-  jumpX        :=1;
-  jumpY        :=1;
+  rngUserX1    :=0;
+  rngUserY1    :=0;
+  rngUserX2    :=640;
+  rngUserY2    :=480;
+  mouseDirty   :=false;
+  changeX      :=0;
+  changeY      :=0;
  end;
 
 procedure UserDone;

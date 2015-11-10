@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -115,9 +115,11 @@ Var   language    :ExtStr;   {jazyk ve kterem komunikujeme s uzivatelem}
                               urcena pro zastaveni aktivit, ktere by mohly
                               po prepnuti do textmodu zpusobit skody}
       errorLevel  :byte;     {kod ktery program po skonceni vrati systemu}
-      lastMsg     :string[80];{posledni hlaska, ktera se vypise pred koncem programu}
+      lastMsg     :string[100];{posledni hlaska, ktera se vypise pred koncem programu}
 
       ReportErr   :TReporter;{tvuj hlasic nefatalnich chyb}
+      outhandle   :word;     {handle souboru do ktereho pisou BiosWrite*, implicitne 1 (stdout)}
+      paramUsed   :array[1..40] of boolean;{byl uz tolikaty parametr nekym pouzit/zpracovan?}
 
 
 PROCEDURE BiosWrite(st:string);
@@ -227,14 +229,14 @@ PROCEDURE WaitKey; inline($b8/$0c08/$cd/$21);{mov ax,0c08h;int 21h}
 PROCEDURE BiosWrite(st:string);assembler;
  var p:pointer absolute st;
  asm
+     mov ah,40h
+     mov bx,outhandle
      push ds
-      mov ah,40h
-      lds bx,p
-      mov cl,[bx]
-      mov dx,bx
+      lds si,p
+      mov cl,[si]
+      mov dx,si
       mov ch,0
       inc dx
-      mov bx,1
       int 21h
      pop ds
  end;
@@ -242,14 +244,14 @@ PROCEDURE BiosWrite(st:string);assembler;
 PROCEDURE BiosWriteln(st:string);assembler;
  var p:pointer absolute st;
  asm
+     mov ah,40h
+     mov bx,outhandle
      push ds
-      mov ah,40h
-      lds bx,p
-      mov cl,[bx]
-      mov dx,bx
+      lds si,p
+      mov cl,[si]
+      mov dx,si
       mov ch,0
       inc dx
-      mov bx,1
       int 21h
       mov ah,40h
       push cs
@@ -258,10 +260,10 @@ PROCEDURE BiosWriteln(st:string);assembler;
       mov cl,2
       int 21h
      pop ds
-      jmp @end
+     jmp @end
       @newline:
       db 13,10
-      @end:
+     @end:
  end;
 
 {---------------------------------------------------------------------------
@@ -299,11 +301,10 @@ begin
   ale musime mu rict, aby za nas ohlasil tuhle chybu}
   else begin
    lastMsg:=st;
-   ExitCode:=integer(erMsgWritten);
-   ShutDownInts;
-   ShutDownInts:=nil;
+   ExitCode:=integer(_erWritten);
+   while @ShutDownInts<>nil do ShutDownInts;
    end;
- Halt(erMsgWritten);
+ Halt(_erWritten);
 end;
 
 {---------------------------------------------------------------------------
@@ -382,12 +383,17 @@ end;
 
 
 FUNCTION GetCmdlineLanguage:ExtStr;
-var i:integer;
+var i,j:integer;
+    s:ExtStr;
 begin
  GetCmdlineLanguage:='';
  for i:=1 to paramcount do
-  if (copy(paramstr(i),1,1)=':') and (length(paramstr(i))>1)
-   then GetCmdlineLanguage:=copy(paramstr(i),2,255);
+  if (copy(paramstr(i),1,1)=':') and (length(paramstr(i))>1) then begin
+    s:=copy(paramstr(i),2,255);
+    for j:=1 to length(s) do if s[j] in ['A'..'Z'] then inc(s[j],32);
+    GetCmdlineLanguage:=s;
+    paramUsed[i]:=true;
+    end;
 end;
 
 
@@ -427,12 +433,13 @@ var result:TError;
 procedure ShutDown;far;
  var i:word;
  begin
+  ShutDownInts:=nil;
   if lastMsg<>'' then begin
     ReportError(lastMsg);
     lastMsg:='';
     end;
-  if TError(ExitCode)<>erMsgWritten then
-   if _(TError(ExitCode))<>'' then ReportError(_(TError(ExitCode)));
+  if TError(ExitCode)<>_erWritten then
+   if (_(TError(ExitCode))<>'') and (_(TError(ExitCode))<>'#0') then ReportError(_(TError(ExitCode)));
   if longint(ErrorAddr)<>0 then begin
     ReportError(_(_Adresa)+' '+hexed(PtrRec(ErrorAddr).Seg)+':'+hexed(PtrRec(ErrorAddr).Ofs)+'.');
     ErrorAddr:=nil;
@@ -465,6 +472,8 @@ procedure UserInit;
   errorLevel       :=0;
   ShutDownInts     :=ShutDown;
   ReportErr        :=erWrite;
+  outhandle        :=1;
+  fillchar(paramUsed,sizeof(paramUsed),false);
   {$ifdef beta}
   {zavesi StreamError handler}
   oldStreamError   :=StreamError;

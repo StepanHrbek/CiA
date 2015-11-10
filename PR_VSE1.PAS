@@ -1,4 +1,10 @@
-{
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
+ ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
+ ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
+ ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+ Priklad: vse v jednom
+
  Ukazka prace s nastavenim grafickeho modu, bitmapou, fontem,
  handlerem klavesnice, INI souborem.
  Vyzaduje soubory PRIKLAD.INI, MODERN.FN.
@@ -8,9 +14,10 @@
  na pozadi pribyvaji ctverecky. Skonci po stisku libovolne klavesy
  a ulozi si do INI souboru polohu mysi.
  Tu priste nacte a mys se objevi tam kdes ji posledne nechal.
+
 }
 
-{$M 10000,20000,20000}
+{$M 10000,0,40000}
 {$i define.inc}
 
 Uses Chyby,Memo,Objects,Strings,Sys,Ini,Vga,Cache,Fonty,Key,Lang1;
@@ -29,6 +36,7 @@ Const
 
 Procedure Vars;assembler;
 {Seznam promennych v INI souboru.
+ Podporovane typy a flagy jsou nadeklarovane na zacatku ini.pas.
  SYNTAXE: nazev malymi pismeny,0,flags,typ,offset promenne v datasegmentu;
           uplne na konci nula}
  asm
@@ -49,11 +57,11 @@ Begin
 
  {nahraje si do pameti nejaky font}
  {v teto ukazce kvuli vypsani Ahoj!}
- f:=caFontGet(fnDefault);
- if f=nil then Halt(erMsgWritten);
+ f:=cacheGetFont(fnDefault);
+ if f=nil then Halt(_erWritten);
 
  {nastavi nejblizsi graficky mod, vyzkousej si ruzna rozliseni a modely}
- if not s.Init(model_gfx,640,480,0) then Halt(erBadMode);
+ if not s.Init(model_gfx,640,480,0) then Halt(_erBadMode);
  {kdybys chtel nastavit konkretni mod a zadny jiny, volej init treba takto:
   if not s.Init(model_packed,0,0,P640x480) then Halt(erBadMode);
   viz seznam modelu a modu na zacatku vga.pas}
@@ -64,10 +72,10 @@ Begin
  {vygeneruje bitmapku s napisem}
  New(ahoj,Init(s.MapModel,50,50));                {alokuje malou bitmapku}
  if ahoj=nil then Halt(erLowMem);                 {pri neuspechu skonci}
- ahoj^.Col2Ful(s.Color(255,255,255));             {vyplni ji jednou barvou}
- ahoj^.Col2Box(1,1,47,47,s.Color(0,0,0));         {vnitrek vyplni jinou}
- ahoj^.Col2Box(2,2,44,44,s.Color(0,0,210));       {vnitrek vyplni jinou}
- OutStr(napis,ahoj,7,27,f,0,s.Color(255,255,255));{pise napis}
+ ahoj^.Col2Ful(s.Color(255,255,255,255));         {vyplni ji jednou barvou}
+ ahoj^.Col2Box(1,1,47,47,s.Color(0,0,0,255));     {vnitrek vyplni jinou}
+ ahoj^.Col2Box(2,2,44,44,s.Color(0,0,210,255));   {vnitrek vyplni jinou}
+ OutStr(napis,ahoj,7,27,f,0,s.Color(255,255,255,255));{pise napis}
 
  {rozsviti paletu}
  s.Fade(+0);

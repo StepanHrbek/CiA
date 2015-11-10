@@ -1,11 +1,11 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
 
 Unit      Loadery;
 Interface {$i define.inc}
-Uses      Chyby,Memo, Objects,Dos, Stringy,Fajly,Vga;
+Uses      Chyby,Memo, Objects,Dos, Stringy,Fajly,Vga,Cache;
 Function  Init:TError;
 Procedure Done;
 
@@ -21,8 +21,8 @@ Procedure Done;
  plne podporovat format XXX.
  Unity LdXXX maji totiz inicializacni cast, ktera format 'zaregistruje'.
 
- V soucasne dobe obsahuje CiA pouze podporu TGA a TXT.
- Ale po napsani loaderu pro dalsi formaty bude stacit pridat je do uses
+ V soucasne dobe obsahuje CiA podporu GIF, PCX, TGA, X a TXT (a FLI/FLC).
+ Po napsani loaderu pro dalsi formaty bude stacit pridat je do uses
  hlavniho programu, dalsi upravy nebudou nutne.
  Pokud jde v nejake situaci vhod vice loaderu, bude pouzit nejdrive
  zaregistrovany, tedy prvni podle poradi v Uses. Vice loaderu tedy serad
@@ -61,6 +61,7 @@ Type      TGetInfo=Function(s:PStream;var model,x,y:word):TError;
 
 Var       picSeg1:word;                {64KB segment k dispozici loaderum}
           picSeg2:word;                {64KB segment k dispozici loaderum}
+          picTures:boolean;            {povoluje nahravani obrazku}
 
 Procedure picRegister(aext:ExtStr;aflags:word;agetinfo:TGetInfo;
            adecompress:TDecompress;acompress:TCompress;awrmodels:string10);
@@ -74,6 +75,12 @@ Function  picLoad(name:PathStr):PBitmap;
 Function  picLoadTo(name:PathStr;map:PBitmap):boolean;
 Function  picWrite(map:PBitmap;name:PathStr):boolean;
 
+{---------------------------------------------------------------------------
+ Cache na obrazky.
+ ---------------------------------------------------------------------------}
+const     cachePriorPic=7;{priorita jakou dostanou obrazky v cache}
+
+Function  cacheGetPic(afilename:PathStr):PBitmap;
 
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
                           IMPLEMENTATION
@@ -121,23 +128,38 @@ end;
  Volitelne bud jen vraci info o obrazku nebo ho i nahraje.
  ---------------------------------------------------------------------------}
 Function HandlePicture(name:PathStr;load:boolean;var model,x,y:word;var map:PBitmap):boolean;
-var e:TError;
-    myLoader:PLoaderItem;
-    s:PStream;
-    killmap:boolean;
+var   e:TError;
+      myLoader:PLoaderItem;
+      s:PStream;
+      killmap:boolean;
+      tmp:pointer;
+const rezerva=256*1024;
 begin
  if debugPal then SetHwCol(0,63,0,0);
  e:=erOk;
- myLoader:=GetLoader(name);
- if (myLoader=nil) or (@myLoader^.getinfo=nil) or (load and (@myLoader^.decompress=nil))
-  then e:=ldNoLoaderFound else begin
-   s:=fileReadStream(name);
-   if s=nil then e:=errFileNotFound else begin
+ s:=fileReadStream(name);
+ if s=nil then e:=errFileNotFound else begin
+   myLoader:=GetLoader(name);
+   if (myLoader=nil) or (@myLoader^.getinfo=nil) or (load and (@myLoader^.decompress=nil))
+    then e:=ldNoLoaderFound else begin
      e:=myLoader^.GetInfo(s,model,x,y);
      if e=erOk then
-      if load then begin
+      if load and pictures then begin
         killmap:=map=nil;
-        if map=nil then New(map,Init(model,x,y));
+        if map=nil then begin
+          {if dumb then begin
+            GetMem(tmp,rezerva);
+            if tmp<>nil then begin
+              New(map,InitPart(model,x,y));
+              FreeMem(tmp,rezerva);
+              end;
+            if map<>nil then
+             if map^.allocatedY<map^.sizeY
+              then ReportErr(name+': '+_i(ldOnlyXFitsToMemory,stri(longint(map^.allocatedY)*100 div map^.sizeY)));
+            end
+          else{}
+            New(map,Init(model,x,y));
+          end;
         if map=nil then e:=erLowMem else begin
           e:=myLoader^.Decompress(s,map);
           if (e<>erOk) and killmap then KillObj(map);
@@ -244,7 +266,7 @@ begin
    ChangeMapTo(map,bestmodel);
    if map=nil then e:=erLowMem else begin
      s:=fileCreateStream(name);
-     if s=nil then e:=erFileCreate else begin
+     if s=nil then e:=_erFileCreate else begin
        e:=myLoader^.Compress(s,map);
        KillObj(s);
        end;
@@ -254,6 +276,43 @@ begin
  picWrite:=e=erOk;
 end;
 
+{ßßßßßßßßßßßßßßßßßßßßßßßßßßßß CACHE NA OBRAZKY ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
+
+Type
+ PPicId = ^TPicId;
+ TPicId = object(TCacheId)
+   filename:PathStr;
+   constructor Init(name:PathStr);
+   function Load:PObject;virtual;
+   destructor Done;virtual;
+ end;
+
+Constructor TPicId.Init(name:PathStr);
+begin
+ {bioswrite('init('+name+')');}
+ inherited Init;
+ filename:=name;
+end;
+
+Destructor TPicId.Done;
+begin
+ {bioswrite('done('+filename+')');}
+ inherited Done;
+end;
+
+Function TPicId.Load:PObject;
+begin
+ Load:=picLoad(filename);
+end;
+
+{---------------------------------------------------------------------------
+ Zadany obrazek nahraje a vrati na nej pointer.
+ Pozor: Ziskany obrazek nemen a neuvolnuj pres TBitmap.Free, ale pres caLeave.
+ ---------------------------------------------------------------------------}
+Function cacheGetPic(afilename:PathStr):PBitmap;
+begin
+ cacheGetPic:=PBitmap(caGet(New(PPicId,Init(afilename)),cachePriorPic));
+end;
 
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
@@ -266,6 +325,7 @@ procedure UserInit;
   if not GetMem(p,65536) then begin result:=erLowMem;exit;end;
   picSeg1     :=freeseg;
   picSeg2     :=PtrRec(p).Seg;
+  pictures    :=true;
  end;
 
 procedure UserDone;

@@ -37,67 +37,6 @@ DPMI failure.
 Invalid segment descriptor.
 Out of system resources.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 Not enough conventional memory.
 I need DOS version at least
 Invalid disc
@@ -110,10 +49,8 @@ Too big file.
 Unable to write to disk in ReadOnly mode.
 Event Wait busy.
 Dialog window is bigger than screen, try higher resolution.
-There wasn't found any file
-matching mask
-Not enough memory for shell command
-Unsuccessful shell call
+Not enough memory for shell command "$".
+Unsuccessful shell call "$".
 FileLoad failed.
 FileSave failed.
 Calling shell failed.
@@ -121,6 +58,7 @@ Address
 Unable to set video mode.
 Bad VESA BIOS. Get a better one or use VGA resolution.
 Screen=nil. You should set a video mode first.
+Bitmaps has different models. You should convert one first.
 Incorrect font.
 It's not possible to set/convert so big font.
 Error in INI file, line:
@@ -131,10 +69,9 @@ Variable should be number on following line of INI file:
 ReadOnly mode, skipping job with
 You alloc too many conv.mem.blocks. For author: increase maxDosBlocks.
 conv.mem.blocks not freed.
+Your graphics card gets mad, straight jacket and call doctor d.ment@email.cz!
 Nobody sets ret, internal error.
 Bios sux, service 'load user font' changes doublescanning.
-There is no mouse bitmap for this model.
-Unable to save bitmap.
 last mode forgot to free timer
 no bitmap on input.
 too big bottom map.
@@ -150,6 +87,7 @@ Press ENTER.
 Press ESC.
 If you see only halfcircle, press ESC.
 Press ENTER if you see whole circle.
+Press SPACE if you see whole circle.
 If this column is in the middle of screen, press ENTER. If it is aside, press ESC.
 If cursor moves vertically (in one column), press ENTER. Otherwise ESC.
 If text moves smoothly, press ENTER. Otherwise ESC.
@@ -178,7 +116,7 @@ Unable to create directory
 Unable to enter directory
 Unable to delete directory
 Error occured during action.
-Continue;Ignore all;Stop
+Continue;Always C;Stop;Always S
 Bad numeral base.
 Bad digit on input.
 Stream access error
@@ -198,6 +136,68 @@ FILES!
 Wait,
 please
 Sorting..
+Enter wildcard.
+DIRECTORY
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Division by zero
 Range check error
 Stack overflow error
@@ -259,13 +259,14 @@ Usage: FN [options] [source [destination]]
   -i show informations about source fonts, nothing more
   -f show formats description, nothing more
   -p convert font to proportional
+  -nnumber convert font to no-proportional, number is width, none=autodetect
   -r rename font (name in header, not a filename)
   -first-last tells that font contains only chars first..last (eg. -32-255)
-  -wnumber sets char width in FNT in pixels, implicitly 8
+  -wnumber sets char width in FNT in pixels, 8 by default
   -snumber shifts all chars up (to create superscript)
   -k some conversion meaningful only for Czechs
   -v work out all fonts from a multifont file (.fon)
-  -cword word found in each font header in multifont file, implicitly (c)
+  -cword word found in each font header in multifont file, (c) by default
    (I have no .FON description, I detect subfonts by searching this word)
   :lang language selection (:eng or :cz)
   If you enter only source, font is set up on screen.
@@ -278,30 +279,33 @@ Formats (sorted by complexity):
   RIF - magic "af"; pchar copyright; word height(0-24),lastchar (firstchar=32);
         table[word ofs_from_bitmaps_start,width(0-16)]; bitmaps heap
   FN  - magic "ëmÕonç "; pchar name; char firstchar,lastchar; short sizeover,
-        sizeunder; byte addspace,future; table[short relx,rely; byte sir,vys,
-        shift; word ofs_from_file_start]; bitmaps heap
+        sizeunder; short addspace; byte future; table[short relx,rely;
+        byte width,height,shift; word ofs_from_file_start]; bitmaps heap
   FON - copyright, copyright, copyright, chaos, copyright...
 
 Too many parameters.
+Unknown parameter
 FON chaos 1, I can't code more without format description.
 FON chaos 2, I can't code more without format description.
 Fonts:
 Use font number
 Font
 Height
-Size
-doesn't match parameters - it's not multiple of
+Width of $ doesn't match parameters - it's not multiple of $ (chars*width).
 Too big font.
 Internal error, bad size of generated fn.
 Expand failed.
 Shrink failed.
 Write to format .
 is not supported.
+Load $.
 Rename (enter unlimited-length fontname, will be stored in font header):
 Proporc.
+Noprop.
 Superscript.
 Show.
 Save
+Unknown file format.
 
 There is no loader for such format.
 There is no writer for such format.
@@ -310,3 +314,35 @@ Unsupported compression type!
 Unsupported bitdepth!
 Palette was not found!
 Unexpected palette!
+Error in data!
+Too many Huffman tables!
+Too many quantisation tables!
+Too many color components!
+Noninterlaced images are not yet supported!
+Incorrect number of color components
+Bogus DRI size!
+Incorrect file header size!
+DHL not yet supported!
+Unknown mark found in data!
+CMYK color model not yet supported!
+YIQ color model not yet suported!
+Unknown color model!
+Arithmetic compression is not yet supported!
+HSI JPEGs are not yet supported!
+Unexpected end-of-file marker found!
+No Huffman decompression table was defined!
+Unsupported type of interlacing!
+Unexpected marker found in data!
+Interlaced images are not yer supported!
+Image too wide!
+Only 256color images are supported!
+Bad CRC of the file header
+Unexpected end of the file found!
+Progressive mode images are not yet supported!
+Unknown compression type!
+Too big decompression buffer required, not supported!
+Unknown filter type!
+Incorrect size of uncompressed block!
+Alpha channel is not yet supported!
+Too big animation for indirect player.
+Only $% of picture fits to memory.

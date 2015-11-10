@@ -1,31 +1,51 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 1.00ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 2.00ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
 
 Unit      Key;
 Interface {$i define.inc}
-Uses      Chyby;
+Uses      Chyby{$ifdef dpmi},Memo{$endif};
 Function  Init:TError;
 Procedure Done;
 
 {define printkey}
 
 {
-Handler klavesnice. Slouzi presnemu zjistovani stisknutych klaves,
-vsech krome pause. Chces vedet zda je stisknuty treba levy Ctrl?
-Mas to v kPressed[kLCtrl].
+---------------------------------------------------------------------------
+                     Klavesnice - low level
+---------------------------------------------------------------------------
 
-Pozn: obcas, velmi ridce, se mi nektere klavesy zasekavaji, zustanou
-nastavene i kdyz uz nejsou stisknuty. Pry je to chyba biosu, nevim.
-Kazdopadne, pravidelne (tak 50-200x za vterinu) volam kDecPressed,
-tim se kazda zaseknuta klavesa nejdele za 1-2 vteriny vypne.
-Nevyhoda je, ze kdyz umyslne dlouho drzis stisklou klavesu,
-automaticky ji to za chvili vypne. Takze se rozhodni a volani
-kDecPressed pripadne odstran ze scrol.pas.
+KONSTANTY kXxxx
+ Kazda klavesa vcetne shiftu, pause apod pri stisku generuje sekvenci tzv.
+ scan kodu. CiA sve uzivatele od tohoto naprosteho silenstvi odfiltrovava
+ a kazde klavese vcetne pause prirazuje jeden kod deklarovany konstantou kXxx.
 
-Pozn: vim o jednom pocitaci, na kterem kdyz behem nebo i kdykoliv po pouziti
-tohoto handleru stisknes Alt, vytuhnou Windows... nechapu
+HANDLER KLAVESNICE
+ Zapina a vypina se procedurou kSetHandler.
+ Slouzi presnemu zjistovani stisknutych klaves, vsech vcetne pause.
+ Chces vedet zda je stisknuty treba levy Ctrl?
+ Pokud je zapnuty handler, mas to v kPressed[kLCtrl].
+
+CTENI Z KLAVESNICE
+ Fce pro pohodlny vstup z klavesnice je ReadEvent v unite Sys.
+ (zdrojak GuessCode ukazuje ze za jejim pohodlim je skryt velky hacking)
+
+ Pokud pracujes s obrazovkou, misto ReadEvent pouzijes obecnejsi
+ T(Scrol)Screen.GetEvent, ktery zahrnuje i udalosti od tlacitek mysi.
+
+ Priklady schopnosti teto unity jsou pr_key1.pas a pr_key2.pas.
+
+ZASEKAVANI KLAVES
+ Obcas, velmi ridce, se na nekterych starych pocitacich mohou nektere klavesy
+ zasekavat, zustanou nastavene i kdyz uz nejsou stisknuty. Pry je to chyba
+ biosu, nevim.
+ Kazdopadne lze pouzit jednoduchy trik: pri pravidelnem volani kIncPressed
+ je kazda stiskla klavesa po chvili (po zhruba 100 zavolanich) automaticky
+ vypnuta. Pokud v unite scrol nastavis unlockLockedKeys:=true,
+ volani kIncPressed bude automaticke (treba 70x za sekundu, podle monitoru).
+ (Nevyhoda je, ze kdyz umyslne dlouho drzis stisklou klavesu,
+ i ji to automaticky za chvili vypne.)
 }
 
 var       kHandler:boolean;                 {je na int9 povesen nas handler?}
@@ -33,11 +53,11 @@ var       kHandler:boolean;                 {je na int9 povesen nas handler?}
           kDirty:boolean;                   {nastavi se pri kazdem eventu}
 
 procedure kSetHandler(b:boolean);           {zavesi/odpoji nas handler}
-procedure kDecPressed;
+procedure kIncPressed;
 
 const
  kExtended  =224;
- kExtendedpause=225;
+ kPause     =225;
  kEsc       =1;                             {kody vsech beznych klaves}
  k1         =2;
  k2         =3;
@@ -123,9 +143,6 @@ const
  kkTecka    =83;
  kF11       =87;
  kF12       =88;
- kWin1      =91;
- kWin2      =92;
- kWin3      =93;
  kkEnter    =128+28;
  kRCtrl     =128+29;
  kkSlash    =128+53;
@@ -141,6 +158,9 @@ const
  kPgDwn     =128+81;
  kInsert    =128+82;
  kDelete    =128+83;
+ kWin1      =128+91;
+ kWin2      =128+92;
+ kWin3      =128+93;
  kMacro     =128+111;
 
 function  num:boolean;   {Indikator Num locku}
@@ -219,18 +239,24 @@ var   waitforextended:boolean;
       skip:boolean;
       old9:pointer;
 
-const pressed=100;{tento bajt (=true) se zapise do pole pri stisku,
-                   pri kazdem kDecPressed se zapsany bajt snizi,
+const pressed=150;{tento bajt (=true) se zapise do pole pri stisku,
+                   pri kazdem kIncPressed se zapsany bajt zvysi,
                    zastavi se az na nule (=false)}
+      pressedforever=1;{tento bajt (=true) se zapise do pole pri stisku pause,
+                   pri kIncPressed zustava porad true}
 
 PROCEDURE kSetHandler(b:boolean);assembler;
  asm
      cmp b,false
      je @odpoj
-
+{jmp @odpoj{}
    @ZAVES:
      cmp kHandler,false
      jnz @end
+     {$ifdef dpmi}
+     db 66h;cmp word ptr SwapSize,0
+     jnz  @end
+     {$endif}
      {set vars}
      mov waitforextended,false
      mov skip,0
@@ -278,19 +304,18 @@ PROCEDURE kSetHandler(b:boolean);assembler;
      popa
 {$endif}
      cmp skip,0
-     jz @normal
-     dec skip
-     jmp @endhandler
-
-    @normal:
+     jz @noskip
+     dec skip              {po pause ignoruje 2 kody}
+     jmp @aborthandler
+    @noskip:
      cmp waitforextended,false
      jne @extendedsecond
 
     @startseq:
+     cmp al,kPause
+     jz @pausestart
      cmp al,kExtended
      jz @extendedstart
-     cmp al,kExtendedpause
-     jz @pausestart
 
     @singlestart:
      test al,128
@@ -300,19 +325,23 @@ PROCEDURE kSetHandler(b:boolean);assembler;
      mov ah,0
      jmp @write
      @singleon:
+     cmp byte ptr [kPressed+kPause],false
+     jne @pauseend
      mov ah,pressed
      jmp @write
 
     @extendedstart:
      mov waitforextended,true
-     jmp @endhandler
 
-    @pausestart:
-     mov skip,2            {klavesu pause ignoruje}
      jmp @endhandler
+     cmp byte ptr [kPressed+kPause],false
+     je @endhandler
+     jmp @aborthandler
 
     @extendedsecond:
      mov waitforextended,false
+     cmp byte ptr [kPressed+kPause],false
+     jne @pauseend
      test al,128
      jz @extendedon
      @extendedoff:
@@ -321,16 +350,46 @@ PROCEDURE kSetHandler(b:boolean);assembler;
      @extendedon:
      add al,128
      mov ah,pressed
+     jmp @write
 
-    @write:
+    @pausestart:{
+Welcome to hell. If you press this key while either of the the control keys
+are being held down, it will behave like extended key 70, at all other times
+it will send the following bytes: (225, 29, 69, 225, 157, 197). Holding the
+key down does not result in autorepeat. Taking your finger off the key does
+not send any extra bytes, they appear to be sent after the "key down" bytes
+when you first press the key. Notice that 225 isn't 224, so our normal
+extended character handler will not take care of this. My personal theory is
+that while a scan code of 224 (E0h) means there is 1 more character
+following, a scan code of 225 (E1h) means there are *2* more following. I've
+seen a number of keyboard handler libraries and they all seem to overlook
+this key. So why not be the first kid on your block to have a keyboard
+handler which properly supports the Pause/Break key? CHECK IT OUT!!}
+     mov byte ptr [kPressed+kPause],pressedforever {kPressed[kPause]:=true}
+     mov skip,2            {a nasledujici 2 kody ignoruje}
+     jmp @aborthandler
+
+    @pauseend:             {prvni stisk po pause...pouze rusi pause, nic vic}
+     mov byte ptr [kPressed+kPause],false
+     jmp @aborthandler
+
+    @write:                {zaneseni stisku/uvolneni do kPressed}
      mov bl,al
      mov bh,0
      lea si,kPressed
      mov [si+bx],ah
 
-    @endhandler:
+    @endhandler:           {konec s volanim puvodniho}
      POPA
      call old9
+     POP DS
+     iret
+
+    @aborthandler:         {konec bez volani puvodniho}
+     mov al,20h
+     out 20h,al
+     POPA
+     POPF
      POP DS
      iret
 
@@ -345,17 +404,16 @@ PROCEDURE kSetHandler(b:boolean);assembler;
    @END:
  end;
 
-PROCEDURE kDecPressed;assembler;
+PROCEDURE kIncPressed;assembler;
  asm
      lea di,kPressed-1
-     xor ax,ax
      mov cx,256
      @1:
      inc di
-     cmp [di],al
+     test byte ptr [di],254
      loope @1
      jcxz @2
-     dec byte ptr [di]
+     inc byte ptr [di]
      jmp @1
      @2:
  end;
