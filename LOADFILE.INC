@@ -1,44 +1,59 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.10ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
 
 {---------------------------------------------------------------------------
  Nahraje soubor z disku do pameti.
- P je pointer na pripraveny blok pameti. Je-li nil, naalokuje se pamet
-  velikosti souboru + freesize (pokud chces mit za koncem souboru
-  kus volneho mista).
- Maxsize uvadi maximalni velikost souboru. Je-li soubor delsi, bude
-  prebytek ignorovan a nahrano pouze maxsize. V maxsize se pote vraci
+
+ p<>nil
+ ------
+  P je pointer na blok pameti delky datasize+freesize.
+
+ p=nil
+ -----
+  Datasize musi byt 0.
+  Do p se naalokuje blok pameti delky souboru + freesize.
+
+ vystupy
+ -------
+  Do p^ se nahraje soubor filename.
+  Promenne datasize a freesize se upravi tak, ze datasize=delka nahranych dat,
+  freesize=volna pamet za daty.
+  Vraci kod chyby, 0=ok.
+
+ P je pointer na pripraveny blok pameti, datasize + freesize jeho velikost.
+ Je-li p=nil, naalokuje se pamet velikosti souboru + freesize.
+ Datasize uvadi maximalni velikost souboru. Je-li soubor delsi, bude
+  prebytek ignorovan a nahrano pouze datasize. V datasize se pote vraci
   delka nahrane casti souboru. Pokud se alokovala pamet, velikost bufferu
-  zjistis souctem maxsize + freesize.
- Onlyfull rika, ze se ma soubor nahravat jen pokud se do limitu maxsize
+  zjistis souctem datasize + freesize.
+ Onlyfull rika, ze se ma soubor nahravat jen pokud se do limitu datasize
   vejde cely.
  Pri neuspechu (soubor nejde cist/neexistuje/neni pamet) zachova p
-  i maxsize nezmenene.
+  i datasize nezmenene.
  ---------------------------------------------------------------------------}
 
 FUNCTION {$ifdef dm}LoadDMFile{$else}LoadDosFile{$endif}
-(filename:pathStr;var p:pointer;onlyfull:boolean;var maxsize:longint;freesize:longint):TLoadFileRes;
+ (filename:PathStr;var p:pointer;var datasize,freesize:longint):TError;
 
 var   f               :file;
       fsize           :longint;{velikost souboru}
-      toloadtotal     :longint;{kolik bajtu loadovat celkem}
       toload          :longint;{kolik bajtu jeste zbyva naloadovat}
       temptoload      :word;
       temploaded      :word;
       tempp           :^byte;
       wasnil          :boolean;
-      result          :TLoadFileRes;
-label free,clous,passres;
+      result          :TError;
+label clous,passres;
 begin
-
- {init}
-  result    :=none;
-  wasnil    :=p=nil;
+  wasnil:=p=nil;
 
  {otevre soubor}
-  if filename='' then goto passres;
+  if filename='' then begin
+    result:=errFileNotFound;
+    goto passres;
+    end;
   {$ifdef dm}
   if not OpenDMFile(filename)
   {$else}
@@ -46,7 +61,10 @@ begin
   reset(f,1);
   if ioresult<>0
   {$endif}
-   then goto passres;
+   then begin
+    result:=errFileOpen;
+    goto passres;
+    end;
 
  {zjisti velikost}
   fsize:=
@@ -56,14 +74,29 @@ begin
    FileSize(f);
    {$endif}
 
- {vyridi parametr onlyfull}
- if fsize<=maxsize then toloadtotal:=fsize else
-  if onlyfull then goto clous else toloadtotal:=maxsize;
- {naalokuje pamet}
- if p=nil then
-  if not GetMem(p,toloadtotal+freesize) then goto clous;
+ {p=nil: naalokuje pamet}
+ if p=nil then begin
+   {$ifdef beta}
+   if datasize<>0 then erBetaMsg('loadfile datasize<>0');
+   {$endif}
+   datasize:=fsize;
+   if not GetMem(p,datasize+freesize) then begin
+     result:=erLowMem;
+     goto clous;
+     end;
+   end
+ {p<>nil: zkontroluje ze je dost pameti}
+ else begin
+   if fsize>datasize then begin
+     result:=erFileTooBig;
+     goto clous;
+     end;
+   inc(freesize,datasize-fsize);
+   datasize:=fsize;
+   end;
+
  {nacte soubor}
- toload    :=toloadtotal;
+ toload    :=fsize;
  tempp     :=p;
  while toload>0 do begin
    if PtrRec(tempp).Ofs=0 then temptoload:=65536-512
@@ -78,7 +111,11 @@ begin
     BlockRead(f,tempp^,temptoload,temploaded);
     if (ioresult<>0) or
     {$endif}
-     (temploaded<>temptoload) then goto free;
+     (temploaded<>temptoload) then begin
+       result:=errFileRead;
+       if wasnil then FreeMem(p,datasize+freesize);
+       goto clous;
+       end;
 
    dec(toload,temptoload);
    inc(tempp,temptoload);
@@ -86,16 +123,7 @@ begin
    end;
 
  {skoncil uspechem}
- if fsize>maxsize then result:=part else result:=full;
- maxsize   :=toloadtotal;
- goto clous;
-
- {skoncil neuspechem}
- free:
- if wasnil then begin
-   FreeMem(p,toload+freesize);
-   p:=nil;
-   end;
+ result:=erOk;
 
  {zavre soubor}
  clous:
@@ -105,7 +133,7 @@ begin
   close(f);
   {$endif}
 
- {zavre soubor}
+ {preda vysledek}
  passres:
   {$ifdef dm}
   LoadDMFile:=result;

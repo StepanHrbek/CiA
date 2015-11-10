@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.10ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -9,11 +9,22 @@ Uses      Chyby;
 Function  Init:word;
 Procedure Done;
 
+{
+Handler klavesnice. Slouzi presnemu zjistovani stisknutych klaves,
+vsech krome pause. Chces vedet zda je stisknuty treba levy Ctrl?
+Mas to v kPressed[kLCtrl].
+
+Pozn: obcas, velmi ridce, se mi nektere klavesy zasekavaji, zustanou
+nastavene i kdyz uz nejsou stisknuty. Pry je to chyba biosu, nevim.
+Kazdopadne, pravidelne (tak 50-200x za vterinu) volam kDecPressed,
+tim se kazda zaseknuta klavesa nejdele za 1-2 vteriny vypne.
+}
 
 var       kHandler:boolean;                 {je na int9 povesen nas handler?}
           kPressed:array[0..255] of boolean;{stisknute klavesy}
 
-procedure Int9Handler(b:boolean);           {zavesi/odpoji nas handler}
+procedure kSetHandler(b:boolean);           {zavesi/odpoji nas handler}
+procedure kDecPressed;
 
 const
  kExtended  =224;
@@ -126,11 +137,22 @@ const
                           IMPLEMENTATION
 {ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ}
 
+{$ifdef printkey}
+procedure debugprint(b:byte);
+begin
+ write(b,',');
+end;
+{$endif}
+
 var   waitforextended:boolean;
       skip:boolean;
       old9:pointer;
 
-PROCEDURE Int9Handler(b:boolean);assembler;
+const pressed=100;{tento bajt (=true) se zapise do pole pri stisku,
+                   pri kazdem kDecPressed se zapsany bajt snizi,
+                   zastavi se az na nule (=false)}
+
+PROCEDURE kSetHandler(b:boolean);assembler;
  asm
      cmp b,false
      je @odpoj
@@ -141,13 +163,6 @@ PROCEDURE Int9Handler(b:boolean);assembler;
      {set vars}
      mov waitforextended,false
      mov skip,0
-     {clr pressed}
-     push ds
-     pop es
-     lea di,kPressed
-     mov cx,128
-     mov ax,0
-     rep stosw
      {get old}
      mov ax,3509h
      int 21h
@@ -162,7 +177,7 @@ PROCEDURE Int9Handler(b:boolean);assembler;
      int 21h
      POP DS
      mov kHandler,true
-     jmp @end
+     jmp @clrpressed
 
    @ODPOJ:
      cmp kHandler,false
@@ -174,7 +189,7 @@ PROCEDURE Int9Handler(b:boolean);assembler;
      int 21h
      POP DS
      mov kHandler,false
-     jmp @end
+     jmp @clrpressed
 
    @HANDLER:
      PUSH DS
@@ -184,6 +199,12 @@ PROCEDURE Int9Handler(b:boolean);assembler;
      PUSHA
 
      in al,60h
+{$ifdef printkey}
+     pusha
+     push ax
+     call debugprint
+     popa
+{$endif}
      cmp skip,0
      jz @normal
      dec skip
@@ -207,7 +228,7 @@ PROCEDURE Int9Handler(b:boolean);assembler;
      mov ah,0
      jmp @write
      @singleon:
-     mov ah,1
+     mov ah,pressed
      jmp @write
 
     @extendedstart:
@@ -227,8 +248,7 @@ PROCEDURE Int9Handler(b:boolean);assembler;
      jmp @write
      @extendedon:
      add al,128
-     mov ah,1
-     jmp @write
+     mov ah,pressed
 
     @write:
      mov bl,al
@@ -239,39 +259,51 @@ PROCEDURE Int9Handler(b:boolean);assembler;
     @endhandler:
      POPA
      call old9
-     {POPF
-     mov al,20h
-     out 20h,al}
      POP DS
      iret
+
+   @ClrPressed:
+     push ds
+     pop es
+     lea di,kPressed
+     mov cx,128
+     xor ax,ax
+     rep stosw
 
    @END:
  end;
 
+PROCEDURE kDecPressed;assembler;
+ asm
+     lea di,kPressed-1
+     xor ax,ax
+     mov cx,256
+     @1:
+     inc di
+     cmp [di],al
+     loope @1
+     jcxz @2
+     dec byte ptr [di]
+     jmp @1
+     @2:
+ end;
 
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
-const
- inited:boolean=false;
+var result:integer;
 
-function Init:word;
+procedure UserInit;
  begin
-  Init:=erOk;
-  if not inited then begin
-   kHandler     :=false;
-   fillchar(kPressed,sizeof(kPressed),0);
-   inited       :=true;
-   end;
+  kHandler:=false;
+  fillchar(kPressed,sizeof(kPressed),0);
  end;
 
-procedure Done;
+procedure UserDone;
  begin
-  if inited then begin
-   Int9Handler(false);
-   inited       :=false;
-   end;
+  kSetHandler(false);
  end;
 
+{$i initdone.inc}
 {$ifdef autoinit}
 BEGIN
  erCheck(Init);

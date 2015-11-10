@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.10ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -326,9 +326,9 @@ assembler;
       call chyby.erBetaMsg
       @msg1:
        {$ifdef smer1}
-       db 9,'bit2scr 1'
+       db 9,'btb2box 1'
        {$else}
-       db 9,'scr2bit 1'
+       db 9,'box2btb 1'
        {$endif}
       {$endif}
 

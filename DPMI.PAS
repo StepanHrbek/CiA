@@ -49,8 +49,6 @@ type
 
 type
     Pword = ^word;
-    Plongint = ^longint;
-    Ppointer = ^pointer;
 
 
 

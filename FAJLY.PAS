@@ -1,11 +1,11 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.10ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
 
 Unit      Fajly;
 Interface {$i define.inc}
-Uses      Chyby,Memo, Dos, Stringy,Sys;
+Uses      Chyby,Memo, Dos,Objects, Stringy,Sys;
 Function  Init:word;
 Procedure Done;
 
@@ -16,10 +16,10 @@ Procedure Done;
 Var       ReadOnlyMod:boolean;{readonly rezim, potlaceni zapisu na disk}
 
 {disky}
+Type      dskType=(dskNone,dskFloppy,dskHard,dskNet,dskCdrom);
 FUNCTION  VratInstalovaneDisky: string;
-FUNCTION  VratPocetDisku: byte;
-FUNCTION  IdentifikujDisk(dsk:char): byte;
-FUNCTION  ZapisovatelnyDisk(dsk:char): boolean;
+FUNCTION  IdentifikujDisk(dsk:char):dskType;
+FUNCTION  ZapisovatelnyAdresar(dir:PathStr):boolean;
 FUNCTION  JeReady(dsk: char) : boolean;
 
 {adresare}
@@ -35,13 +35,11 @@ PROCEDURE PCK_Open(var f:file;name:PathStr);
 
 {ostatni}
 Type      FileStr=string[13]; {13.znak kvuli pripadnemu pouziti Str2Pc}
-          TLoadFileRes=(none,part,full);
-          TLoadFile=function(filename:pathStr;var p:pointer;onlyfull:boolean;
-                             var maxsize:longint;freesize:longint):TLoadFileRes;
+          TLoadFile=function(filename:pathStr;var p:pointer;var datasize,freesize:longint):TError;
 Var       LoadFile:TLoadFile;
 
 FUNCTION  CallCommand(st:string):integer;
-FUNCTION  LoadDosFile(filename:pathStr;var p:pointer;onlyfull:boolean;var maxsize:longint;freesize:longint):TLoadFileRes;
+FUNCTION  LoadDosFile(filename:pathStr;var p:pointer;var datasize,freesize:longint):TError;
 FUNCTION  SaveFile(filename:pathStr;p:pointer;size:longint):boolean;
 
 
@@ -50,18 +48,18 @@ FUNCTION  SaveFile(filename:pathStr;p:pointer;size:longint):boolean;
 {ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ}
 
 
+
 {ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ DISKY ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ}
 
 
 {---------------------------------------------------------------------------
  Vrati vsechny instalovane disky ve stringu jako napr. ABCD.
  ---------------------------------------------------------------------------}
-FUNCTION  VratInstalovaneDisky;
-var disky:string;
+FUNCTION VratInstalovaneDisky:string;
 begin
  asm
   mov ah, 19h;int 21h;push ax { v AL soucasny disk }
-  push ss;pop es;lea di, disky;push di;inc di
+  les di,@result;push di;inc di
   mov cx, 27 { Projede se od A az po Z }
   xor dx,dx
   @1: mov ah, 0eh;int 21h; { CD disk v DL }
@@ -70,15 +68,6 @@ begin
   @konec: pop di;mov al,dl;stosb; {nakonec delka stringu}
 	  pop ax;mov ah, 0eh;mov dl, al;int 21h {a cd na puvodni disk}
  end;
- VratInstalovaneDisky:=disky;
-end;
-
-{---------------------------------------------------------------------------
- Vrati pocet vsech disku.
- ---------------------------------------------------------------------------}
-FUNCTION  VratPocetDisku;
-begin
- VratPocetDisku:=length(VratInstalovaneDisky);
 end;
 
 {---------------------------------------------------------------------------
@@ -89,39 +78,41 @@ end;
  3 - Sitovy
  4 - CD-ROM              {* nefunguje
  ---------------------------------------------------------------------------}
-FUNCTION  IdentifikujDisk;
+FUNCTION  IdentifikujDisk(dsk:char):dskType;
 var r:registers; {obcas kaslu na asm}
 begin
- IdentifikujDisk:=0;
+ IdentifikujDisk:=dskNone;
  r.AX:=$1500;r.BX:=0;Intr($2f,r);	{ nejdriv test na cd-rom }
- if (r.BX<>0) and (r.CX=Ord(Dsk)-65) then begin IdentifikujDisk:=4;exit;end;
+ if (r.BX<>0) and (r.CX=Ord(Dsk)-65) then begin IdentifikujDisk:=dskCdrom;exit;end;
  Dsk:=UpCase(Dsk);R.BL:=Ord(Dsk)-64;R.AX:=$4409;MsDos(R);
  if (R.Flags and FCarry)=FCarry then Exit; { kdyz chyba tak pryc }
- if (R.DH and 16)=16 then {sitovej} IdentifikujDisk:=3 else begin
-   R.AX:=$4408;MsDos(R);if R.AL<>$0F then IdentifikujDisk:=R.AL+1;
+ if (R.DH and 16)=16 then {sitovej} IdentifikujDisk:=dskNet else begin
+   R.AX:=$4408;MsDos(R);if (R.Flags and fCarry)=0 then
+    if R.AL=0 then IdentifikujDisk:=dskFloppy else
+    if R.AL=1 then IdentifikujDisk:=dskHard;
  end;
 end;
 
 {---------------------------------------------------------------------------
- Vraci jestli jde na disk zapisovat.
- Neznate nejakou lepsi detekci ?
+ Vraci jestli jde do adresare zapisovat,
+  konkretne zkousi atributy create+write+delete.
  ---------------------------------------------------------------------------}
-FUNCTION  ZapisovatelnyDisk(dsk:char): boolean;
-var   st:string[20];
-      i:word;
+FUNCTION  ZapisovatelnyAdresar(dir:PathStr): boolean;
 begin
- ZapisovatelnyDisk:=false;
- if IdentifikujDisk(dsk) in [1,2,3] then begin
-   st:=dsk+':\'#0;
-   i:=ofs(st[1]);
+ ZapisovatelnyAdresar:=false;
+ dir:=FExpand(dir);
+ DeStr2Pc(dir);
+ if IdentifikujDisk(dir[0]) in [dskFloppy,dskHard,dskNet] then
    asm
     PUSH DS
     push ss
     pop ds
     {create file}
-    mov ah,5ah;mov cx,0;mov dx,i;int 21h;jc @err
+    mov ah,5ah;xor cx,cx;lea dx,dir;int 21h;jc @err
+    {write to file}
+    xchg bx,ax;mov ah,40h;inc cx;int 21h;jc @err
     {close file}
-    mov bx,ax;mov ah,3eh;int 21h;jc @err
+    mov ah,3eh;int 21h;jc @err
     {delete file}
     mov ah,41h;int 21h;jc @err
     {wow, ok}
@@ -129,7 +120,6 @@ begin
     @err:
     POP DS
    end;
- end;
 end;
 
 {---------------------------------------------------------------------------
@@ -142,7 +132,7 @@ begin
    media, nez precist aktualni adresar, mozna to jde sikovneji ...}
 
  JeReady:=false;
- if IdentifikujDisk(dsk) = 0 then Exit;
+ if IdentifikujDisk(dsk) = dskNone then Exit;
  disk:=ord(upcase(dsk))-64;
  asm
   mov ah,47h;mov dl,disk;push ds;push ss;pop ds;lea si,dummy;int 21h;pop ds;
@@ -200,10 +190,13 @@ var   st:PathStr;
 begin
  st:=fExpand(GetEnv('temp'));
  if st='' then begin
-   st:=VratInstalovaneDisky;
-   {*sem nejaky chytry prioritni nalezeni nejlepsiho disku}
-   {*vytvoreni adresare temp}
-   st:='C:\';
+   st:=fExpand(GetEnv('tmp'));
+   if st='' then begin
+     st:=VratInstalovaneDisky;
+     {*sem nejaky chytry prioritni nalezeni nejlepsiho disku}
+     {*vytvoreni adresare temp}
+     st:='C:\';
+     end;
    end;
  if st[length(st)]<>'\' then st:=st+'\';
  GetTempDir:=st;
@@ -316,7 +309,7 @@ end;
 FUNCTION CallCommand(st:string):integer;
 begin
  swapvectors;
- exec(getenv('comspec'),st);
+ exec(getenv('COMSPEC'),st);
  CallCommand:=doserror;
  swapvectors;
 end;
@@ -350,28 +343,21 @@ end;
 
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
-const
- inited:boolean=false;
+var result:integer;
 
-function Init:word;
+procedure UserInit;
  begin
-  Init:=erOk;
-  if not inited then begin
-   ReadOnlyMod  :=false;
-   Pocetfajlu   :=0;
-   List         :=nil;
-   LoadFile     :=LoadDosFile;
-   inited       :=true;
-   end;
+  ReadOnlyMod  :=false;
+  Pocetfajlu   :=0;
+  List         :=nil;
+  LoadFile     :=LoadDosFile;
  end;
 
-procedure Done;
+procedure UserDone;
  begin
-  if inited then begin
-   inited       :=false;
-   end;
  end;
 
+{$i initdone.inc}
 {$ifdef autoinit}
 BEGIN
  erCheck(Init);

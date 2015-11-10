@@ -1,11 +1,11 @@
-{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 0.10ƒƒƒø
+{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 0.32ƒƒƒø
  ≥S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi≥
  ≥v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.≥
  ¿ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒŸ}
 
 Unit      Fonty;
 Interface {$i define.inc}
-Uses      Chyby,Memo, Dos,Memory,Objects, Fajly,Vga;
+Uses      Chyby,Memo, Dos,Objects, Cache,Fajly,Vga;
 Function  Init:word;
 Procedure Done;
 
@@ -16,6 +16,7 @@ Procedure Done;
 
 Unita obsahuje podporu pro bitmapove fonty ukladane ve formatu FN,
 cachovany seznam fontu a zaklady psani temito fonty do bitmap.
+Pozn: primo na obrazovku psat nelze.
 
 
 ---------------------------------------------------------------------------
@@ -71,8 +72,8 @@ TYPE
                      maxpod      :shortint;  {+o kolik nejvic pixelu leze POD caru}
                      future      :byte;      {future enhancements :-)}
                      tablo       :PFontTable;{pointer na tabulku informaci o definovanych znacich}
-                     function    LoadFromMem(p:pointer;siz:word):boolean;
-                     function    LoadFromDisk(hledamfilename:string):boolean;
+                     function    LoadFromMem(p:pointer;siz:word):TError;
+                     function    LoadFromDisk(hledamfilename:string):TError;
                      destructor  Done;virtual;
                    end;
 
@@ -81,6 +82,8 @@ const fnmagic:pchar='Îm’onÁ ';
 
       fnDefault    ='modern.fn';{nejaky font, ktery urcite bude po ruce}
 
+      erBadFont    = 84;
+
 
 {---------------------------------------------------------------------------
  Cache.
@@ -88,8 +91,7 @@ const fnmagic:pchar='Îm’onÁ ';
 
 const     prior_font=10;{priorita jakou dostanou fonty v cache}
 
-function  CFontGet(hledamfilename:PathStr):PFont;
-procedure CFontLeave(var fn:PFont);
+function  caFontGet(hledamfilename:PathStr):PFont;
 
 
 
@@ -118,12 +120,12 @@ FUNCTION  OutText({co }delka:word;src:Pchar;var mezer,sirmez:word;
  Po uspechu muzes na blok pameti s *.FN zapomenout, nekdo uz se postara,
   odalokuje... Po neuspechu ti zustane, musis odalokovat sam.
  ---------------------------------------------------------------------------}
-Function TFont.LoadFromMem(p:pointer;siz:word):boolean;
+Function TFont.LoadFromMem(p:pointer;siz:word):TError;
 var   b:^char;
       c:char;
 label neuspech;
 begin
- loadfrommem :=false;
+ loadfrommem :=erBadFont;
  {je format ok?}
  if not CmpBlock(fnmagic,p,fnmagiclen) then exit;
  {prijme blok pameti za svuj}
@@ -161,7 +163,7 @@ begin
     if relY+vysb-1>maxpod then maxpod  :=relY+vysb-1;
     end;
  {hotovo}
- loadfrommem :=true;
+ loadfrommem :=erOk;
  exit;
 
  {vynuluje promenne pri neuspechu}
@@ -174,16 +176,20 @@ end;
  Naloaduje do objektu font ze zadaneho souboru.
  Vraci uspesnost.
  ---------------------------------------------------------------------------}
-Function TFont.LoadFromDisk(hledamfilename:string):boolean;
-var   p       :pointer;
-      filesize:longint;
+Function TFont.LoadFromDisk(hledamfilename:string):TError;
+var   p:pointer;
+      datasize,freesize:longint;
+      result:TError;
 begin
  p:=nil;
- filesize:=65520;
- LoadFromDisk:=false;
- if LoadFile(hledamfilename,p,true,filesize,0)=full then
-  if LoadFromMem(p,filesize) then LoadFromDisk:=true
-                             else FreeMem(p,filesize);
+ datasize:=0;
+ freesize:=0;
+ result:=LoadFile(hledamfilename,p,datasize,freesize);
+ if result=erOk then begin
+   result:=LoadFromMem(p,datasize);
+   if result<>erOk then FreeMem(p,datasize+freesize);
+   end;
+ LoadFromDisk:=result;
 end;
 
 {---------------------------------------------------------------------------
@@ -202,17 +208,19 @@ end;
 {ﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂ CACHOVANY SEZNAM FONTU ﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂ}
 
 Type
-{$ifndef memory_cache}
- PCacheIdentif = ^TCacheIdentif;
- TCacheIdentif = TObject;
-{$endif}
-
  PFontIdentif = ^TFontIdentif;
  TFontIdentif = object(TCacheIdentif)
    filename:PathStr;
+   constructor Init(name:PathStr);
    function Compare(id:PCacheIdentif):boolean;virtual;
    function Load:PObject;virtual;
  end;
+
+Constructor TFontIdentif.Init(name:PathStr);
+begin
+ inherited Init;
+ filename:=name;
+end;
 
 Function TFontIdentif.Compare(id:PCacheIdentif):boolean;
 begin
@@ -222,61 +230,109 @@ end;
 Function TFontIdentif.Load:PObject;
 var   f:PFont;
 begin
- Load:=nil;
  New(f,Init);
- if f=nil then exit;
- if not f^.LoadFromDisk(filename) then begin
-   f^.Free;
-   exit;
-   end;
+ if f<>nil then
+  if f^.LoadFromDisk(filename)<>erOk then KillObj(f);
  Load:=f;
 end;
 
 {---------------------------------------------------------------------------
  Zadany font nahraje a vrati na nej pointer.
- Pozor: Ziskany font neuvolnuj pres TFont.Free, ale pres CFontLeave.
+ Pozor: Ziskany font neuvolnuj pres TFont.Free, ale pres caLeave.
  ---------------------------------------------------------------------------}
-Function CFontGet(hledamfilename:PathStr):PFont;
-var   id:PFontIdentif;
-      f:PFont;
+Function caFontGet(hledamfilename:PathStr):PFont;
 begin
- CFontGet:=nil;
- if hledamfilename='' then exit;
- new(id,Init);
- if id=nil then exit;
- id^.filename:=hledamfilename;
-{$ifdef memory_cache}
- if CacheInited then
-   begin
-   f:=PFont(CacheMaster.Get(id,prior_font));
-   if f=nil then id^.Free;
-   end
-  else
-{$endif}
-   begin
-   f:=PFont(id^.Load);
-   id^.Free;
-   end;
- CFontGet:=f;
-end;
-
-{---------------------------------------------------------------------------
- Uvolni zadany font, vynuluje ti pointer na nej (parametr fn).
- ---------------------------------------------------------------------------}
-Procedure CFontLeave(var fn:PFont);
-begin
- if fn=nil then exit;
-{$ifdef memory_cache}
- if CacheInited
-  then CacheMaster.Leave(fn)
-  else {$endif}fn^.Free;
- fn:=nil;
+ caFontGet:=PFont(caGet(New(PFontIdentif,Init(hledamfilename)),prior_font));
 end;
 
 
 
 
 {ﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂ PSANI TEXTU DO BITMAP ﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂ}
+{$ifdef dement}
+const freemap=32768;
+PROCEDURE totalnialefaktuplnetotalnibagr(p:pointer;sirka,vyska:word);assembler;
+const obtahbase=8;
+      fillbase=8;
+      b1=65536-4000;
+      b2=65536-2000;
+var   j,cil:byte;
+      obtahu:word;
+asm  PUSH DS
+
+     mov es,freeseg;mov di,freemap{ES=freeseg}
+     lds si,p                     {DS=p}
+
+     {---expand form mono (p^) to 256color (freeptr+8000^)---}
+     mov al,0;mov cx,sirka;inc cx;rep stosb{fill -1th line}
+     mov bx,obtahbase
+     mov dh,byte ptr vyska
+     @11:
+     mov dl,byte ptr sirka
+     @22:
+     lodsb
+     mov ah,al
+     sub dl,8
+     jbe @part
+     call ExpandAH_BX
+     jmp @22
+     @part:
+     mov cl,dl;add cl,9;mov ch,0
+     call ExpandAH_BX+3
+     mov al,0{fill -1th=nth colmn}
+     stosb
+     dec dh
+     jnz @11
+     mov al,0;mov cx,sirka;inc cx;rep stosb{fill nth line}
+
+     {---obrysova cara---}
+     push es;pop ds{DS=ES=freeseg}
+     mov bx,sirka;inc bx{BX=sirka mapy}
+     mov di,freemap;add di,bx
+     mov si,b1
+     mov al,bl;mul byte ptr vyska;mov cx,ax
+     mov ax,obtahbase
+    @loop:
+     repne scasb
+     jcxz @end
+     cmp [di],ah;jz @okraj
+     cmp [di-2],ah;jz @okraj
+     cmp [di+bx-1],ah;jz @okraj
+     push di;sub di,bx;cmp [di-1],ah;pop di;jnz @loop
+    @okraj:
+     dec di
+     mov byte ptr [di],1
+     mov [si],di;inc si;inc si
+     inc di
+     jmp @loop
+    @end:
+
+     sub si,b1
+     shr si,1
+     mov obtahu,si
+
+     {---dalsich 7 obtahu dovnitr---}
+     mov cil,2
+    @obtah2:
+     mov cx,obtahu;jcxz @99;
+     mov si,b1;mov di,b2;mov al,fillbase;mov ah,cil;mov dx,0
+  @1:mov bx,[si];inc si;inc si
+  @5:dec bx;  cmp [bx],al;jnz @6;mov [bx],ah;mov [di],bx;inc di;inc di;inc dx
+  @6:add bx,2;cmp [bx],al;jnz @7;mov [bx],ah;mov [di],bx;inc di;inc di;inc dx
+  @7:sub bx,sirka;sub bx,2;
+              cmp [bx],al;jnz @8;mov [bx],ah;mov [di],bx;inc di;inc di;inc dx
+  @8:add bx,sirka;add bx,sirka;add bx,2;
+              cmp [bx],al;jnz @9;mov [bx],ah;mov [di],bx;inc di;inc di;inc dx
+  @9:loop @1;mov obtahu,dx;mov di,b1;mov si,b2;mov cx,dx
+     rep movsw
+     @99:
+     inc cil
+     cmp cil,8
+     jne @obtah2
+
+     POP DS
+end;
+{$endif}
 
 {---------------------------------------------------------------------------
  Pise zadany text do zadane bitmapy zadanym fontem.
@@ -291,10 +347,13 @@ assembler;
 
 var   UseModel      :byte;
       sirka_pismene :byte;
-      relX,shift    :integer;
+      shift         :integer;
       local_addspace:word;
       local_mezer   :word;
       local_sirmez  :word;
+      pom1          :byte;
+      oldds         :word;
+      oldX          :word;
 asm
      {
       DS:SI-src text
@@ -303,7 +362,7 @@ asm
       FS:BX-tabulka pointeru na radky bitmapy
      }
 
-     PUSH DS
+     mov oldds,ds
 
      {checks}
      cmp delka,0;jz @farend
@@ -316,13 +375,13 @@ asm
       push offset @msg1
       call chyby.erBetaMsg
       @msg1:
-      db 13,'outtextfull 1'
+      db 29,'outtext se ®patnòmi parametry'
      @bad2:
       push cs
       push offset @msg2
       call chyby.erBetaMsg
       @msg2:
-      db 13,'outtextfull 2'
+      db 38,'pokus ps†t neproporcion†lnà v textm¢du'
      @oke:
      {$endif}
 
@@ -471,6 +530,9 @@ asm
      mul ah
      add si,ax{ds:si ukazuje na CharInfo tohoto znaku}
 
+     {zapamatuje si vychozi X pred kreslenim znaku}
+     mov ax,X
+     mov oldX,ax
 
      {vetveni podle modelu}
      mov al,UseModel
@@ -483,7 +545,7 @@ asm
 
      lodsb
      cbw
-     mov relX,ax
+     {mov relX,ax}
      add X,ax{zapocita relX}
 
      lodsb
@@ -501,48 +563,155 @@ asm
      cbw
      mov shift,ax{loadne shift}
 
+     (*
+     mov al,proporc
+     cbw
+     jz @prop
+     sub al,sirka_pismene
+     sbb ah,0
+     sar ax,1
+     add X,ax{vycentruje neproporc znak - posune se o (shift-sirb)/2}
+     @prop:
+     *)
+
      mov si,[si]{loadne si=ofsb}
 
      cmp sirka_pismene,0
      jz @skipOUTCHAR{nekresli nic kdyz je znak sirokej 0}
 
- @8_NEXT_LINE:
+   {$IFDEF DEMENT} {ruzne modifikace vystupu, kvuli zpetne kompatibilite P.}
+     mov dl,byte ptr barva+3
+     dec dl
+     js @normal
+     jz @bardak
+
+   {vystup odstinovany podle vzdalenosti od okraje bitmapy}
+   @bumpos:
+     push ds
+     db 0fh,0a0h{push fs}
+     pusha
+      push ds{push adresa monobitmapy}
+      push si
+      mov al,sirka_pismene;mov ah,0;push ax{push sirka}
+      shr dx,8;push dx{push vyska}
+      mov ds,oldds
+      call totalnialefaktuplnetotalnibagr{vygeneruje ve freesegu 256color znak}
+     popa
+     db 0fh,0a1h{pop fs}
+
+     mov ds,oldds
+     mov ds,freeseg
+     mov si,freemap
+     mov al,sirka_pismene;mov ah,0;add si,ax;inc si
+
+     push cx
+     mov pom1,0{pom1=cislolajny}
+    @8x_NEXT_LINE:
+     inc pom1
      db 64h,0c4h,3fh{LES DI,[FS:BX]}
      add di,X
+     mov cl,sirka_pismene
+     mov ch,0
+       mov al,dl{method}
+       dec al;jz @method1
+       dec al;jz @method8
+       dec al;jz @method7
+       dec al;jz @method6
+       dec al;jz @method3
+       dec al;jz @method2
+       dec al;jz @method4{skoro totez co 6}
+       @method1:
+        call REP_TransparentMOVSB_nz
+        jmp @linedone
+       @method2:
+        lodsb;or al,al;jz @vynech2
+        sub al,5;add al,[es:di];cmp al,40;jc @ok2;mov al,40;@ok2:mov [es:di],al;@vynech2:inc di;loop @method2
+        jmp @linedone
+       @method3:
+        lodsb;or al,al;jz @vynech3
+        sub al,[es:di];neg al;cmp al,25;jnc @y;mov al,25;@y:mov [es:di],al;@vynech3:inc di;loop @method3
+        jmp @linedone
+       @method4:
+        lodsb;or al,al;jz @vynech4;cmp al,5;jnc @vynech4;sub [es:di],al;@vynech4:inc di;loop @method4
+        jmp @linedone
+       @method6:
+        lodsb;or al,al;jz @vynech6;cmp al,4;jnc @vynech6;mov [es:di],al;@vynech6:inc di;loop @method6
+        jmp @linedone
+       @method7:
+        push bx;mov bl,pom1;and bl,7;cmp bl,4;jc @low;neg bl;add bl,8;@low:
+        mov bh,0;add di,bx;call REP_TransparentMOVSB_nz;sub di,bx;pop bx
+        jmp @linedone
+       @method8:
+        push ax;mov ah,pom1;add ah,40;shr ah,4
+        @met8:
+        lodsb;or al,al;jz @vynech8
+        cmp al,ah;jc @nepret8;mov al,ah;@nepret8:mov [es:di],al;@vynech8:inc di;loop @met8;
+        pop ax
+       @linedone:
 
-     mov dl,sirka_pismene
-     add dl,7
-     shr dl,3
- @8_NEXT_BYTE:
-     lodsb
-     or al,al
-     jnz @bajt
-     add di,8
-     jmp @8_byte_done
-
-     @bajt:
-     mov ah,al{ah=nactenej bajt}
-     mov al,byte ptr barva{al=barva}
-
-     shl ah,1;jc @setbit7;inc di;jmp @end7;@setbit7:stosb;@end7:
-     shl ah,1;jc @setbit6;inc di;jmp @end6;@setbit6:stosb;@end6:
-     shl ah,1;jc @setbit5;inc di;jmp @end5;@setbit5:stosb;@end5:
-     shl ah,1;jc @setbit4;inc di;jmp @end4;@setbit4:stosb;@end4:
-     shl ah,1;jc @setbit3;inc di;jmp @end3;@setbit3:stosb;@end3:
-     shl ah,1;jc @setbit2;inc di;jmp @end2;@setbit2:stosb;@end2:
-     shl ah,1;jc @setbit1;inc di;jmp @end1;@setbit1:stosb;@end1:
-     shl ah,1;jc @setbit0;inc di;jmp @end0;@setbit0:stosb;@end0:
-
-   @8_BYTE_DONE:
-     dec dl
-     jnz @8_NEXT_BYTE
-
-   @8_LINE_DONE:
+     inc si
      add bx,4
      dec dh
-     jnz @8_NEXT_LINE
+     jnz @8x_NEXT_LINE
+     pop cx
+
+     pop ds
      jmp @DONE
 
+   {vystup odstinovany podle y}
+   @bardak:
+     mov pom1,4{pom1=cislolajny+4}
+     @08:
+     inc pom1;mov al,pom1;shr al,2;cmp al,8;jc @07;mov al,8;@07:
+     pusha
+     CALL near ptr @ExpandLine_AL
+     popa
+     add bx,4
+     mov al,1
+     CALL near ptr @ExpandLine_AL
+     dec dh
+     jnz @08
+     jmp @DONE
+   {$ENDIF}
+
+   {normalni mono vystup}
+   @normal:
+     mov al,byte ptr barva{al=barva}
+     @09:
+     CALL near ptr @ExpandLine_AL
+     add bx,4
+     dec dh
+     jnz @09
+     jmp @DONE
+
+ {----------
+    UTILS:
+ {----------}
+
+     {sirka_pismene bitu z DS:SI expanduje barvou AL
+      do souradnice X linky v FS:BX (pres ES:DI)}
+     @ExpandLine_AL:
+      db 64h,0c4h,3fh{LES DI,[FS:BX]}
+      add di,X
+      mov dl,sirka_pismene
+      add dl,7
+      shr dl,3
+
+     {DL bajtu z DS:SI expanduje barvou AL do ES:DI}
+     @ExpandDLbytes_AL:
+      @next:
+      mov ah,[si]
+      inc si
+      or ah,ah
+      jz @empty
+      CALL ExpandAH_AL
+      jmp @10
+      @empty:
+      add di,8
+      @10:
+      dec dl
+      jnz @next
+      retn
 
  {----------}
     @DONE:
@@ -552,13 +721,14 @@ asm
      {posun o sirku pismene}
      mov al,proporc
      cmp al,0;jz @real2
-      mov ah,0
+      mov ah,0{only for neproporc}
       jmp @real2done
      @real2:
-      mov ax,shift
+      mov ax,shift{only for proporc}
      @real2done:
-      sub ax,relX
-      add X,ax
+      add ax,oldX{vychazi ze stare souradnice aby nemusel odecitat kdeco}
+      mov X,ax
+      {sub ax,relX;add X,ax}
 
    @CHAR_DONE:
      dec delka
@@ -571,263 +741,26 @@ asm
 
    @FAREND:
      mov ax,X
-     POP DS
+     mov ds,oldds
 end;
 
 
 {∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞INIT/DONE∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞}
 
-const
- inited:boolean=false;
+var result:integer;
 
-function Init:word;
+procedure UserInit;
  begin
-  Init:=erOk;
-  if not inited then begin
-   inited       :=true;
-   end;
+  BugList.Register(erBadFont,'Vadnò font.');
  end;
 
-procedure Done;
+procedure UserDone;
  begin
-  if inited then begin
-   inited       :=false;
-   end;
  end;
 
+{$i initdone.inc}
 {$ifdef autoinit}
 BEGIN
  erCheck(Init);
 {$endif}
 END.
-
-
-
-
-
-(*
-
- {*tohle casem zpracuju a zlikviduju, je potreba rozsirit *.FN
-   na barevny fonty, tyhle bigfonty do toho pak zapracuju
-
-
-
-{€€€€€€€€€€€€€€€€ BIG FONT €€€€€€€€€€€€€€€€}
-
-{$I bigfont2.inc}
-
-CONST fontu             =2;
-      lastchar          ='©';
-
-VAR   minifonty_sir               :array[0..2,' '..lastchar] of byte;
-      minifonty                   :array[0..1,' '..lastchar,0..15] of byte;
-      minifonty_num               :word;
-      minifonty_adr               :word;
-      minifonty_sir_adr           :word;
-
-VAR   charseg:array[1..fontu,' '..lastchar] of word;
-      cetnost:array[1..fontu,' '..lastchar] of byte;
-CONST charseglen=sizeof(charseg)+sizeof(cetnost);
-
-CONST vys=128+1;
-      sir=64;
-      obtahbase=8;
-      fillbase=8;
-TYPE  tchara=array[0..vys-1,0..sir shr 3-1] of byte;
-      mapa=array[1..vys,1..sir] of byte;
-VAR   chara:tchara;
-      freebyte:byte{musi byt pred sha};sha:mapa;
-      obtahu:word;
-      b1:array[0..999] of word;
-      b2:array[0..999] of word;
-
-
-PROCEDURE Obrys(zn:char;size:byte);
-var i,j,k,l,z:integer;
-function Q(x,y:shortint):byte;
-begin
- if (y<0) or (y>=vys shr 3) or (x<0) or (x>=sir shr 3) then q:=0 else
-  q:=mem[seg(tlustejDB):ofs(tlustejDB)+16*(ord(zn)-32)+y] shr (8-x) mod 2;
-end;
-Begin
- {clr chara}
- asm mov ax,ds;mov es,ax;lea di,chara;mov cx,sir*vys/8/2/2;db 66h;xor ax,ax;db 66h;rep stosw;end;
-
- for j:=0 to vys shr 3-1 do for i:=0 to sir shr 3-1 do begin
-   z:=bigfont_tab[2*(2*(2*(2*(2*(2*(2*(2*
-      q(i-1,j+1)+q(i,j+1))+q(i+1,j+1))+q(i-1,j))+q(i,j))+q(i+1,j))+q(i-1,j-1))+q(i,j-1))+q(i+1,j-1)]
-      -255+n;
-   case size of 2:for k:=0 to 7 do chara[8*j+k,i]:=bigfont_b[z,k];
-                1:for k:=0 to 3 do begin
-                   l:=bigfont_b[z,2*k] or bigfont_b[z,2*k+1];
-                   l:=l or l shl 1;
-                   l:=l and 128+l shl 1 and 64+l shl 2 and 32+l shl 3 and 16;
-                   chara[4*j+k,i div 2]:=chara[4*j+k,i div 2] or (l shr (4*(i mod 2)));
-                   end;
-                end;
-   end;
-End;
-
-PROCEDURE TransTo256Bitmap;assembler;
- asm mov ax,ds;mov es,ax;
-     lea di,sha;mov cx,sir*vys/2/2;db 66h;xor ax,ax;db 66h;rep stosw;{clear bitmap}
-     lea si,chara;mov di,offset sha-1{+656}
-     mov dh,vys{128 radek pod sebou}
-     @1:
-     mov dl,sir/8{8 bajtu vedle sebe}
-     @2:
-     lodsb;mov ah,al;mov al,obtahbase;mov cx,8;
-     @3:shl ah,1;jc @bit;inc di;loop @3;jmp @9;
-                     @bit:stosb;loop @3;@9:
-     dec dl;jnz @2
-     add di,sir-64
-     dec dh;jnz @1
-     end;
-
-PROCEDURE OBTAH1;assembler;
- asm lea si,sha+sir+1
-     lea di,b1
-     mov ax,ds;mov es,ax
-     mov bx,0
-     mov dl,0
-     mov cx,sir*(vys-2)-2
-    @loop:inc si;cmp byte ptr [si],obtahbase;loopnz @loop;jcxz @end;
-     cmp [si-1],dl;jz @okraj
-     cmp [si+1],dl;jz @okraj
-     cmp [si-sir+1],dl;jz @okraj
-     cmp [si+sir-1],dl;jz @okraj
-     jmp @loop
-    @okraj:
-     mov byte ptr [si],1
-     mov ax,si;stosw
-     inc bx
-     jmp @loop
-    @end:
-     mov obtahu,bx
-     end;
-
-PROCEDURE OBTAH2(cil:byte);assembler;
- asm mov cx,obtahu;or cx,cx;jz @99;
-     mov si,offset b1;mov di,offset b2;mov al,fillbase;mov ah,cil;mov dx,0
-  @1:mov bx,[si];inc si;inc si
-  @5:dec bx;      cmp [bx],al;jnz @6;mov [bx],ah;mov [di],bx;inc di;inc di;inc dx;
-  @6:add bx,2;    cmp [bx],al;jnz @7;mov [bx],ah;mov [di],bx;inc di;inc di;inc dx;
-  @7:sub bx,sir+1;cmp [bx],al;jnz @8;mov [bx],ah;mov [di],bx;inc di;inc di;inc dx;
-  @8:add bx,2*sir;cmp [bx],al;jnz @9;mov [bx],ah;mov [di],bx;inc di;inc di;inc dx;
-  @9:loop @1;mov obtahu,dx;mov di,offset b1;mov si,offset b2;mov cx,dx
-     cld;mov ax,ds;mov es,ax;rep segds movsw
-     @99:
-     end;
-
-FUNCTION FreeMoreConv:Boolean;
-var cet,j,j2,ha,segx:word;
-    d,d2:char;
-label 1;
-begin
- {$ifdef cachefont}
- ha:=10000;
- for j:=1 to fontu do for d:=' ' to lastchar do begin
-   cet:=cetnost[j,d]-1;
-   if cet<ha then begin
-     ha:=cet;
-     j2:=j;d2:=d;
-     if ha=0 then goto 1;
-     end;
-   end;
- if ha=10000 then begin FreeMoreConv:=false;exit;end;
- 1:
- segx:=charseg[j2,d2];charseg[j2,d2]:=0;cetnost[j2,d2]:=0;
- asm mov ah,49h;mov es,segx;int 21h;end;
- FreeMoreConv:=true;
- {$else}
- FreeMoreConv:=false;
- {$endif}
-end;
-
-PROCEDURE CONVbigfontDone;
-var i:word;
-    c:char;
-begin
- {$ifdef cachefont}
- for i:=1 to fontu do for c:=' ' to lastchar do deallocConv(charseg[i,c]);
- {$endif}
-end;
-
-FUNCTION GetPackedBigCharSeg(font:byte;c:char):word;
-var   j,myseg:word;
-label 2,bad;
-begin
- myseg:=charseg[font,c];
- if myseg=0 then begin
-         2:
-         asm mov ah,48h;mov bx,65535;int 21h;mov j,bx;end;
-         if j<300 then if FreeMoreConv then goto 2 else goto bad;
-         obrys(c,font);
-         transto256bitmap;
-         obtah1;
-         for j:=2 to 7 do obtah2(j);
-         asm {zapakovani sha}
-             mov ax,ds;mov es,ax {es=ds}
-             mov si,offset sha;mov di,si
-             mov cx,vys
-          @newline:
-             push cx
-
-             mov cx,sir          {meri pocet nul=bx}
-          @continueline:
-             mov bx,0
-             @2:
-             lodsb
-             inc bx
-             or al,al;loopz @2
-             jcxz @endofline
-
-             mov al,bl;dec al;stosb     {tolik nul}
-
-             mov bx,0            {meri pocet dat=bx}
-             @3:
-             lodsb
-             inc bx
-             or al,al;jnz @3
-             sub cx,bx
-
-             {otestovat vsechny bigchary, jestli se tady nehaltnou}
-             jnc @ok
-             {push 103;call erhalt {errorhalt(103)}
-             @ok:
-
-             mov al,bl;stosb     {tolik dat}
-             sub si,bx           {ulozi data}
-             dec si
-             push cx;mov cx,bx;rep movsb;pop cx
-             inc cx
-             jmp @continueline
-
-          @endofline:
-             mov al,0;stosb
-
-             pop cx
-             loop @newline
-
-             sub di,offset sha   {alloc conv mem}
-            push di{size}
-             mov bx,di{size}
-             shr bx,4;inc bx;mov ah,48h;int 21h;jc bad;mov myseg,ax;
-
-             mov es,ax
-             mov si,offset sha;mov di,0  {copy}
-            pop cx{size}
-             rep movsb
-             mov al,255;stosb
-            end;
-         charseg[font,c]:=myseg;
-         end;
-
- inc(cetnost[font,c]);
- GetPackedBigCharSeg:=myseg;
- exit;
-bad:
- GetPackedBigCharSeg:=0;
-end;
-
-

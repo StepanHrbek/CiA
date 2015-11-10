@@ -1,12 +1,12 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.10ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
 
 Unit      Ini;
 Interface {$i define.inc}
-Uses      Chyby,Memo, Dos, Stringy,Fajly,Texty,Sys;
-Function  Init:word; {pozor: memo inicializovat drive nez ini}
+Uses      Chyby,Memo, Dos,Objects, Stringy,Fajly,Texty,Sys;
+Function  Init:word;
 Procedure Done;
 
 {
@@ -31,7 +31,11 @@ Procedure Done;
  - SecSelector (prace se sekcemi INI souboru)
 
  Poznamka: tato unita pouziva freeseg (viz memo.pas).
-
+ Diky tomu nemusi alokovat zadnou pamet.
+ Velikost INI souboru je omezena zhruba na 20K.
+ V INI souboru lze kdeco, zatim ale pozor na:
+  -tabelatory jsou povazovany za normalni znaky jako treba X
+  -komentar nesmi byt za nazvem sekce (na stejne radce)
 
 ---------------------------------------------------------------------------
  SecSelector.
@@ -51,13 +55,13 @@ Procedure Done;
  {
  Promenna sekce neobsahuje hranate zavorky, pouze nazev sekce.
  Promennou varstab muzes pokazde nastavit stejnˆ, mas-li jen jeden
-  seznam promennych nebo ruzne, mas-li jich vic.
+  seznam promennych, nebo ruzne, mas-li jich vic.
  Hlavnim ukolem SecSelectoru je rozdelit sekce na dobre a spatne.
   U spatnych predej result='', u dobrych result<>''.
 
  Toto schema popisuje chovani selektoru:
 
-   sekce=iniModeX -> prejde do modu X a skonci
+   sekce=iniMode* -> prejde do modu * a skonci
 
    mod=R          -> if souhlasis se ctenim udaju ze sekce
                        then nastav varstab;result:='x'
@@ -102,6 +106,7 @@ const i_bool =0;   {boolean   (Ano=true,Ne=false)}
       i_lost =7;   {lostring  (po nacteni ho automaticky locasne)}
       i_upst =8;   {upstring  (po nacteni ho automaticky upcasne)}
       i_8sho =9;   {pole osmi shortintu}
+      i_2wor =10;  {dva wordy}
 
 {---------------------------------------------------------------------------
  Priznaky jednotlivych promennych.
@@ -135,13 +140,13 @@ FUNCTION  iniUpgrade(OldIni,VzorIni,NewIni:PathStr):boolean;
                           IMPLEMENTATION
 {ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ}
 
-type  string80            =string[80];
+type  string80            =string[80];{1 radek ini souboru}
 var   SelectSec           :TSecSelector;{aktualni selektor dobrych sekci}
       {$ifdef beta}
       SelectSecPtr        :pointer absolute SelectSec;
       {$endif}
       ReportErr           :TReporter;{aktualni hlasic chyb}
-      olda,vzor,news,extr :PText2;{pomocne virtualni textfajly ve freesegu}
+      olda,vzor,news,extr :TText2;{pomocne virtualni textfajly ve freesegu}
       vars                :pointer;{pointer na tabulku tvych promennych}
       typprom             :byte;{typ posledne hledane promenne}
       promflags           :byte;{flagy posledne hledane promenne}
@@ -204,7 +209,6 @@ var   reporterPtr:pointer absolute reporter;
 begin
  {$ifdef beta}
  if (selektorPtr=nil) and (varstab=nil) then erBetaMsg('iniInit1');
- if freeptr=nil then erBetaMsg('iniInit2');
  {$endif}
  if reporterPtr=nil
   then ReportErr:=erMsg
@@ -288,8 +292,8 @@ var   pass_sekce,
 
 PROCEDURE PassThruIni(t:PText2;SelSec:TSecSelector;initSelSec:char;SelVar:TVarSelector;bad,goodstaff,goodvars:TReporter);
 var   dobrasekce      :boolean;
-      i               :word;
       st,core         :string80;
+      oldpos          :pchar;
 
 label bug,notvar;
 begin
@@ -299,12 +303,14 @@ begin
    selsec(pass_sekce,vars);
    end;
  dobrasekce:=false;
- {cte po radkach az do konce}
+ {cte po radkach od zacatku az do konce}
+ oldpos:=t^.pos;{zabrani zmene t^.pos protoze muze byt vic parseru vnorenych parsujic stejny soubor}
+ t^.Reset;
  while not t^.eof do begin
-   st:=t^.nlRead;
-   core:=GetCore(st);
-   {je to ;comment ?}
-   if (core='') or (core[1]=';') then goto notvar;
+   st:=t^.nlRead;                     {st=" var = value ; comment "}
+   core:=GetCore(GetString(';',st,1));{st= "var = value"}
+   {je na radku neco zajimaveho ?}
+   if core='' then goto notvar;
    {je to [sekce] ?}
    if core[1]='[' then begin
      if core[length(core)]<>']' then goto bug;
@@ -316,17 +322,17 @@ begin
    {je to spatna sekce ?}
    if not dobrasekce then goto notvar;
    {je to var=data ?}
-   i:=pos('=',st);
-   if i=0 then goto bug;
-   pass_name:=copy(st,1,i-1);
+   if pos('=',core)=0 then goto bug;
+   pass_name:=LoCased(GetCore(GetString('=',st,1)));
    {je to good var ?}
-   if SelVar(LoCased(GetCore(pass_name))) then goodvars(st) else goodstaff(st);
+   if SelVar(pass_name) then goodvars(st) else goodstaff(st);
    continue;
   bug:
    ReportErr('Chybna syntaxe v INI na radce: '+st);
   notvar:
    if dobrasekce then goodstaff(st) else bad(st);
    end;
+ t^.pos:=oldpos;
 end;
 
 
@@ -337,18 +343,19 @@ end;
 
   {loadne text z disku}
   function LoadText(st:PathStr;txt:PText2):boolean;
-  var   l:longint;
+  var   datasize,freesize:longint;
         loaded:boolean;
   begin
    txt^.Rewrite;
-   l:=txt^.maxkonec-txt^.start;
-   loaded:=LoadFile(st,pointer(txt^.pos),true,l,0)=full;
+   datasize:=txt^.maxkonec-txt^.start;
+   freesize:=0;
+   loaded:=LoadFile(st,pointer(txt^.pos),datasize,freesize)=erOk;
    if not loaded then begin
      ReportErr('Nelze na‡¡st soubor '+st+'.');
      LoadText:=false;
      end
     else begin
-     txt^.konec:=txt^.start+l;
+     txt^.konec:=txt^.start+datasize;
      txt^.EndNewline;
      LoadText:=true;
      end;
@@ -371,6 +378,29 @@ end;
    exit;
    bad:
     ReportErr('Nelze ulo‘it soubor '+st+'.');
+  end;
+
+  {v radce st ("var=value;comment") zmeni value na newvalue}
+  procedure ChangeValue(var st:openstring;NewValue:string);
+  var i,j:word;
+  begin
+   j:=pos(';',st);
+   if j=0 then j:=length(st)+1; {j=pozice ;}
+   i:=pos('=',copy(st,1,j-1));  {i=pozice =}
+   if i>0 then begin
+     {dokud muze, prepisuje stary udaj novym}
+     while (i+1<j) and (NewValue<>'') do begin
+       inc(i);
+       st[i]:=NewValue[1];
+       delete(NewValue,1,1);
+       end;
+     {kdyz se nevesel, zbytek insertne}
+     if NewValue<>'' then Insert(NewValue,st,i+1) else
+      {kdyz zbylo misto pred komentarem, vyplni ho mezerama}
+      if length(st)>=j then fillchar(st[i+1],j-i-1,32) else
+       {kdyz neni komentar, string zkrati}
+       st[0]:=chr(i);
+     end;
   end;
 
   {sec!selektor: goodsec je vsechno}
@@ -404,7 +434,7 @@ end;
   {var!selektor: goodvar je jen promenna bez zakazaneho upgradu}
   function  SelUpgrVar(st:string80):boolean;far;
   begin
-   SelUpgrVar:=not (FindVariable(st) and ((promflags and i_neup)=0));
+   SelUpgrVar:=not (FindVariable(st) and ((promflags and i_neup)>0));
   end;
 
   {var!selektor: goodvar je jen promenna bez zakazaneho upgradu}
@@ -423,7 +453,7 @@ end;
   {reporter: radek zapise beze zmeny}
   procedure WriteUnmodified(st:string);far;
   begin
-   news^.Writeln(st);
+   news.Writeln(st);
   end;
 
   {reporter: radek zapise beze zmeny, jen nazvy sekci zmeni na RenamedSec}
@@ -431,7 +461,7 @@ end;
   procedure RenameSec(st:string);far;
   begin
    if copy(GetCore(st),1,1)='[' then st:=RenamedSec;
-   news^.Writeln(st);
+   news.Writeln(st);
   end;
 
   {reporter: radek vynecha, ale ulozi si ho do goodvalue}
@@ -440,34 +470,30 @@ end;
   var i:word;
   begin
    i:=pos('=',st);
-   if i>0 then GoodValue:=copy(st,i+1,255);
+   if i>0 then GoodValue:=GetCore(GetString(';',copy(st,i+1,255),1));
   end;
 
   {reporter: radek nahradi stejnym ze stejne sekce oldy}
   procedure Replace(st:string);far;
-  var i:word;
   begin
    UserSec:=pass_sekce;
    UserVar:=pass_name;
-   GoodValue:='';
-   PassThruIni(olda,selUserSec,#0,SelUserVar,skip,skip,skipAndRemember);
-   if GoodValue<>'' then begin
-     i:=pos('=',st);
-     if i>0 then st:=copy(st,1,i)+GoodValue;
-     end;
-   news^.Writeln(st);
+   GoodValue:=#0;
+   PassThruIni(@olda,selUserSec,#0,SelUserVar,skip,skip,skipAndRemember);
+   if GoodValue<>#0 then ChangeValue(st,GoodValue);
+   news.Writeln(st);
   end;
 
   {reporter: prida sekci pass_result}
   procedure AddSec(st:string);far;
   var i:word;
   begin
+   {*bug: odsud vola Replace, Replace by si pak mel do UserSec nastavit to co
+          JE TED v pass_sekce, ne co tam BUDE az se Replace zavola
+   chyba se projevuje jen pri upgradu, opravim to jindy}
    if pass_result<>'' then begin
-     if LoadText(pass_result,extr)
-      then PassThruIni(extr,SelectSec,#0,SelAllVar,Skip,WriteUnmodified,Replace);
-      {bacha figl: vim ze jsem v modu D a st je good sekce ([vga:???]),
-       muzu teda zustat v D a stejnej selektor tu sekci zase vybere,
-       takze dojde k jejimu replacnuti. V extr by nemelo byt vic nez 1 sekce.}
+     if LoadText(pass_result,@extr)
+      then PassThruIni(@extr,SelAllSec,#0,SelAllVar,Skip,WriteUnmodified,Replace);
      pass_result:='';
      end;
   end;
@@ -485,6 +511,7 @@ end;
       somepstring     :^string;
   label bug;
   begin
+   st:=GetString(';',st,1);{odstrani komentar}
    i:=pos('=',st);
    if i=0 then goto bug;
    name:=GetCore(LoCased(copy(st,1,i-1)));
@@ -545,6 +572,10 @@ end;
               i_8sho:for i:=1 to 8 do begin
                        if CutLong(',',udaj,somelong)
                         then shortint(mem[dseg:ofsprom+i-1]):=somelong;
+                       end;
+              i_2wor:for i:=1 to 2 do begin
+                       if CutLong('x',udaj,somelong)
+                        then memw[dseg:ofsprom+2*(i-1)]:=somelong;
                        end;
               else ReportErr('Interni chyba INI readeru.');
               end;
@@ -621,11 +652,18 @@ end;
                          udaj:=udaj+Stri(shortint(mem[dseg:ofsprom+i-1]));
                          end;
                      end;
+              i_2wor:begin
+                       udaj:='';
+                       for i:=1 to 2 do begin
+                         if i>1 then udaj:=udaj+'x';
+                         udaj:=udaj+Stri(memw[dseg:ofsprom+2*(i-1)]);
+                         end;
+                     end;
               else ReportErr('Interni chyba INI readeru.');
               end;
-     st:=name+'='+udaj;
+     ChangeValue(st,udaj);
      end;
-   news^.Writeln(st);
+   news.Writeln(st);
    exit;
   bug:
    ReportErr('Chybna syntaxe v INI na radce: '+st);
@@ -641,11 +679,11 @@ begin
  if SelectSecPtr=nil then erBetaMsg('ini not setup');
  {$endif}
  iniRead:=false;
- news^.Rewrite;
+ news.Rewrite;
  {precte ini}
- if not LoadText(Ini,olda) then exit;
+ if not LoadText(Ini,@olda) then exit;
  {projde ho a vybrane sekce nacte}
- PassThruIni(olda,SelectSec,iniModeR,SelAllVar,Skip,Skip,ReadToMem);
+ PassThruIni(@olda,SelectSec,iniModeR,SelAllVar,Skip,Skip,ReadToMem);
  {hotovo}
  iniRead:=true;
 end;
@@ -667,12 +705,12 @@ begin
    exit;
    end;
  {rewritne vystup}
- news^.Rewrite;
+ news.Rewrite;
  {precte ini}
- if not LoadText(Ini,olda) then exit;
+ if not LoadText(Ini,@olda) then exit;
  {projde ho a zapise do news, ve vybranych sekcich opravi vybrane hodnoty}
  UserFlag:=flags;
- PassThruIni(olda,SelectSec,iniModeW,SelUserFlagyVar,WriteUnmodified,WriteUnmodified,WriteFromMem);
+ PassThruIni(@olda,SelectSec,iniModeW,SelUserFlagyVar,WriteUnmodified,WriteUnmodified,WriteFromMem);
  {na pozadani prida nove sekce z externich souboru}
  sekce:=iniModeA;
  SelectSec(sekce,vars);
@@ -680,13 +718,13 @@ begin
   sekce:='';
   st:=SelectSec(sekce,vars);
   if st='' then break;
-  if LoadText(st,extr) then begin
+  if LoadText(st,@extr) then begin
     RenamedSec:='['+sekce+']';
-    PassThruIni(extr,SelAllSec,#0,SelAllVar,WriteUnmodified,RenameSec,WriteFromMem);
+    PassThruIni(@extr,SelAllSec,#0,SelAllVar,WriteUnmodified,RenameSec,WriteFromMem);
     end;
  until false;
  {zapise news}
- iniWrite:=SaveText(Ini,news);
+ iniWrite:=SaveText(Ini,@news);
 end;
 
 {---------------------------------------------------------------------------
@@ -709,70 +747,46 @@ Begin
    exit;
    end;
  {rewritne vystup}
- news^.Rewrite;
+ news.Rewrite;
  {precte ini}
- if not LoadText(OldIni,olda) then exit;
- if not LoadText(VzorIni,vzor) then exit;
+ if not LoadText(OldIni,@olda) then exit;
+ if not LoadText(VzorIni,@vzor) then exit;
  {projde vzor a upgradne ho do news (layout=vzor,data=olda,dest=news)}
  {nemeni promenne z nevybranych sekci a promenne s flagem 'neupgradovat'}
- PassThruIni(vzor,SelectSec,iniModeU,SelUpgrVar,WriteUnmodified,WriteUnmodified,Replace);
+ PassThruIni(@vzor,SelectSec,iniModeU,SelUpgrVar,WriteUnmodified,WriteUnmodified,Replace);
  {projde oldu a vybrany sekce zkopci cely do news, ostatni vynecha}
  {urceno pro sekce, jejichz nejsi autorem a neznas jejich strukturu}
- PassThruIni(olda,SelectSec,iniModeC,SelAllVar,Skip,WriteUnmodified,WriteUnmodified);
+ PassThruIni(@olda,SelectSec,iniModeC,SelAllVar,Skip,WriteUnmodified,WriteUnmodified);
  {projde oldu a vybrany sekce upgradne do news (layout=extr,data=olda,dest=news)}
- {urceno pro sekce, jejichz jsi autorem, ale v ini nejsou napevno ([vga:???])}
- PassThruIni(olda,SelectSec,iniModeD,SelAllVar,Skip,AddSec,Skip);
+ {urceno pro sekce, jejichz jsi autorem, ale v ini nejsou napevno ([svga:???])}
+ PassThruIni(@olda,SelectSec,iniModeD,SelAllVar,Skip,AddSec,Skip);
  {zapise news}
- iniUpgrade:=SaveText(NewIni,news);
+ iniUpgrade:=SaveText(NewIni,@news);
 End;
 
 
-PROCEDURE iniDone;
-begin
- if olda<>nil then begin olda^.Free;olda:=nil;end;
- if vzor<>nil then begin vzor^.Free;vzor:=nil;end;
- if news<>nil then begin news^.Free;news:=nil;end;
- if extr<>nil then begin extr^.Free;extr:=nil;end;
-end;
-
-FUNCTION iniInit:boolean;
-begin
- new(olda,init(ptr(freeseg,00000),19999));
- new(vzor,init(ptr(freeseg,20000),39999));
- new(news,init(ptr(freeseg,40000),59999));
- new(extr,init(ptr(freeseg,60000),65535));
- if (olda=nil) or (vzor=nil) or (news=nil) or (extr=nil)
-  then begin iniDone;iniInit:=false;end
-  else iniInit:=true;
- olda^.static:=true;
- vzor^.static:=true;
- news^.static:=true;
- extr^.static:=true;
-end;
-
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
-const
- inited:boolean=false;
+var result:integer;
 
-function Init:word;
+procedure UserInit;
  begin
-  Init:=erOk;
-  if not inited then begin
-   SelectSec    :=nil;
-   if not iniInit then begin Init:=erLowMem;exit;end;
-   inited       :=true;
-   end;
+  SelectSec:=nil;
+  olda.init(ptr(freeseg,00000),20000);olda.static:=true;
+  vzor.init(ptr(freeseg,20000),20000);vzor.static:=true;
+  news.init(ptr(freeseg,40000),20000);news.static:=true;
+  extr.init(ptr(freeseg,60000), 5516);extr.static:=true;
  end;
 
-procedure Done;
+procedure UserDone;
  begin
-  if inited then begin
-   iniDone;
-   inited       :=false;
-   end;
+  olda.Done;
+  vzor.Done;
+  news.Done;
+  extr.Done;
  end;
 
+{$i initdone.inc}
 {$ifdef autoinit}
 BEGIN
  erCheck(Init);

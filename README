@@ -1,6 +1,6 @@
 
-                                                               19.rijen 1996
-                                                                  verze 0.10
+                                                                5.duben 1997
+                                                                  verze 0.32
                         ฑÛÛÛÛÝ    ฑÛÛÛÛÝ     ฑÛÝ
                        ฑÛÝ         ฑÛÝ      ฑÛÛÛÝ
                       ฑÛÝ         ฑÛÝ      ฑÛÝ ฑÛÝ
@@ -13,7 +13,7 @@
 ณ  Zakladni informace:                                                      ณ
 ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
  þ Jde o sadu pascalskych unit snazicich se pokryt nejnizsi vrstvu stavby
-   programu (vga, pamet, mys, klavesnice...).
+   programu (vga/svga, pamet, mys, klavesnice, scrolling...).
  þ Zdrojaky jsou urceny pro kompilaci Turbo/Borland Pascalem 7, pro DOS,
    pro realmod nebo protected mod, procesory od 386 vys. Lze je pouzivat
    i v DLL. Funkcnost v jinem prostredi neni zarucena.
@@ -21,7 +21,17 @@
  þ Tam kde zalezi na rychlosti je optimalizovano na rychlost na 386/486.
    V ostatnich pripadech na jednoduchost.
  þ Cislo verze napovida, ze soucasny stav ma k dokonalosti daleko :)
- þ V souboru priklad.pas je ukazka par zakladnich veci.
+ þ V souborech priklad*.* je ukazka par zakladnich veci.
+
+
+ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
+ณ  Jak na to (rada pro zacatecniky)                                         ณ
+ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+ þ Porid si Borland Pascal 7 (na neco staci i Turbo Pascal, na neco ne).
+   Spust BP, vlez do dialogu Options/Directories. Nastav Include Directories
+   na adresar s CiA (treba \CIA). Nastav Unit Directories na CiA a na adresar
+   se standardnimi Borlandimi unitami (treba \CIA;\BP\UNITS). Nastaveni uloz.
+   Ted muzes zkusit spustit priklady dodavane k CiA.
 
 
 ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
@@ -48,17 +58,20 @@
 ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
    UNITA   POPIS                  CO STOJI ZA POZORNOST
 
+ þ Cache   cache pro objekty
  þ Chyby   sprava chyb
  þ DPMI    DPMI sluzby
  þ Fajly   disky, soubory, PCK
  þ Fonty   bitmapove fonty       -format FN
  þ INI     konfiguracni soubory  -format INI
  þ Key     handler klavesnice
- þ Memo    sprava pameti         -univerzalnost pro vsechny podporovane
- þ Mys     sprava mysi             pametove modely, alokace souvislych bloku
- þ Stringy prace se stringy        64KB a delsich
+ þ Memo    sprava pameti         -univerzalnost pro real i protekt, alokace
+ þ Mys     sprava mysi             souvislych bloku 64KB a delsich
+ þ Scrol   scrolling             -scrollovaci engine z Masiny/Pareniste
+ þ Stringy prace se stringy        libovolny mod/libovolne velka bitmapa
  þ Sys     systemove drobnosti   -nahrada casti crt makry, presne mereni casu
  þ Texty   prace s texty v pameti
+ þ Timer   synchronizace s paprskem
  þ VGA     vga, vesa, bitmapy    -univerzalnost pro vsechny podporovane mody,
                                    resi chyby nekterych karet a vesa biosu
 
@@ -70,24 +83,26 @@
 ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
    SOUBOR         POPIS
 
- þ bit2scr.inc    include k vga
+ þ bit2scr.inc    include k vga.pas
  þ define.inc     globalni nastaveni $define pro vsechny unity
- þ fnt2fn.exe     konvertor fontu *.fnt -> *.fn
- þ loadfile.inc   include k fajlum
+ þ initdone.inc   standardni init/done include ke vsem unitam
+ þ loadfile.inc   include k fajly.pas
+ þ modern.fn      ukazka fontu
+ þ priklad*.*     ukazky prace s CIA...
  þ readme         dokumentace
- þ priklad.ini    viz nasledujici
- þ priklad.pas    ukazka prace s INI, nastavenim modu, bitmapou
- þ *.fn           ukazka fontu
+ þ sbit2scr.inc   include k scrol.pas
+ þ timer.asm      vlastni kod unity timer
+ þ timer.obj      zkompilovany timer.asm
 
 
 ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
 ณ  Co udelat pro spolupraci s Midasem:                                      ณ
 ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
- þ Zahod zdejsi unitu DPMI a pouzij originalni midasovskou,
-   maly rozdil je pouze v recordu dpmiRealCallRegs.
- þ Do midasovske unity Mmem pridej Uses Memo,
-   aby Midas presel na zdejsi spravu pameti.
- þ V define.inc nastav {$define midas}.
+ þ Zahod zdejsi unity DPMI a Timer, pouzij originalni midasovske. Maly rozdil,
+   ktery si budes muset sam opravit, je pouze v recordu dpmiRealCallRegs.
+ þ Na konec procedur midasError a midasUninitError dej Halt(erMsgWritten).
+ þ Asi by sis mel opravit chyby v Midasu, viz clanek v Parenisti 28.
+   S originalni Midasovskou unitou DPMI nemusi CiA fungovat.
 
 
 ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
@@ -98,7 +113,7 @@
  þ Ulozeni promennych v pameti v urcitem poradi, navaznosti.
  þ Predavani vysledku funkci v registrech.
  þ Ukoncovani procedur retem.
- þ Pro uplnost jeste: direktivy, asm...
+ þ Pro uplnost jeste: objekty, direktivy, asm...
 
 
 ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
@@ -108,18 +123,19 @@
    Zde je prostor pro celou obec programatorskou,
    radi do unit zaclenime vase vylepseni, opravy atd.
  þ Jakekoliv komentare jsou vitany.
+ þ Plany do budoucna
+    - FileSystem (prace s WAD, ZIP apod jako s adresari)
+    - Loadery nejrozsirenejsich grafickych formatu
+    - Dialogy nezavisle na modu (fileselector, menu, askstring...)
 
 
 ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
 ณ  Chyby:                                                                   ณ
 ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
- þ Soucasnou nejvetsi chybou je ranne stadium celeho projektu.
-   Momentalne nejkritictejsi mista ve zdrojacich jsou
-    - cela unita Chyby
-    - unita Vga je odladena pouze na 256color modech a trochu textmodech
-    - trochu i system bitmap, viz komentar o streamech ve vga.pas
-    - unita fajly ma nekolik nedokoncenych mist
+ þ Momentalne nejkritictejsi mista ve zdrojacich jsou
+    - unita Fajly ma par nedodelanych mist
  þ Chybi help.
+ þ Dik Marianu Dvorskemu za ohlaseni par chyb.
 
 
 ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
@@ -127,6 +143,17 @@
 ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
  þ 24.leden 1996 - napad, zacatek prace
  þ 19.rijen 1996 - verze 0.10
+ þ  5.duben 1997 - verze 0.32
+    -unita scrol (scrollovaci engine z Masiny), unita timer (podpora scrolu)
+    -autodone ve vsech unitach, ShutDownInts v nekterych (pred kazdym
+     ukoncenim programu probehnou retezy procedur ShutDownInts a ExitProc)
+    -unita cache
+    -postupny prechod od funkci vracejicich uspesnost jako boolean k funkcim
+     vracejicim TError (kod chyby), kody jsou kompatibilni s Midasem
+    -dynamicky tvoreny seznam chybovych hlasek (BugList)
+    -mnoho dalsich zmen, oprav, optimalizaci, prostredi je o dost stabilnejsi
+    -docasne vypusten fnt2fn.exe (pozn: fnt2fn z CiA 0.10 nemusi produkovat
+     korektni fonty, pockej si na opravu)
 
 
 ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
@@ -140,8 +167,8 @@
 ณ  Autori:                                                                  ณ
 ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
  þ Dement          dement@bbs.infima.cz     kdeco
+ þ Sahara Surfers  pekangas@sci.fi          dpmi, timer
  þ Jan Patera      xpatera1@br.fjfi.cvut.cz hi+truecolor
  þ Erixon          sysop@foxone.fido.cz     disky, PCK
  þ ReDox           redox@bbs.infima.cz      nastaveni X-modu
- þ Sahara Surfers  pekangas@sci.fi          dpmi
 

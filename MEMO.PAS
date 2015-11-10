@@ -1,11 +1,11 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.10ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
 
 Unit      Memo;
 Interface {$i define.inc}
-Uses      Chyby, Objects,Memory{$ifdef dpmi},WinApi,DPMI{$endif};
+Uses      Chyby, Objects{$ifdef dpmi},WinApi,DPMI{$endif}, Stringy;
 Function  Init:word;
 Procedure Done;
 
@@ -33,8 +33,7 @@ prenositelny mezi temito pametovymi modely (nastavuje se v DEFINE.INC):
   - na zacatku programu by tedy melo byt neco jako ($M stack,malo,malo)
   - pozor: New a Dispose zustavaji nepretizene, berou pamet z ^^^ ^^^^
   - tento model se hodi v pripade, ze tvuj program vola jine
-    dosove programy a potrebuje pro ne hodne dosove pameti
-
+    dosove programy a potrebuje pro ne hodne volne dosove pameti
 
 
 ---------------------------------------------------------------------------
@@ -68,6 +67,7 @@ TYPE  PByte     = ^byte;
       PWord     = ^word;
       PInt      = ^integer;
       PLong     = ^longint;
+      PPtr      = ^pointer;
       TProc     = procedure;
       FBool     = function:boolean;
       PtrRec    = record
@@ -75,15 +75,30 @@ TYPE  PByte     = ^byte;
                   end;
       Fuzzy     = (Bad,Unsure,Okay);
 
-VAR   freeofs:word;                    {64KB pameti komukoliv k dispozici}
-      freeseg:word;                    {pro docasne vyuziti}
-      freeptr:pointer absolute freeofs;
+{---------------------------------------------------------------------------
+ Trocha pameti komukoliv k dispozici pro docasne pouziti.
+ 64K blok muzes bez vetsi ujmy zkratit o 20 bajtu, ty se nikde v CiA
+ nepouzivaji (v Masine ale jo). Jediny smysl zkraceni je usnadnit
+ zacatecnikum praci s CiA, aby nemuseli do svych realmodovych programu psat
+ {$M blablabla k umozneni alokace souvislych 64KB.
+ ---------------------------------------------------------------------------}
+Const {$ifdef dement}
+      freesize=65536;
+      {$else}
+      freesize=65536-20;
+      {$endif}
 
-      free:array[0..1027] of byte;     {1KB pameti komukoliv k dispozici}
-      freeW:array[0..513] of word absolute free;{pro docasne vyuziti}
-      freeL:array[0..256] of longint absolute free;
+Var   freeofs:word;
+      freeseg:word;
+      freeptr:pointer absolute freeofs;{pointer na 64KB blok volne pameti}
 
-      debugmem:boolean;                {debugovaci rezim: vypis hlasek o pameti}
+VAR   freeL:array[0..256] of longint;
+      freeI:array[0..512] of integer absolute freeL;
+      freeW:array[0..512] of word absolute freeL;
+      freeB:array[0..1024] of byte absolute freeL;
+      freeS:string;
+
+      debugmem:boolean;          {debugovaci rezim: vypis hlasek o pameti}
 
 {---------------------------------------------------------------------------
  Nahrada systemovych zdroju pameti.
@@ -112,6 +127,8 @@ PROCEDURE REP_MOVSB_ADD_DI_3;
 PROCEDURE REP_TransparentMOVSB_nz;
 PROCEDURE MapBytesCX2DX_nz;
 PROCEDURE TransparentMapBytesCX2DX_nz;
+PROCEDURE ExpandAH_AL;
+PROCEDURE ExpandAH_BX;
 PROCEDURE MoveBack(src,dest:pointer;bytes:word{*predelat na long});
 PROCEDURE MoveForw(src,dest:pointer;bytes:word);
 PROCEDURE FillByte(blok:pointer;bytes:longint;value:byte);
@@ -123,44 +140,16 @@ FUNCTION  CmpWord(blok:pointer;val:word;words:word):boolean;
 {---------------------------------------------------------------------------
  Ostatni
  ---------------------------------------------------------------------------}
-PROCEDURE KillObj(var p:PObject);
+PROCEDURE KillObj(var p);{p musi byt PObject nebo potomek}
+
 
 
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
                           IMPLEMENTATION
 {ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ}
 
-Const
- UserBufsSize=4;{tolik kilobajtu muzes v realmodu alokovat do bufferu
-                 - viz unita memory: newbuffer}
 
-{---------------------------------------------------------------------------
- Nekolik kousku zkopirovanych z jinych unit za ucelem snizeni poctu
- unit v uses.
- ---------------------------------------------------------------------------}
-  FUNCTION  Stri(n:longint):string;
-  var st:string[10];
-  begin
-   str(n,st);
-   stri:=st;
-  end;
-  PROCEDURE BiosWriteln(st:string);assembler;
-   var p:pointer absolute st;
-   asm
-       push bp
-       mov ax,300h;xor bx,bx;int 10h
-       mov ax,1301h;mov bx,7;xor cx,cx
-       les bp,p;mov cl,[es:bp];inc bp
-       int 10h
-        mov ax,1301h;mov bx,7;mov cx,2
-        push cs;pop es;lea bp,@newline
-        int 10h
-       pop bp
-        jmp @end
-        @newline:
-        db 13,10
-        @end:
-   end;
+FUNCTION MaxL(x,y:longint):integer;inline($66/$58/$66/$5b/$66/$3b/$d8/$7e/$02/$66/$93);
 
 
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßß GETMEM... ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
@@ -236,17 +225,17 @@ end;
  Vraci uspesnost.
  ---------------------------------------------------------------------------}
 FUNCTION  GetMemDos(var segment:word;var p:pointer;bytes:longint):boolean;
-var   l:longint;
-      selector:word;
+var   selector:word;
 begin
  {$ifdef dpmi}
- if midasDumbError(dpmiAllocDosMem((bytes+15) div 16,@segment,@selector))<>0
+ if erDumb(dpmiAllocDosMem((bytes+15) div 16,@segment,@selector))<>erOk
   then begin segment:=0;selector:=0;end;
  p:=ptr(selector,0);
  {$else}
  GetMem(p,bytes);
  segment:=PtrRec(p).Seg;
  {$endif}
+ if not dumb and (p=nil) then Halt(erLowDosMem);
  GetMemDos:=p<>nil;
 end;
 
@@ -259,7 +248,7 @@ begin
  if p<>nil then begin
    {$ifdef dpmi}
    selector:=PtrRec(p).Seg;
-   midasDumbError(dpmiFreeDosMem(selector));
+   erDumb(dpmiFreeDosMem(selector));
    {$else}
    FreeMem(p,bytes);
    {$endif}
@@ -269,14 +258,11 @@ end;
 
 {---------------------------------------------------------------------------
  Prevede realmodovy segment na protektovy descriptor.
- Zkratka za dpmiSegmentDescriptor se dvema parametry.
  ---------------------------------------------------------------------------}
 PROCEDURE Seg2Desc(var w:word);
-var   i:integer;
 begin
  {$ifdef dpmi}
- i:=dpmiSegmentDescriptor(w,@w);
- if i<>0 then midasError(i);
+ erCheck(dpmiSegmentDescriptor(w,@w));
  {$endif}
 end;
 
@@ -305,16 +291,17 @@ begin
 
  {$ifdef realpas}
    if bytes<65536
-    then p:=MemAlloc(bytes)                     {standardni alokace s pripadnym uvolnenim cache}
-    else p:=ptr(GetConv16((bytes+15) div 16),0);{pouze pro vyjmecne situace, bez uvolnovani cache}
+    then system.GetMem(p,bytes)                  {standardni alokace s pripadnym uvolnenim cache}
+    else p:=ptr(GetConv16((bytes+15) div 16),0); {pouze pro vyjmecne situace, bez uvolnovani cache}
  {$endif}
 
  {$ifdef protpas}
    if bytes<65536
-    then p:=MemAlloc(bytes)                     {standardni alokace s pripadnym uvolnenim cache}
-    else p:=GlobalAllocPtr(gmem_fixed,bytes);   {pouze pro vyjmecne situace, bez uvolnovani cache}
+    then system.GetMem(p,bytes)                  {standardni alokace s pripadnym uvolnenim cache}
+    else p:=GlobalAllocPtr(HeapAllocFlags,bytes);{pouze pro vyjmecne situace, bez uvolnovani cache}
  {$endif}
 
+ if not dumb and (p=nil) then Halt(erLowMem);
  getmem:=p<>nil;
 end;
 
@@ -703,6 +690,7 @@ PROCEDURE REP_TransparentMOVSB_nz;assembler;
       loop @1
       jmp @outro
   @AH:inc di
+      mov al,ah
       stosb
       loop @1
   @outro:
@@ -835,7 +823,59 @@ PROCEDURE TransparentMapBytesCX2DX_nz;assembler;
       POP BP
  end;
 
+{---------------------------------------------------------------------------
+ Bajt z AH rozepise po bitech do [ES:DI] az [ES:DI+7].
+ Nastavene bity barvou AL (resp BL), prazdne bity nemeni (resp BH).
+ Po skonceni je DI o 8 vyssi.
+ ---------------------------------------------------------------------------}
+PROCEDURE ExpandAH_AL;assembler;
+ asm
+     add ah,ah;jnc @skipbit7;stosb;dec di;@skipbit7:inc di
+     add ah,ah;jnc @skipbit6;stosb;dec di;@skipbit6:inc di
+     add ah,ah;jnc @skipbit5;stosb;dec di;@skipbit5:inc di
+     add ah,ah;jnc @skipbit4;stosb;dec di;@skipbit4:inc di
+     add ah,ah;jnc @skipbit3;stosb;dec di;@skipbit3:inc di
+     add ah,ah;jnc @skipbit2;stosb;dec di;@skipbit2:inc di
+     add ah,ah;jnc @skipbit1;stosb;jnz @last;inc di;ret;@skipbit1:jz @end;inc di
+     @last:stosb;ret
+     @end:inc di;inc di
+ end;
 
+{---------------------------------------------------------------------------
+ Bajt z AH rozepise po bitech do [ES:DI] az [ES:DI+7].
+ Nastavene bity barvou BL, prazdne barvou BH.
+ Po skonceni je DI o 8 vyssi.
+ Meni AL,CX.
+ ---------------------------------------------------------------------------}
+PROCEDURE ExpandAH_BX;assembler;
+ asm
+     mov cx,9{pozor: obcas calluju ExpandAH_BX+3 tak nemenit prvni instrukci}
+     add ah,ah
+     jc @kreslit
+
+    @mazat:
+     dec cx
+     jz @end
+     mov al,bh
+    @mazat_loop:
+     stosb
+     add ah,ah
+     jc @kreslit
+     loop @mazat_loop
+     ret
+
+    @kreslit:
+     dec cx
+     jz @end
+     mov al,bl
+    @kreslit_loop:
+     stosb
+     add ah,ah
+     jnc @mazat
+     loop @kreslit_loop
+
+    @end:
+ end;
 
 {---------------------------------------------------------------------------
  Rychlejsi nahrada Move.
@@ -982,57 +1022,33 @@ FUNCTION  CmpWord(blok:pointer;val:word;words:word):boolean;assembler;
  end;
 
 
-PROCEDURE KillObj(var p:PObject);
+PROCEDURE KillObj(var p);
+var pp:PObject absolute p;
 begin
- if p<>nil then begin
-   Dispose(p,Done);
-   p:=nil;
+ if pp<>nil then begin
+   Dispose(pp,Done);
+   pp:=nil;
    end;
 end;
 
 
-Var   oldmem :longint;
 
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
-const
- inited:boolean=false;
+var result:integer;
 
-function Init:word;
+procedure UserInit;
  begin
-  Init:=erOk;
-  if not inited then begin
-   oldmem       :=system.memavail;
-   {$ifndef dpmi}
-   if UserBufsSize<>0 then begin
-     MaxHeapSize:=PtrRec(HeapEnd).Seg-PtrRec(HeapOrg).Seg;
-     if MaxHeapSize>64*UserBufsSize then dec(MaxHeapSize,64*UserBufsSize);
-     dec(oldmem,1024*UserBufsSize);
-     end;
-   {$endif}
-   debugmem     :=false;
-   InitMemory;
-   InitDosMem;
-   if not GetMem(freeptr,65536) then begin Init:=erLowMem;exit;end;
-   inited       :=true;
-   end;
+  debugmem:=false;
+  if not GetMem(freeptr,freesize) then result:=erLowMem;
  end;
 
-procedure Done;
+procedure UserDone;
  begin
-  if inited then begin
-   if freeptr<>nil then FreeMem(freeptr,65536);
-   DoneDosMem;
-   DoneMemory;
-   if debug then begin
-     writeln('memstart=',oldmem);
-     writeln('memend  =',system.memavail);
-     writeln('rozdil  =',oldmem-system.memavail);
-     end;
-   inited       :=false;
-   end;
+  FreeMem(freeptr,freesize);
  end;
 
+{$i initdone.inc}
 {$ifdef autoinit}
 BEGIN
  erCheck(Init);

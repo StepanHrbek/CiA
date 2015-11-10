@@ -1,11 +1,11 @@
-{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 0.10ƒƒƒø
+{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 0.32ƒƒƒø
  ≥S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi≥
  ≥v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.≥
  ¿ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒŸ}
 
 Unit      Chyby;
 Interface {$i define.inc}
-Uses      Dos;
+Uses      Dos,Objects, Stringy;
 Function  Init:word;
 Procedure Done;
 
@@ -15,52 +15,90 @@ Procedure Done;
 ---------------------------------------------------------------------------
 
 Dojde-li k fatalni chybe, bylo by dobre pred ukoncenim programu jeste
-odalokovat pamet, zastavit procesy atd. Doporucuji udelat si v hlavnim
-programu jednu rutinu, ktera toto vsechno zaridi a nastavit na ni
-ExitProc (viz help k ExitProc).
+odalokovat pamet, zastavit procesy atd. Nejlepsi zpusob jak toho dosahnout
+je pouzit ExitProc (viz help k ExitProc).
 
-Pote mas dva zpusoby jak odkudkoliv ukoncit program:
- Halt(erXXX)    - Zavola tvoji obsluhu s parametrem erXXX.
-                  Nemas-li svou obsluhu, zavola zdejsi nouzovou.
- erMsg(string)  - Nastavi textmod, vypise hlasku, pocka na stisk
-                  a zavola tvoji obsluhu s parametrem erOk (podle toho
-                  by mela tva obsluha usoudit, ze pripadna chybova hlaska
-                  uz je zobrazena a neni zahodno mazat obrazovku!).
-                  Nemas-li svou obsluhu, zavola zdejsi nouzovou.
+Je nekolik zpusobu jak ukoncit program.
+Prvni ctyri jsou ekvivalentni
+
+ - prikaz Halt nebo Halt(N)
+ - runtime error N, generuje Halt(N)
+ - stisk klavesy Break, generuje Halt(255)
+ - normalni prubeh celym programem, generuje Halt(ExitCode) (obvykle 0)
+
+Co se v takove chvili deje? Zavola se retez procedur ExitProc.
+Retez obsahuje volani UserDone procedur jednotlivych unit.
+Poslednim prvkem je standardni pascalska hlaska Runtime Error N,
+ale jelikoz kazdy clanek retezu muze zmenit kod chyby, k poslednimu
+clanku uz dojde kod 0 a Runtime Error hlasen nebude.
+
+Tohle by melo teoreticky stacit pro kvalitni obsluhu chybovych situaci,
+ale praxe ukazuje neco jineho. Mezi prikazem Halt(N) a ohlasenim chyby
+na obrazovce musi byt provedeny vsechny clanky ExitProc az k tomu,
+ktery ma pravo treba prepnout do textmodu a neco natriskat na obrazovku.
+Za tu dobu muze dojit k dalsim chybam a puvodni chyba zustane neohlasena.
+Proto pouzivam jiny zpusob hlaseni, proceduru erMsg(string).
+Ta vypise chybovou hlasku okamzite a az pote vola ExitProc.
+To ma ale jeden nedostatek. K bezpecnemu vypsani hlasky je nutno prepnout
+do textmodu, coz vetsinou nevadi, ale nekdy to muze vest az ke zhrouceni
+pocitace. Konkretne v pripade, kdy hardwarovy interrupt nebo jine okolnosti
+vyvolaji tvoji rutinu, ktera dosud nevi, ze bylo prepnuto do textmodu.
+V CiA obsazene handlery klavesnice i mysi jsou zcela bezpecne, nebezpecny
+ale je handler timeru z unity Timer. Je naprosto nutne ho pred prepnutim
+do textmodu vypnout. K tomu slouzi retez procedur ShutDownInts, ktery je
+volan pred prepnutim do textmodu.
+
+Posledni clanek ShutDownInts prepne do textmodu a vypise chybovou hlasku.
+Teprve potom normalne probiha ExitProc. Jsou tu tedy dva nezavisle retezy,
+v kazde unite se muzes rozhodnout co das do prvniho, co do druheho.
+
+Zvlastni pripad je jeste ukoncovani programu z interrupt handleru.
+Zde v CiA k tomu muze dojit pouze v unite scrol, ktera se vesi na timer.
+Pri volani handleru je nastaven jiny stack a nejblizsi stack check
+skonci chybou (runtime error 202).
+
+P.S. ShutDownInts ma i jiny ucel. Mohlo by se stat, ze dojde k runtime erroru
+v handleru timeru. Jeste nez ho obsluha chyby odpoji se zavola znova a dojde
+k dalsimu runtime erroru. Proto by mely byt ShutDownInts volany minimalne
+v nejsvrchnejsim clanku ExitProc, ale nic se nestane kdyz budou ve vsech.
+Tak to je i v CiA (vola se ze vsech clanku, ale samozrejme jen poprve
+k necemu dojde, podruhe uz je retez ShutDownInts prazdny). Ovsem pokud si
+pridas dalsi clanek ExitProc, nezapomen v nem volat a vyprazdnit ShutDownInts.
+
+Pro snazsi hlaseni chybovych situaci zavadi unita chyby tuto nadstavbu:
+ - erMsg(String)       vypise string a skonci
+ - erBetaMsg(String)   totez jen pro betaverzi
+ - erFile(String)      ohlasi ze zadany soubor chybi nebo je poruseny
+ - erCheck(N)          pro N<>erOk udela Halt(N)
+ - erDumb(N)           pro N<>erOK a not dumb udela Halt(N)
+
+Zakladem jsou Halt(N) a erMsg(string), ostatni jsou specialni pripady jejich
+volani.
+
+Pri vypnutem autodone nejsou chyby nijak hlidany, runtime error skonci stejnou
+hlaskou, halt program okamzite ukonci.
+
 }
-const erOk        =0;  {kod pro korektni ukonceni programu}
-      erBreak     =255;{ukonceni vyvolano stiskem Ctrl-Break}
-      erLowMem    =2;  {ukonceni kvuli nedostatku pameti}
-      erMsgWritten=79; {rychle ukonceni, hlaska je na obrazovce}
-      erBadMode   =80; {nejde nastavit zobrazovaci mod}
-      {$ifdef dement}
-      erBadPage   =81;
-      erBadButt   =82;
-      erBadTex    =83;
-      erDeath     =99;
-      {$endif}
+type  TError = integer;
 
-    {*system chyb bude kompatibilni s midasem}
-    { funkce nebudou vracet uspesnost jako boolean, ale jako word}
-    { casem to precisluju a zapracuju dohromady s timto z midasu 0.40:}
 
-    errUndefined = 01;                  { undefined error }
-    errOutOfMemory = 02;                { out of (conventional) memory }
-    errHeapCorrupted = 03;              { (conventional memory) heap corrupted }
-    errInvalidBlock = 04;               { invalid memory block }
-    errFileOpen = 13;                   { unable to open file }
-    errFileRead = 14;                   { unable to read file }
-    errFileNotFound = 23;               { file not found }
-    errInvalidFileHandle = 24;          { invalid file handle }
-    errAccessDenied = 25;               { access denied }
-    errFileExists = 26;                 { file exists }
-    errTooManyFiles = 27;               { too many open files }
-    errDiskFull = 28;                   { disk full }
-    errEndOfFile = 29;                  { unexpected end of file }
-    errInvalidPath = 30;                { invalid path }
-    errFileWrite = 31;                  { unable to write file }
-    errDPMIFailure = 35;                { DPMI failure }
-    errInvalidDescriptor = 36;          { invalid segment descriptor }
+{konstanty typu errXXXX jsou prevzaty z Midasu 0.40, erXXXX jsou vlastni}
+{dalsi konstanty si zavadeji dalsi unity}
+const
+      errOutOfMemory      = 02;{ out of memory }
+      errFileOpen         = 13;{ unable to open file }
+      errFileRead         = 14;{ unable to read file }
+      errFileNotFound     = 23;{ file not found }
+      errFileWrite        = 31;{ unable to write file }
+      errDPMIFailure      = 35;{ DMPI failure }
+
+      erOk         =  0; { zadna chyba }
+      erLowMem     =  2; { nedostatek pameti }
+      erLowDosMem  = 77; { nedostatek dosove pameti }
+      erLowBuffer  = 78; { malo pameti v bufferu }
+      erMsgWritten = 79; { kod pro rychle ukonceni, hlaska je na obrazovce }
+      erFileTooBig = 85; { prilis velky soubor }
+      erBreak      =255; { ukonceni vyvolano stiskem Ctrl-Break }
 
 {
 ---------------------------------------------------------------------------
@@ -73,157 +111,251 @@ Program, ktery v betaverzi funguje, by mel bez define beta fungovat
 naprosto stejne, pouze rychleji.
 
 
----------------------------------------------------------------------------
- MIDAS:
----------------------------------------------------------------------------
-
-Rutiny z Midasu vzdy vraci uspesnost ve wordu - vyznamy jednotlivych
-hodnot jsou nadefinovany v midasovske unite Errors. Na overeni vysledku
-Midasovske funkce muzes pouzit zde nadefinovane funkce midasXXXX.
-
-
 }
 
 
 Type  TReporter   =procedure(st:string);{procedura ktera ohlasi chybu
-                                   a necha program pokracovat}
+                                         a necha program pokracovat}
 
+      TBugList    =object(TCollection)  {seznam chybovych hlasek}
+                    procedure Register(akod:TError;ahlaska:string);
+                    procedure Report(akod:TError);
+                   end;
 
 Var   debug       :boolean;  {debugovaci rezim: vypis ruznych hlasek za behu}
       dumb        :boolean;  {strategie zpracovani nefatalnich chyb:
                               if Dumb then zkus_chybu_nejak_ututlat
                               else haltni_to_a_vyhod_errormsg;}
+      cestina     :boolean;  {psat ceske chybove hlasky s diakritikou?}
+      ShutDownInts:procedure;{procedura volana pri nahlem ukonceni programu,
+                              urcena pro zastaveni aktivit, ktere by mohly
+                              po prepnuti do textmodu zpusobit skody}
+      BugList     :TBugList;
 
-PROCEDURE BrutalWrite(st:string);
+PROCEDURE BiosWrite(st:string);
+PROCEDURE BiosWriteln(st:string);
+
 PROCEDURE erMsg(st:string);
 PROCEDURE erFile(st:PathStr);
 PROCEDURE erCheck(n:integer);
+FUNCTION  erDumb(n:integer):integer;
 {$ifdef beta}
 PROCEDURE erBetaMsg(st:string);
 {$endif}
-
-procedure midasError(errNum:integer);
-function  midasDumbError(errNum:integer):integer;
-
 
 {ﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂ}
                           IMPLEMENTATION
 {‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹}
 
-{$ifdef midas}
- Uses Midas;
- {$else}
-  {$ifdef timer}
-   Uses Timer;
-  {$endif}
-{$endif}
-
 {---------------------------------------------------------------------------
- Nekolik kousku zkopirovanych z jinych unit za ucelem snizeni poctu
- unit v uses.
+ Nekolik kousku zkopirovanych z jinych unit za ucelem snizeni poctu uses.
  ---------------------------------------------------------------------------}
 Type  PtrRec    = record
                    Ofs, Seg: Word;
                   end;
 PROCEDURE WaitKey; inline($b8/$0c08/$cd/$21);{mov ax,0c08h;int 21h}
 PROCEDURE FixInts; inline($b0/$0  /$e6/$21   /$b0/$20   /$e6/$20   /$fb);
-                         {mov al,0;out 21h,al;mov al,20h;out 20h,al;sti}
-FUNCTION  Stri(n:longint):string;
-var st:string[10];
+
+
+
+{---------------------------------------------------------------------------
+ Vlastni Write a Writeln.
+ ---------------------------------------------------------------------------}
+{
+ Stary poctivy BiosWrite jsem nahradil novym BiosWritem, ktery
+ ve skutecnosti pise do standardniho vystupu, stejne jako obycejny Write,
+ ale na rozdil od nej neprestane fungovat pri I/O chybe.
+ Nazev BiosWrite zustava abych to nemusel vsade prepisovat na DosWrite.. :)
+
+PROCEDURE BiosWrite(st:string);assembler;
+ var p:pointer absolute st;
+ asm
+     push bp
+     mov ax,300h;xor bx,bx;int 10h
+     mov ax,1301h;mov bx,7;xor cx,cx
+     les bp,p;mov cl,[es:bp];inc bp
+     int 10h
+     pop bp
+ end;
+
+PROCEDURE BiosWriteln(st:string);assembler;
+ var p:pointer absolute st;
+ asm
+     push bp
+     mov ax,300h;xor bx,bx;int 10h
+     mov ax,1301h;mov bx,7;xor cx,cx
+     les bp,p;mov cl,[es:bp];inc bp
+     int 10h
+      mov ax,1301h;mov bx,7;mov cx,2
+      push cs;pop es;lea bp,@newline
+      int 10h
+     pop bp
+      jmp @end
+      @newline:
+      db 13,10
+      @end:
+ end;
+}
+PROCEDURE BiosWrite(st:string);assembler;
+ var p:pointer absolute st;
+ asm
+     push ds
+      mov ah,40h
+      lds bx,p
+      mov cl,[bx]
+      mov dx,bx
+      mov ch,0
+      inc dx
+      mov bx,1
+      int 21h
+     pop ds
+ end;
+
+PROCEDURE BiosWriteln(st:string);assembler;
+ var p:pointer absolute st;
+ asm
+     push ds
+      mov ah,40h
+      lds bx,p
+      mov cl,[bx]
+      mov dx,bx
+      mov ch,0
+      inc dx
+      mov bx,1
+      int 21h
+      mov ah,40h
+      push cs
+      pop ds
+      lea dx,@newline
+      mov cl,2
+      int 21h
+     pop ds
+      jmp @end
+      @newline:
+      db 13,10
+      @end:
+ end;
+
+
+{---------------------------------------------------------------------------
+ Hlasic chyb.
+ ---------------------------------------------------------------------------}
+var errors:word;
+
+PROCEDURE ReportError(st:string);
 begin
- str(n,st);
- stri:=st;
-end;
-FUNCTION Hexed(l:longint):string;
-var   st:string[8];
-const hex:array[0..15] of char='0123456789ABCDEF';
-begin
- st:='';
- repeat
-   insert(hex[l mod 16],st,1);
-   l:=l shr 4;
- until l=0;
- Hexed:=st;
+ {pred hlasenim prvni chyby prepne do textmodu}
+ if errors=0 then asm mov ax,3;int 10h;end;
+ {neni-li hlaska zakoncena mezerou, zvysi citac chyb}
+ if st[length(st)]<>' ' then inc(errors);
+ {pise a volitelne maze diakritiku}
+ if cestina
+  then BiosWriteln(st)
+  else BiosWriteln(Kamenici2Ascii(st));
 end;
 
 
 {---------------------------------------------------------------------------
- Zcela spolehlivy vypis, problem uz muze zpusobit jedine maly stack.
+ Objekty TBug a TBugList.
  ---------------------------------------------------------------------------}
-PROCEDURE BrutalWrite(st:string);
-var   i:word;
+Type PBug = ^TBug;
+     TBug = object(TObject)      {jedna chybova hlaska}
+             constructor Init(akod:TError;ahlaska:string);
+             procedure Report;
+             destructor Done;virtual;
+            private
+             kod:TError;
+             hlaska:PString;
+            end;
+
+Constructor TBug.Init(akod:TError;ahlaska:string);
 begin
- asm mov ax,3;int 10h;end;
- for i:=1 to length(st) do mem[segb800:2*i-2]:=ord(st[i]);
- FixInts;
- waitkey;
+ inherited Init;
+ kod:=akod;
+ hlaska:=NewStr(ahlaska);
 end;
 
-{---------------------------------------------------------------------------
- Tato procedura se provadi po runtime erroru a po haltu.
- Kdyz neni ExitCode erOk, skoci do textmodu a vypise hlasku.
- ---------------------------------------------------------------------------}
-var   OldExitProc:pointer;
-      Old9:pointer;
-
-PROCEDURE RuntimeExit;far;
-var   st:string[80];
+Procedure TBug.Report;
 begin
- {obnovi ds}
- asm mov ax,seg @data;mov ds,ax;end;
- {obnovi ExitProc}
- ExitProc:=OldExitProc;
- {nouzove ukonceni pokud jsi chybu nezpracoval vlastnim errorhandlerem}
- if ExitCode<>erOk then begin
-   {obnovi beh interruptu, ukonci pripadny HW interrupt}
-   FixInts;
-   {pokud jeste neni vypsana chybova hlaska, zobrazi ji}
-   if ExitCode<>erMsgWritten then begin
-     case ExitCode of erLowMem:st:='nedostatek pameti';
-                          else st:='chyba '+stri(ExitCode);
-                          end;
-     if longint(ErrorAddr)<>0 then st:=st+' na adrese '+hexed(PtrRec(erroraddr).Seg)+':'+hexed(PtrRec(erroraddr).Ofs);
-     BrutalWrite('Nouzove ukonceni, '+st+'.');
-     end;
-   {$ifdef midas}
-    _tmrClose;
-    {$else}
-     {$ifdef timer}
-     tmrClose;
-     {$endif}
-   {$endif}
-   {zrusi pripadny keyboard handler}
-   SetIntVec(9,old9);
-   {zrusi pripadny mouse event handler}
-   asm mov ax,12;xor cx,cx;xor dx,dx;mov es,dx;int 33h;end;
-   end;
- Halt(erOk);
+ ReportError(hlaska^);
+end;
+
+Destructor TBug.Done;
+begin
+ DisposeStr(hlaska);
+ inherited Done;
+end;
+
+Procedure TBugList.Register(akod:TError;ahlaska:string);
+ function KodMatches(bug:PBug):boolean;far;
+ begin
+  KodMatches:=bug^.kod=akod;
+ end;
+var bug:^TBug;
+begin
+ bug:=FirstThat(@KodMatches);
+ if bug<>nil then erMsg('Pokus o registraci dvou chyb se stejnòm k¢dem ('+stri(akod)+').');
+ New(bug,Init(akod,ahlaska));
+ if bug=nil then Halt(erLowMem) else Insert(bug);
+end;
+
+Procedure TBugList.Report(akod:TError);
+ function KodMatches(bug:PBug):boolean;far;
+ begin
+  KodMatches:=bug^.kod=akod;
+ end;
+var bug:^TBug;
+begin
+ bug:=FirstThat(@KodMatches);
+ if bug<>nil then bug^.Report else
+  if akod<>erOk then ReportError('Nezn†m† chyba á°slo '+stri(akod)+'.');
 end;
 
 
 {---------------------------------------------------------------------------
- Prepne do textmodu, vypise hlasku a zavola Halt(0).
+ Prepne do textmodu, vypise hlasku a ukonci program.
  ---------------------------------------------------------------------------}
+var ReportThis:string[80];
+
 PROCEDURE erMsg(st:string);
 begin
- BrutalWrite(st);
+ if @ShutDownInts=nil
+  {k chybe doslo po shutdownu, zavolame jen ReportError}
+  then ReportError(st)
+  {k chybe doslo pred shutdownem, zavolame shutdown,
+  ale musime mu rict, aby za nas ohlasil tuhle chybu}
+  else begin
+   ReportThis:=st;
+   ExitCode:=erMsgWritten;
+   ShutDownInts;
+   ShutDownInts:=nil;
+   end;
  Halt(erMsgWritten);
 end;
 
 {---------------------------------------------------------------------------
- Casto pouzivana chybova hlaska.
+ Casto pouzivana varianta erMsg.
  ---------------------------------------------------------------------------}
 PROCEDURE erFile(st:PathStr);
 begin
- erMsg('Soubor '+st+' chybi nebo je poruseny.');
+ erMsg('Soubor '+st+' chyb° nebo je poru®enò.');
 end;
 
 {---------------------------------------------------------------------------
- Pokud je n<>0, ohlasi chybu n.
+ Pokud je n<>erOk, ohlasi chybu n.
  ---------------------------------------------------------------------------}
 PROCEDURE erCheck(n:integer);
 begin
- if n<>0 then Halt(n);
+ if n<>erOk then Halt(n);
+end;
+
+{---------------------------------------------------------------------------
+ Pokud je n<>erOk a not dumb, ohlasi chybu n.
+ ---------------------------------------------------------------------------}
+FUNCTION erDumb(n:integer):integer;
+begin
+ if (n<>erOk) and not dumb then Halt(n);
+ erDumb:=n;
 end;
 
 {$ifdef beta}
@@ -232,60 +364,92 @@ end;
  ---------------------------------------------------------------------------}
 PROCEDURE erBetaMsg(st:string);
 begin
- erMsg('Betaverze hlasi: '+st);
+ erMsg('Betaverze hl†s°: '+st);
 end;
 {$endif}
-
-{---------------------------------------------------------------------------
- Pro kompatibilitu s Midasem.
- ---------------------------------------------------------------------------}
-procedure midasError(errNum : integer);
-begin
- {$ifdef midas}
- midas.midasError(errNum);
- {$else}
- erMsg('Chyba '+stri(errNum)+' podle cislovani Midasu.');
- {$endif}
-end;
-
-{---------------------------------------------------------------------------
- Overeni vysledku midasovske funkce.
- Pri chybe se zachova podle promenne dumb: ohlasi chybu a skonci
-  nebo pouze vrati cislo chyby.
- ---------------------------------------------------------------------------}
-function  midasDumbError(errNum : integer):integer;
-begin
- midasDumbError:=errNum;
- if (errNum<>0) and not dumb then midasError(errNum);
-end;
 
 
 {∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞INIT/DONE∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞}
 
-const
- inited:boolean=false;
+var result:integer;
+    oldmem:longint;
 
-function Init:word;
+procedure ShutDown;far;
+ var i:word;
  begin
-  Init:=erOk;
-  if not inited then begin
-   debug        :=false;
-   dumb         :=true;
-   GetIntVec(9,old9);
-   OldExitProc  :=ExitProc;
-   ExitProc     :=@RuntimeExit;
-   inited       :=true;
-   end;
+  if ReportThis<>'' then begin
+    ReportError(ReportThis);
+    ReportThis:='';
+    end;
+  if ExitCode<>erMsgWritten then BugList.Report(ExitCode);
+  if longint(ErrorAddr)<>0 then begin
+    ReportError('Adresa '+hexed(PtrRec(ErrorAddr).Seg)+':'+hexed(PtrRec(ErrorAddr).Ofs)+'.');
+    ErrorAddr:=nil;
+    end;
+  i:=IOResult;
+  if i<>0 then ReportError('IOResult='+stri(i)+'.');
+  if errors>0 then begin
+    FixInts;
+    WaitKey;
+    end;
  end;
 
-procedure Done;
+procedure UserInit;
  begin
-  if inited then begin
-   if ExitProc=@RuntimeExit then ExitProc:=OldExitProc;
-   inited       :=false;
-   end;
+  oldmem:=system.memavail;
+  ReportThis:='';
+  errors:=0;
+  debug:=false;
+  dumb:=true;
+  cestina:=false;
+  ShutDownInts:=ShutDown;
+  if BugList.Init(100,100) then begin
+    {vsechny chyby zdedene z midasu}
+    BugList.Register(errOutOfMemory   ,'Nedostatek pamàti.');
+    BugList.Register(errFileOpen      ,'Nelze otev©°t soubor.');
+    BugList.Register(errFileRead      ,'Chyba p©i áten° ze souboru.');
+    BugList.Register(errFileNotFound  ,'Soubor nenalezen.');
+    BugList.Register(errFileWrite     ,'Chyba p©i z†pisu do souboru.');
+    BugList.Register(errDPMIFailure   ,'Chyba p©i pr†ci s DPMI.');
+    {chyby CiA}
+    BugList.Register(erLowDosMem      ,'Nedostatek konvenán° pamàti.');
+    BugList.Register(erFileTooBig     ,'P©°li® velkò soubor.');
+    BugList.Register(erBreak          ,'Break, taky ©e®en°.');
+    {runtime chyby}
+    BugList.Register(200              ,'Dàlen° nulou.');
+    BugList.Register(201              ,'P©ekroáen° mez° pole nebo typu.');
+    BugList.Register(202              ,'P©eteáen° stacku.');
+    BugList.Register(203              ,'P©eteáen° heapu.');
+    BugList.Register(204              ,'Invalid pointer operation.');
+    BugList.Register(205              ,'Floating point overflow.');
+    BugList.Register(206              ,'Floating point underflow.');
+    BugList.Register(207              ,'Invalid floating point operation.');
+    BugList.Register(208              ,'Overlay manager not installed.');
+    BugList.Register(209              ,'Overlay file read error.');
+    BugList.Register(210              ,'Pouëit° neinicializovanÇho objektu.');
+    BugList.Register(211              ,'Vol†n° abstraktn° metody.');
+    BugList.Register(212              ,'Stream registration error.');
+    BugList.Register(213              ,'Indexov†n° v kolekci mimo rozsah.');
+    BugList.Register(214              ,'P©eteáen° kolekce.');
+    BugList.Register(215              ,'AritmetickÇ p©eteáen°.');
+    BugList.Register(216              ,'General Protection Fault, hehe :).');
+    exit;
+    end;
+  result:=erLowMem;
  end;
 
+procedure UserDone;
+ begin
+  BugList.Done;
+  if debug then begin
+    BiosWriteln('memstart='+stri(oldmem));
+    BiosWriteln('memend  ='+stri(system.memavail));
+    BiosWriteln('rozdil  ='+stri(oldmem-system.memavail));
+    end;
+  ExitCode:=erOk;
+ end;
+
+{$i initdone.inc}
 {$ifdef autoinit}
 BEGIN
  erCheck(Init);

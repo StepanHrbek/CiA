@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.10ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -90,7 +90,7 @@ type  PText2 = ^TText2;
                      blkStart     :word;{offset prvniho znaku bloku}
                      blkEnd       :word;{offset posledniho znaku bloku}
                      insert       :boolean;{insert mod prikazu write,writeln}
-                     constructor  Init(p:pchar;maxend:word);
+                     constructor  Init(p:pchar;maxlen:word);
                      destructor   Done;virtual;
                      procedure    Rewrite;
                      procedure    RewriteWith(st:string);
@@ -433,17 +433,16 @@ Function TText1.nlRead:string;assembler;
  Zapamatuje si kde lezi zacatek textu, hodi ukazatel na start.
  Volat az kdyz je text na miste.
  ---------------------------------------------------------------------------}
-Constructor TText2.Init(p:pchar;maxend:word);
+Constructor TText2.Init(p:pchar;maxlen:word);
 begin
  inherited Init(p);
  konec:=chAdr(EOT,1);
- maxkonec:=maxend;
+ maxkonec:=PtrRec(p).Ofs+(maxlen-1);
  insert:=true;
 end;
 
 {---------------------------------------------------------------------------
- Zapamatuje si kde lezi zacatek textu, hodi ukazatel na start.
- Text jeste nemusi byt na miste.
+ Hu.
  ---------------------------------------------------------------------------}
 Destructor TText2.Done;
 var   p:pointer;

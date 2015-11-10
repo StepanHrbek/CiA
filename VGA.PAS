@@ -1,11 +1,11 @@
-{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 0.10ƒƒƒø
+{⁄ƒƒƒC.I.A.ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒverze 0.32ƒƒƒø
  ≥S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi≥
  ≥v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.≥
  ¿ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒŸ}
 
 Unit      Vga;
 Interface {$i define.inc}
-Uses      Chyby,Memo, Objects,Memory, Stringy,Sys,Mys{$ifdef dpmi},Dpmi{$endif};
+Uses      Chyby,Memo, Objects,Dos, Stringy,Sys,Mys,Fajly{$ifdef dpmi},Dpmi{$endif};
 Function  Init:word;
 Procedure Done;
 
@@ -14,66 +14,75 @@ Procedure Done;
                             Uvod k VGA
 ---------------------------------------------------------------------------
 
+Unita pro praci s 256color mody a textmody, vga i svga. S pozdejsi podporou
+16color a mene se nepocita, naopak s hicolor a truecolor ano.
+
 Jako prvni akci v hlavnim programu doporucuji overit pritomnost VGA karty
 funkci IsVga. Mimo VGA karty neni unita prilis pouzitelna.
 Budes-li tvrde vyzadovat Vesa Bios, hned pote se podivej na promennou
 VesaVersion, ta udava zjistenou verzi VESA BIOSu, 0=zadna.
 
-Objekt ˛TAbstractMap˛ je vychozi objekt pro vsechny mozne bitove mapy.
-Umoznuje blokove presuny (tzv BitBlt) mezi vlastnimi instancemi,
-mezi sebou a bitmapou, vyplne bloku jednou barvou.
-Nazvy metody pro blokove presuny jsou slozeny ze dvou casti: Odkud2Kam.
-Odkud a Kam jsou nektere z techto moznosti:
+Objekt ˛TAbstractMap˛ je vychozi objekt pro vsechny mozne druhy 2d poli
+pixelu. Pres virtualni metody umoznuje blokove presuny (tzv BitBlt)
+mezi sebou a bitmapou a vyplne bloku jednou barvou.
+Nazvy metod maji tvar Odkud2Kam, kde Odkud a Kam jsou z techto moznosti:
 
- Box  - obdelnikovy vyrez z objektu self
- Ful  - cely objekt self (odpada zadavani vyrezu)
+ Box  - obdelnikovy vyrez z objektu SELF (self nemusi byt bitmapa)
+ Ful  - cely objekt SELF (odpada zadavani vyrezu)
 
- Clr  - prazdna plocha (vyplnena barvou nula nebo znakem mezera)
- Col  - jednobarevna plocha (vyplnena zadanou barvou nebo znakem)
+ BtB  - bitmap box - obdelnikovy vyrez BITMAPY ZADANE PARAMETREM
+ BtF  - bitmap full - cela BITMAPA ZADANA PARAMETREM (odpada zadavani vyrezu)
 
- BtB  - bitmap box - obdelnikovy vyrez bitmapy zadane parametrem
- BtF  - bitmap full - cela bitmapa zadana parametrem (odpada zadavani vyrezu)
+ Clr  - PRAZDNA PLOCHA (vyplnena barvou nula nebo znakem mezera)
+ Col  - JEDNOBAREVNA PLOCHA (vyplnena zadanou barvou nebo znakem)
+
+ Resize (predpona pred nazvem) - behem operace se blok zvetsuje/zmensuje
 
 Objekt ˛TBitmap˛, potomek AbstractMapy, je bitmapa v systemove pameti.
 V realmodu je pro bitmapy k dispozici pouze konvencni pamet, proto je
-pri pouziti vetsich bitmap nutne prejit do protektu.
+pri pouziti vetsich bitmap nutny protekt.
 
 Objekt ˛TScreen˛, potomek AbstractMapy, je videopamet/obrazovka.
 Inicializaci instance TScreen nastavis textovy/graficky mod,
 uvolnenim instance vratis predchozi mod.
-
-Tento system, kdy musi mit temer kazda dvojice map vlastni 'copy' metodu,
-pravdepodobne nekdy predelam na streamy:
- TAbstractMap bude mit metody
-   Stream_Init(vyrez) - inicializuje praci s vyrezem mapy
-   Stream_GetNextBlock - vrati dalsi linearni blok pameti z vyrezu (adresu a delku)
- Vsechny presuny odnekud nekam tak zaridi jedina procedura nad dvema
- streamy. Problem je zde pouze v praci s unchained videopameti,
- jejiz stream by v teto koncepci musel byt slozen z 1bajtovych kousku.
-Soucasny system obsahuje velke mnozstvi redundantniho kodu a neni
-prilis pohodlny, ale je vyznamne rychlejsi, takze zatim zustavam pri nem.
 
 
 ---
 Pro low-level kutily, CRTC nemusi byt ve VESA modech fit (ATI MACH64).
 Vyznamnejsi procedury pracujici s CRTC jsou tedy opatreny komentarem
 've vesa modech nemusi fungovat'. Podobnym ucelum by mel slouzit
-VESA BIOSem nabizeny flag registrove_kompatibilni_s_vga, ale kriticke
+VESA BIOSem nabizeny flag registrove_kompatibilni_s_vga, ale prave kriticke
 BIOSy ho ignoruji.
 
 Pro hardcore VBE maniaky, unita NEvyuziva tyto moznosti nekterych karet:
- -velikost banku<>64K (emuluje 64KB banky)
+ -granularita<>64K (emuluje 64KB banky)
  -nezavisle bankovani pro cteni a pro zapis (bankuje obe okna synchronne)
  -linearni adresace
- -moznost velikosti banku <> 64KB neni osetrena
+ -moznost velikosti banku <> 64KB neni osetrena, ale btw 32K v textmodu projde
+ -unita NIKDY nereaguje v zavislosti na nazvu vesa biosu (nektere biosy jsou
+  znamy svymi chybami), pripadne detekce chyb jsou ciste, univerzalni
+ -unita v textmodu nestrankuje (btw, kdybys moc chtel, doplnit strankovani je
+  problem tak na 10 instrukci)
 
-Rutiny funguji i na vice ci mene exotickych kartach, ktere nesnesou
- -nastavovani idexovanych vga registru pres out dx,ax
- -nastavovani palety pres rep outsb
+Rutiny funguji i na vice ci mene exotickych kartach, ktere
+ -nesnesou nastavovani idexovanych vga registru pres out dx,ax
+ -nesnesou nastavovani palety pres rep outsb
 
-Identifikatory zacinajici podtrzitkem oznacuji veci, ktere bych chtel
-odstranit z interface (uzivatel by se o ne nemel vubec starat), ale
-z nejakych duvodu se mi to zatim nepodarilo.
+ResList je seznam nekterych podporovanych modu. K cemu je dobry?
+ 1) Pri nastavovani modu muzes zadat jen rozliseni a model, nastavi se
+    nejblizsi mod z ResListu. Mody ktere nejdou nastavit se z ResListu smazou.
+ 2) V ResListu se pro kazdy mod ukladaji nektere udaje namerene pri prvnim
+    nastaveni, pri dalsich nastavenich se usetri cas.
+Pozor, treba mod 320x200/256 lze mit na tri zpusoby: vga packed, vga unchained
+a vesa packed. Co s tim? Do reslistu se zaradi jen jeden, prvni ktery prijde
+na radu. Poradi zarazovani je toto: vesa mody, vga unchained, vga packed.
+Nastavovat lze i mody nezarazene v ResListu, viz TScreen.Init.
+
+---
+Pri kazdem nastaveni textmodu se zavola uzivatelska procedura UserFont,
+ktera unite rekne jaky font ma pouzit. Defaultne je volen ROM font,
+ale muzes to zmenit, dalsi komentar je u dalsich vyskytu UserFont.
+---
 
 Poradi procedur a funkci v implementation neni moc logicke, sorry.
 Je to kvuli mnozstvi vzajemnych odkazu, nechci psat kopec forwardu.
@@ -109,34 +118,33 @@ CONST model_text             =0;             {pametove modely}
  Seznam podporovanych modu.
  ---------------------------------------------------------------------------}
 
-{      T80x25                 =25;            {textove VGA mody}
-{      T80x26                 =26;            {cislovani podle poctu radek}
-{      T80x28                 =28;
+      T80x25                 =25;            {textove VGA mody}
+      T80x26                 =26;            {cislovani podle poctu radek}
+      T80x28                 =28;
       T80x30                 =30;
       T80x33                 =33;
       T80x36                 =36;
       T80x40                 =40;
       T80x44                 =44;
-      T80x50                 =50;}
+      T80x50                 =50;
 
       T80x60                 =$108;          {textove SVGA mody}
-      T123x25                =$109;          {cislovani podle standardu VESA}
+      T132x25                =$109;          {cislovani podle standardu VESA}
       T132x43                =$10a;
       T132x50                =$10b;
       T132x60                =$10c;
 
-      X320x200               =0;             {graficke 256color VGA Xmody}
-      X320x240               =1;             {pro modely unchained i packed}
-      X360x200               =2;
-      X360x240               =3;
-      X376x282               =4;
-      X320x400               =5;
-      X320x480               =6;
-      X360x400               =7;
-      X360x480               =8;
-      X360x360               =9;
-      X376x308               =10;
-      X376x564               =11;
+      X320x200               =1;             {graficke 256color VGA Xmody}
+      X320x240               =2;             {pro modely unchained i packed}
+      X360x200               =3;
+      X360x240               =4;
+      X376x282               =5;
+      X320x400               =6;
+      X320x480               =7;
+      X360x400               =8;
+      X360x480               =9;
+      X360x360               =10;
+      X376x308               =11;
       X256x200               =12;
       X256x240               =13;
       X256x224               =14;
@@ -178,7 +186,7 @@ CONST model_text             =0;             {pametove modely}
  ---------------------------------------------------------------------------}
 
 var   VesaVersion        :word;{cislo verze vbe: 0, 100h, 101h, 102h, 200h...}
-      VesaID             :string[70];{identifikator VBE, copyright autoru}
+      VesaID             :string[70];{identifikator VBE, copyright autoru, velikost vram}
       VesaBanksTotal     :byte;{pocet 64KB banku celkem na karte}
 
       mouseSpeed         :word;{rychlost pohybu mysi}
@@ -191,10 +199,12 @@ var   VesaVersion        :word;{cislo verze vbe: 0, 100h, 101h, 102h, 200h...}
 
 PROCEDURE OutDxAx;
 FUNCTION  ReadCrtc(ndx:byte):byte;
+FUNCTION  ReadCrtcW(ndx:byte):word;
 PROCEDURE WriteCrtc(ndx,val:byte);
 FUNCTION  HideCursor:boolean;
 FUNCTION  ShowCursor:boolean;
 PROCEDURE EnableSplitScrol(scrol:boolean);
+PROCEDURE EnableBlinking(blink:boolean);
 
 
 {---------------------------------------------------------------------------
@@ -204,6 +214,7 @@ PROCEDURE EnableSplitScrol(scrol:boolean);
 PROCEDURE SetHwCol(col,r,g,b:byte);
 PROCEDURE BlackHwPal;
 FUNCTION  PalIsBlack:boolean;
+PROCEDURE RandomPal;
 
 Const
       {pfXXXX - pal flags}
@@ -229,17 +240,19 @@ Type
           first         :byte;          {prvni zpracovavana barva}
           last          :byte;          {posledni zpracovavana barva}
           flags         :byte;          {viz pfXXXX}
-          xx1,yy1       :word;          {par souradnic pro lokalni palety}
-          xx2,yy2       :word;
-          sxx,syy       :word;
+          place         :TRect;         {sfera vlivu lokalni palety}
           constructor   Init;
           procedure     ReadFromTo(fromcol,tocol:byte);
           procedure     ShowFromTo(fromcol,tocol:byte);
+          procedure     Show;
           procedure     SetBrightFromTo(n,fromcol,tocol:byte);
           procedure     SetBright(n:byte);
           procedure     SetCol(col,r,g,b:byte);
-          procedure     SetCols(fromcol,r1,g1,b1,tocol,r2,g2,b2:byte);
           procedure     Fade(time:integer);
+          procedure     SmoothCols(fromcol,r1,g1,b1,tocol,r2,g2,b2:byte);
+          procedure     SmoothBright(fromcol,tocol:byte;how:integer;er,ge,be:boolean);
+          procedure     SmoothContrast1(fromcol,tocol,ofs:byte;how:integer);
+          procedure     SmoothContrast(fromcol,tocol:byte;how:integer;er,ge,be:boolean);
          end;
 
 {---------------------------------------------------------------------------
@@ -265,26 +278,37 @@ Type
 
           constructor   Init(newmodel,newBiPP,sir,vys:word);
 
-          {cisteni obsahu objektu}
+          {cisteni obsahu self}
           procedure     Clr2Box(destX,destY,Sirka,Vyska:word);
           procedure     Clr2Ful;
-          {vypln objektu jednou barvou}
+          {vypln self jednou barvou}
           procedure     Col2Box(destX,destY,Sirka,Vyska:word;pixel:longint);virtual;
           procedure     Col2Ful(pixel:longint);
-          {bitmapa -> objekt}
+          {bitmapa -> self}
           procedure     BtB2Box(p:PBitmap;srcX,srcY,Sirka,Vyska,destX,destY:word);virtual;
           procedure     BtB2Ful(p:PBitmap;srcX,srcY:word);
           procedure     BtF2Box(p:PBitmap;destX,destY:word);
-          {objekt -> bitmapa}
+          procedure     ResizeBtB2Box(p:PBitmap;srcX,srcY,srcSir,srcVys,destX,destY,destSir,destVys:word);virtual;
+          procedure     ResizeBtB2Ful(p:PBitmap;srcX,srcY,srcSir,srcVys:word);
+          procedure     ResizeBtF2Box(p:PBitmap;destX,destY,destSir,destVys:word);
+          procedure     ResizeBtF2Ful(p:PBitmap);
+          {self -> bitmapa}
           procedure     Box2BtB(p:PBitmap;srcX,srcY,Sirka,Vyska,destX,destY:word);virtual;
           procedure     Ful2BtB(p:PBitmap;destX,destY:word);
           procedure     Box2BtF(p:PBitmap;srcX,srcY:word);
-          {objekt -> objekt}
-          function      Box2Box(p:PAbstractMap;srcX,srcY,Sirka,Vyska,destX,destY:word):boolean;
-          function      Box2Ful(p:PAbstractMap;srcX,srcY:word):boolean;
-          function      Ful2Box(p:PAbstractMap;destX,destY:word):boolean;
-
-          function      CopyBox(srcX,srcY,Sirka,Vyska:word):PBitmap;
+          procedure     ResizeBox2BtB(p:PBitmap;srcX,srcY,srcSir,srcVys,destX,destY,destSir,destVys:word);virtual;
+          procedure     ResizeFul2BtB(p:PBitmap;destX,destY,destSir,destVys:word);
+          procedure     ResizeBox2BtF(p:PBitmap;srcX,srcY,srcSir,srcVys:word);
+          procedure     ResizeFul2BtF(p:PBitmap);
+          {kopirovani}
+          function      BoxCopy(srcX,srcY,Sirka,Vyska:word):PBitmap;virtual;
+          function      FulCopy:PBitmap;
+          function      ResizeBoxCopy(srcX,srcY,srcSir,srcVys,destSir,destVys:word):PBitmap;virtual;
+          function      ResizeFulCopy(destSir,destVys:word):PBitmap;
+          {self -> abstraktni (jakakoliv) mapa}
+          procedure     Box2Box(p:PAbstractMap;srcX,srcY,Sirka,Vyska,destX,destY:word);virtual;
+          procedure     Box2Ful(p:PAbstractMap;srcX,srcY:word);
+          procedure     Ful2Box(p:PAbstractMap;destX,destY:word);
          end;
 
 
@@ -294,10 +318,10 @@ Type
 
       TBitmap=object(TAbstractMap)
 
-          tabsize       :integer;         {delka tab (tabsize>=sizeY), na kolik radek se muzes odkazovat}
-          mapsize       :integer;         {delka map (tabsize>=mapsize), kolik radek ma naalokovanou vlastni pamet}
           transparent   :boolean;         {pruhledne pozadi?}
           tab           :PLines;          {tabulka radek bitmapy}
+          tabsize       :integer;         {delka tab (tabsize>=sizeY), na kolik radek se muzes odkazovat}
+          mapsize       :integer;         {delka map (tabsize>=mapsize), kolik radek ma naalokovanou vlastni pamet}
 
           constructor   Init(newmodel:byte;sir,vys:word);
           destructor    Done;virtual;
@@ -313,17 +337,20 @@ Type
           procedure     Col2Box(destX,destY,Sirka,Vyska:word;pixel:longint);virtual;
           procedure     BtB2Box(p:PBitmap;srcX,srcY,Sirka,Vyska,destX,destY:word);virtual;
           procedure     Box2BtB(p:PBitmap;srcX,srcY,Sirka,Vyska,destX,destY:word);virtual;
+          procedure     ResizeBtB2Box(p:PBitmap;srcX,srcY,srcSir,srcVys,destX,destY,destSir,destVys:word);virtual;
+          procedure     ResizeBox2BtB(p:PBitmap;srcX,srcY,srcSir,srcVys,destX,destY,destSir,destVys:word);virtual;
+          function      BoxCopy(srcX,srcY,Sirka,Vyska:word):PBitmap;virtual;
+          function      ResizeBoxCopy(srcX,srcY,srcSir,srcVys,destSir,destVys:word):PBitmap;virtual;
 
           function      MainPal:PPal;
           procedure     SetBright(n:byte);
           procedure     Fade(time:integer);
           function      AddPal(pal:PPal;aflags,fromcol,tocol:byte;x1,y1,x2,y2:word):PPal;
-          procedure     SyncPal(sx,sy:word;onscreen:boolean);
+          procedure     SyncPal(scr:TRect;onscreen:boolean);
 
                         private
                          static        :boolean;         {nema pamet pri done uvolnit?}
                          pals          :PPalCollection;  {palety}
-                         nowpal        :byte;            {aktualni lokalni paleta}
                         public
          end;
 
@@ -334,28 +361,29 @@ Type
 
       TSetModeResult=(chaos,stillold,alreadyset,newset);
       TBankRegs=word;
+      TMousePoint=object(TPoint) z:integer; end;
 
       TScreen=object(TAbstractMap)
 
          {atributy obrazovky}
           ModeID             :word;    {cislo modu}
+          VesaMode           :boolean; {jsem prave ve VESA modu?}
           Xres,Yres          :integer; {rozliseni obrazovky (v pixelech nebo znacich)}
-          vramXres,vramYres  :integer; {rozmery videopameti (-"-)}
-          topYres            :integer; {vyska pohyblive obrazovky nad listou (-"-)}
-          botYres            :integer; {vyska pevne listy dole (-"-)}
+          vramXres,vramYres  :integer; {rozmery videopameti (v pixelech nebo znacich)}
           charXres,charYres  :integer; {rozmery znaku v textovem modu, v grafice 1, musi mit sizeof=2}
           lineOffset         :integer; {o kolik zvysit adresu ve vram pri posunu na dalsi radek}
-          BitPlanes          :byte;    {pocet bitplanes}
           SegVram            :word;    {segment okna do videopameti}
           WinSizeKB          :word;    {velikost okna do videopameti v kilobytech}
           VramSizeKB         :word;    {velikost videopameti pouzitelne v soucasnem modu v kilobytech, musi mit sizeof=2}
           BiosOutput         :boolean; {je podporovan biosoutput?}
-
-          VesaMode           :boolean; {jsem prave ve VESA modu?}
           SetvisYBug         :shortint;{ma vesa bios bug v setvisu (adr=x+y*Xres misto x+y*vramXres)? 1=ano, 0=ne, -1=nevim}
+          GotoYBug           :shortint;{je v biosovem GotoXY chyba (nepocita s vramXres<>Xres) ? 1=ano, 0=ne, -1=nevim}
+
 
          {nastaveni modu}
-          InitResult         :TSetModeResult;
+          InitResult         :TSetModeResult;{vysledek po nastaveni modu}
+          forbid_alreadyset  :boolean; {InitResult pri pristim nastavovani modu nesmi byt alreadyset,}
+                                       { tj. urcite smaze obrazovku, resetne split, vramXres, setvis }
           SilentDone         :boolean; {silent done nevraci predchozi mod}
           constructor        Init(newModel,newSir,newVys,newMode:word);
           procedure          ReInit;virtual;
@@ -364,11 +392,10 @@ Type
           procedure          LoadCfg;virtual;
 
                              private
+                              ZadanaVyskaZnaku   :byte;
                               PrevScreen         :PScreen;
                               PrevModel          :word;
-                              PrevSir            :word;
-                              PrevVys            :word;
-                              ScreenFreq         :word;    {priblizna ofnovovaci frekv. soucasneho modu, presnost kolem 10Hz}
+                              PrevMode           :word;
                               function           SetMode_VESA(newModel:byte;newMode:word):boolean;
                               function           SetMode_TEXT(newMode:word):boolean;
                               function           SetMode_X(newModel:byte;newMode:word):boolean;
@@ -399,6 +426,9 @@ Type
          {paleta}
           procedure          Fade(time:integer);virtual;
 
+         {kurzor}
+          procedure          GotoXY(x,y:integer);virtual;
+
          {porty/retrace}
           public
           beziNahazovacRet   :boolean; {pri kazdym retrace muzes automaticky nahodit ret (obsluhu si }
@@ -406,19 +436,24 @@ Type
           synced             :boolean; {jsem sesynchronizovan s paprskem?}
                                         {Setvis nekdy ceka na paprsek a nastavi synced,}
                                         {SyncRet pak ceka na paprsek jen pri not synced.}
-          _RetraceLen        :word;    {delka vetsi nez vertical a mensi nez horizontal retrace}
-          _VesaSetvisSyncuje :boolean; {ceka vesa setvis na parsek?}
+          RetraceLen         :word;    {doba delsi nez vertical a kratsi nez horizontal retrace}
+          VesaSetvisSyncuje  :boolean; {ceka VesaSetvis na parsek?}
+          ScreenFreq         :word;    {obnovovaci frekv. modu, presnost plus minus 10Hz}
+          TimerScrSync       :word;    {hodnota zjistena funkci tmrGetScrSync}
           procedure          WaitForRetrace;
           procedure          WaitForTrace;
           procedure          Refresh(n:byte);
           procedure          SyncRet;
           procedure          Sync;virtual;
+          function           DetectTmrScrSync:word;virtual;
           function           GetBankRegs:TBankRegs;
           procedure          SetBankRegs(x:TBankRegs);
 
          {setvis/split a spol na urovni registru}
-          function           GetTotalScans:integer;
-          function           GetLineScans:integer;
+         public
+          maxSplitY          :word;{nejmensi Y tak velke, ze ze splitu neni nic videt}
+          nowSplitY          :word;{hodnta nastavena metodou splity}
+          DoubleScan         :byte;{kolikrat prochazi paprsek kazdy pixel? (1 nebo 2)}
           procedure          SplitY(y:word);
           procedure          SetvisHi(a:word);
           procedure          PanLeft(x:byte);
@@ -426,63 +461,76 @@ Type
           function           VesaSetvis(x,y:word):boolean;
           function           VesaSetvisSync(x,y:word):boolean;
 
-         {setvis/split na uzivatelske urovni}
+         {setvis na uzivatelske urovni}
          public
           vramVisX           :word;{aktualni souradnice display start (PEN_VRAM)}
           vramVisY           :word;
-          function           SetVramXRes(virtualX:word):boolean;
-          procedure          SetSplit(splitlines:word);
           procedure          Setvis(x,y:word);
-
-                             private
-                              nowSplitY          :word;
-                              maxSplitY          :word;
-                              nowVisReg          :word;{aktualni stav CRTC registru disp.addr.start}
-                             public
+          function           SetVramXRes(virtualX:word):boolean;
 
          {mys}
-          mouseRngX1,
-          mouseRngX2,
-          mouseRngY1,
-          mouseRngY2         :integer;{meze volneho pohybu}
-          mouseX,
-          mouseY,
-          mouseZ             :integer;{relativni pozice}
-          mousePresX,
-          mousePresY,
-          mousePresZ         :integer;{relativni pozice posledniho stisku}
+         public
+          mouseRng           :TRect;  {meze volneho pohybu}
+          mouse              :TMousePoint;{relativni pozice (vzhledem k obrazovce)}
+          mousePres          :TMousePoint;{relativni pozice posledniho stisku}
           mouseFlag          :boolean;{je mys prave nakreslena na obrazovce?}
+          mouseWarning       :byte;   {mys se prave prekresluje}
           mouseRedrawFlag    :boolean;{flag ktery se nastavi pri kazdem vykresleni mysi,
                                        uzitecne pri boji proti redundantnim redrawum}
-          procedure          MouseSetPointer(p:PBitmap;todestroy:boolean;pointX,pointY:word);
+          procedure          MouseSetPointer(p:PBitmap;pointX,pointY:word);
           procedure          MouseShow;
           function           MouseHide:boolean;
           procedure          MouseRescanState;
           procedure          MouseRescanPress;
-          procedure          MouseSetRange(x1,y1,x2,y2:word);
+          procedure          MouseSetRange;
           procedure          MouseSetPos(x,y:integer);
-          procedure          MouseShift(dx,dy,speed:integer);
+          procedure          MouseShift(dx,dy:integer);
           procedure          MouseRedraw;
           function           MousePal:PPal;
           procedure          MousePalShow;
 
                              private
                               mouseActive        :boolean;{je aktivni handler <nebo> mam sledovat pohyb a prekreslovat sipku?}
-                              mouseSipkaX        :word;{absolutni pozice sipky nakreslene ve videopameti}
-                              mouseSipkaY        :word;
+                              mouseSipka         :TPoint; {absolutni pozice sipky nakreslene ve videopameti}
                               mouseBitmap        :Pbitmap;{sipka mysi}
                               mouseBuffer        :Pbitmap;{buffer pro ukladani pozadi za mysi}
-                              mouseDestroyBitmap :boolean;{zrusit bitmapu sipky az nebude treba?}
-                              mousePointX        :integer;{"hot spot", klicovy pixel v bitmape sipky}
-                              mousePointY        :integer;
+                              mousePoint         :TPoint; {"hot spot", klicovy pixel v bitmape sipky}
                               procedure          MouseAdjustSpeed;
                               procedure          MouseKillPointer;
           end;
 
-const     pen_vram           =1;{videopamet           [0,0]..[vramXres,vramYres]}
-          pen_virtual        =2;{virtualni videopamet [0,0]..[inf,inf]          }
-          pen_screen         =3;{obrazovka            [0,0]..[Xres,Yres]        }
+const     pen_vram           =1;{videopamet           [0,0]..[vramXres,vramYres] (vram=fyzicka linearni videopamet)}
+          pen_virtual        =2;{virtualni videopamet [0,0]..[inf,inf]           (virtual=posunuta a zmorfovana videopamet)}
+          pen_screen         =3;{obrazovka            [0,0]..[Xres,Yres]         (screen=blok nekde ve virtual)}
 
+
+{---------------------------------------------------------------------------
+ Seznam podporovanych modu (ResList)
+ ---------------------------------------------------------------------------}
+
+Type
+ PResItem=^TResItem;
+ TResItem=object(TObject)
+   amodel             :byte;   {vzdy nastaveno}
+   ax,ay              :word;   {vzdy nastaveno}
+   amode              :word;   {vzdy nastaveno}
+   optional           :boolean;{jsou nasledujici udaje platne?}
+   aretracelen        :integer;
+   ascreenfreq        :integer;
+   avesasetvissyncuje :boolean;
+   atimerscrsync      :word;
+   constructor Init(model,x,y,mode:word);
+ end;
+
+ TResCollection=object(TSortedCollection)
+   procedure Insert(Item:Pointer);virtual;
+   function Compare(p1,p2:pointer):integer;virtual;
+ end;
+
+Var   ResList:TResCollection;
+
+FUNCTION  ModeSupported(model,mode:word):boolean;
+FUNCTION  ModeDoplnInfo(var model,sir,vys,mode:integer):boolean;
 
 
 {---------------------------------------------------------------------------
@@ -490,13 +538,13 @@ const     pen_vram           =1;{videopamet           [0,0]..[vramXres,vramYres]
  ---------------------------------------------------------------------------}
 var       CurScreen:PScreen;{aktualni screena, nemenit, jen cist}
           debugpal:boolean; {zapina debug mod v palete}
+          UserFont:procedure(var name:PathStr;var p:pointer;var vyska:byte);
+const     erBadMode = 80;
 
 FUNCTION  IsVga:boolean;
 FUNCTION  DCV(presnost:word):word;
-FUNCTION  ModeSupported(model,mode:word):boolean;
-PROCEDURE _LoadRomFont(vyska:byte);
-PROCEDURE _ResizeRaw2Raw(srcRawmap,destRawmap:PBitmap;srcX,srcY,srcSir,srcVys,destX,destY,destSir,destVys:word);
-
+FUNCTION  InitStaticBitmap(var b:PBitmap;model,sir,vys:integer;p:pointer;trans:boolean):boolean;
+PROCEDURE MouseSetBaseColor(newbase:byte);
 
 
 
@@ -508,9 +556,9 @@ PROCEDURE _ResizeRaw2Raw(srcRawmap,destRawmap:PBitmap;srcX,srcY,srcSir,srcVys,de
 {€€€€€€€€€€€€€€€€ P O R T Y €€€€€€€€€€€€€€€€}
 
 
-const mingoodfreq        =25;           {minimalni a maximalni}
-      maxgoodfreq        =200;          {obnovovaci frekvence, ktere jsou
-                                         jeste povazovane za normalni}
+const mingoodfreq        =40;           {minimalni a maximalni}
+      maxgoodfreq        =170;          {obnovovaci frekvence, ktere jeste
+                                         nejsou povazovany za chybu}
       zlomeksec          =10;           {takovy zlomek sekundy meri pocet retracu}
       maxfreqerror       =zlomeksec;    {maximalni mozna chyba v freq}
 
@@ -562,25 +610,26 @@ Procedure TScreen.WaitForRetrace;assembler;
      @2:mov dx,3dah;in al,dx;test al,8;jz @2
      pop dx
      pop ax
- komplikovana, lec funkcni nahrada:}
+(*komplikovana, lec funkcni nahrada:}
      pusha
      push ds
      lds si,self
-     mov di,800{nastavi ze po 800 nedostatecne dlouhych navratech skonci}
+     mov di,1200{nastavi ze po 1200 nedostatecne dlouhych navratech skonci}
      mov dx,3dah;
  @3: in al,dx;test al,8;jz @3{cyklit dokud se nevraci}
      dec di;jz @8
      {testovat ze jede pouze nahoru x krat za sebou, jinak skok na predchozi radek}
-     mov bx,[si+_RetraceLen]
+     mov bx,[si+RetraceLen]
  @5: dec bx;js @9
      in al,dx;test al,8;jnz @5
      jmp @3
  @8: {nasilne skonci kdyz uz to trva moc dlouho}
-     cmp [si+_RetraceLen],0;jz @9
+     cmp [si+RetraceLen],0;jz @9
      {zkusi snizit RetraceLen aby se vesel do vertical retrace}
-     dec [si+_RetraceLen]
+     dec [si+RetraceLen]
  @9: pop ds
      popa
+ (**)
  end;
 
 {---------------------------------------------------------------------------
@@ -707,7 +756,27 @@ FUNCTION  ReadCrtc(ndx:byte):byte;assembler;
      mov dx,3d4h
      out dx,al
      inc dx
-     in al,dx
+     in  al,dx
+ end;
+
+{---------------------------------------------------------------------------
+ Cte dva po sobe jdouci CRTC registry.
+ Ve VESA modech nemusi fungovat.
+ ---------------------------------------------------------------------------}
+FUNCTION  ReadCrtcW(ndx:byte):word;assembler;
+ asm
+     mov  al,ndx
+     mov  dx,3d4h
+     out  dx,al
+     inc  dx
+     xchg al,ah
+     in   al,dx
+     dec  dx
+     xchg ah,al
+     inc  al
+     out  dx,al
+     inc  dx
+     in   al,dx
  end;
 
 {---------------------------------------------------------------------------
@@ -813,8 +882,28 @@ PROCEDURE EnableSplitScrol(scrol:boolean);assembler;
      in al,dx
      dec dx
      and al,11011111b
-     cmp scrol,0;jnz @do
+     cmp scrol,false;jnz @do
      or al,00100000b
+     @do:
+     call wait250ns
+     out dx,al
+ end;
+
+{---------------------------------------------------------------------------
+ V textmodu nastavi chovani 7.bitu atributu znaku.
+ Muze zpusobovat blikani nebo byt 4.bitem barvy pozadi.
+ Defaultne byva true, blikani.
+ ---------------------------------------------------------------------------}
+PROCEDURE EnableBlinking(blink:boolean);assembler;
+ asm
+     mov dx,3dah;in al,dx
+     mov dx,3c0h;mov al,30h;out dx,al
+     inc dx
+     in al,dx
+     dec dx
+     and al,11110111b
+     cmp blink,false;jz @do
+     or al,00001000b
      @do:
      call wait250ns
      out dx,al
@@ -873,6 +962,16 @@ FUNCTION  PalIsBlack:boolean;assembler;
      @end:
  end;
 
+{---------------------------------------------------------------------------
+ Nastavi nahodnou paletu.
+ Urceno pro ladici ucely.
+ ---------------------------------------------------------------------------}
+PROCEDURE RandomPal;
+var   i:byte;
+begin
+ for i:=0 to 255 do SetHwCol(i,random(64),random(64),random(64));
+end;
+
 (*
 {---------------------------------------------------------------------------
  Vraci jestli je jas dole (cela paleta ztmavena na darkcolor).
@@ -912,7 +1011,7 @@ Procedure TPal.SetCol(col,r,g,b:byte);assembler;
  asm
      les di,self
      mov dx,3c8h;mov al,col;out dx,al;inc dx
-     mov bl,3;mul al;mov bx,ax{bx=3*col}
+     mov bl,3;mul bl;mov bx,ax{bx=3*col}
      mov al,r;out dx,al;mov [es:di+bx+offset pal  ],al
      mov al,g;out dx,al;mov [es:di+bx+offset pal+1],al
      mov al,b;out dx,al;mov [es:di+bx+offset pal+2],al
@@ -922,24 +1021,78 @@ Procedure TPal.SetCol(col,r,g,b:byte);assembler;
  Nastavi barvy od fromcol do tocol na karte i v poli pal tak,
  aby tvorily plynuly prechod.
  ---------------------------------------------------------------------------}
-Procedure TPal.SetCols(fromcol,r1,g1,b1,tocol,r2,g2,b2:byte);
+Procedure TPal.SmoothCols(fromcol,r1,g1,b1,tocol,r2,g2,b2:byte);
 var   col,cols:byte;
 begin
+ if fromcol=tocol then begin SetCol(tocol,r2,g2,b2);exit;end;
  if fromcol>tocol then asm
     mov al,fromcol;xchg tocol,al;mov fromcol,al
     mov al,r1;xchg r2,al;mov r1,al
     mov al,g1;xchg g2,al;mov g1,al
     mov al,b1;xchg b2,al;mov b1,al
    end;
- if fromcol+1<=tocol-1 then begin
-   cols:=tocol-fromcol;
-   for col:=fromcol+1 to tocol-1 do
-    SetCol(col,
-           ( r1*(tocol-col) + r2*(col-fromcol) ) div cols,
-           ( g1*(tocol-col) + g2*(col-fromcol) ) div cols,
-           ( b1*(tocol-col) + b2*(col-fromcol) ) div cols
-          );
+ cols:=tocol-fromcol;
+ for col:=fromcol to tocol do
+  SetCol(col,
+         ( r1*(tocol-col) + r2*(col-fromcol) ) div cols,
+         ( g1*(tocol-col) + g2*(col-fromcol) ) div cols,
+         ( b1*(tocol-col) + b2*(col-fromcol) ) div cols
+        );
+end;
+
+{---------------------------------------------------------------------------
+ Nastavi jas od fromcol do tocol na karte i v poli pal tak,
+ ze u fromcol se zmeni o how, u tocol o 0. How je od -1000 do 1000.
+ ---------------------------------------------------------------------------}
+Procedure TPal.SmoothBright(fromcol,tocol:byte;how:integer;er,ge,be:boolean);
+var   c,r,g,b:byte;
+      hau:real;
+begin
+ for c:=minW(fromcol,tocol) to maxW(fromcol,tocol) do begin
+   if fromcol=tocol
+    then hau:=exp(how/1000)
+    else hau:=exp(how*abs(c-tocol)/abs(fromcol-tocol)/1000);
+   r:=pal[3*c  ];if er then r:=minW(63,round(r*hau));
+   g:=pal[3*c+1];if ge then g:=minW(63,round(g*hau));
+   b:=pal[3*c+2];if be then b:=minW(63,round(b*hau));
+   SetCol(c,r,g,b);
    end;
+end;
+
+{---------------------------------------------------------------------------
+ Nastavi kontrast od fromcol do tocol pouze v poli pal tak,
+ ze u fromcol se zmeni o how, u tocol o 0. How je od -1000 do 1000.
+ Nastaveni se tyka pouze jedne slozky r,g,b (podle ofs 0,1,2).
+ ---------------------------------------------------------------------------}
+Procedure TPal.SmoothContrast1(fromcol,tocol,ofs:byte;how:integer);
+var   c:byte;
+      delta:integer;
+      hau:real;
+      mid:longint;
+begin
+ mid:=0;
+ delta:=abs(fromcol-tocol);
+ if delta<>0 then begin
+   for c:=minW(fromcol,tocol) to maxW(fromcol,tocol)
+    do inc(mid,pal[3*c+ofs]*abs(c-tocol));
+   mid:=mid*2 div delta div (delta+1);
+   for c:=minW(fromcol,tocol) to maxW(fromcol,tocol) do begin
+     hau:=exp(how*abs(c-tocol)/delta/400);
+     pal[3*c+ofs]:=Bounded(round(mid+(pal[3*c+ofs]-mid)*hau),0,63);
+     end;
+   end;
+end;
+
+{---------------------------------------------------------------------------
+ Nastavi kontrast od fromcol do tocol na karte i v poli pal tak,
+ ze u fromcol se zmeni o how, u tocol o 0. How je od -1000 do 1000.
+ ---------------------------------------------------------------------------}
+Procedure TPal.SmoothContrast(fromcol,tocol:byte;how:integer;er,ge,be:boolean);
+begin
+ if er then SmoothContrast1(fromcol,tocol,0,how);
+ if ge then SmoothContrast1(fromcol,tocol,1,how);
+ if be then SmoothContrast1(fromcol,tocol,2,how);
+ ShowFromTo(minW(fromcol,tocol),maxW(fromcol,tocol));
 end;
 
 {---------------------------------------------------------------------------
@@ -958,6 +1111,14 @@ Procedure TPal.ShowFromTo(fromcol,tocol:byte);assembler;
  end;
 
 {---------------------------------------------------------------------------
+ Zobrazi paletu bitmapy v plnem jasu.
+ ---------------------------------------------------------------------------}
+Procedure TPal.Show;
+begin
+ ShowFromTo(first,last);
+end;
+
+{---------------------------------------------------------------------------
  Nastavi na karte jas 0..255.
  Vyuziva tyto promenne:
   pal          - odtud bere paletu jak by vypadala pri plnem jasu
@@ -974,6 +1135,15 @@ end;
 
 Procedure TPal.SetBrightFromTo(n,fromcol,tocol:byte);assembler;
  asm
+     {pro jas 255 neni nutno nasobit}
+     cmp n,255;jnz @notmax
+     push word ptr fromcol
+     push word ptr tocol
+     db 66h;push word ptr self
+     call TPal.ShowFromTo
+     jmp @end
+     @notmax:
+
      {if debug then n=max(n,128)}
      cmp debugpal,false;je @normal
      cmp n,128;ja @normal
@@ -1015,7 +1185,7 @@ begin
    i:=minI(0,time);
    repeat
     inc(i);
-    if CurScreen<>nil then CurScreen^.Refresh(1);
+    if CurScreen<>nil then CurScreen^.SyncRet;
     SetBright(longint(i)*255 div time);
    until (i=0) or (i=time);
    end;
@@ -1032,7 +1202,7 @@ begin
    i:=minI(0,time);
    repeat
     inc(i);
-    if CurScreen<>nil then CurScreen^.Refresh(1);
+    if CurScreen<>nil then CurScreen^.SyncRet;
     SetBright(longint(i)*255 div time);
    until (i=0) or (i=time);
    end;
@@ -1042,13 +1212,28 @@ end;
  Viz TPal.Fade, ale paletu nacita z vga registru.
  ---------------------------------------------------------------------------}
 Procedure TScreen.Fade(time:integer);
-var   p:PPal;
+var   p:TPal absolute freeB;
 begin
- p:=PPal(@memo.free);
- p^.Init;
- p^.ReadFromTo(0,255);
- p^.Fade(time);
- p^.Done;
+ p.Init;
+ p.ReadFromTo(0,255);
+ p.Fade(time);
+ p.Done;
+end;
+
+{---------------------------------------------------------------------------
+ Nahrada BiosGotoXY osetrujici Ybug.
+ ---------------------------------------------------------------------------}
+Procedure TScreen.GotoXY(x,y:integer);
+var   a:integer;
+begin
+ if MapModel=model_text then begin
+   if GotoYBug=1 then begin
+     a:=x+y*vramXres;
+     x:=a mod Xres;
+     y:=a div Xres;
+     end;
+   BiosGotoXY(x,y);
+   end;
 end;
 
 
@@ -1068,6 +1253,303 @@ PROCEDURE PostAntiBlik;
 begin
 end;
 
+
+
+{€€€€€€€€€€€€€€€€ T E X T  /  B I O S €€€€€€€€€€€€€€€€}
+
+
+{---------------------------------------------------------------------------
+ Ziskani informaci o modu pres BIOS.
+   Mode    - cislo modu
+   TxSir   - sirka obrazovky ve znacich
+   TxVys   - vyska obrazovky (ve znacich?)
+   charYres - vyska znaku v pixelech
+ ---------------------------------------------------------------------------}
+FUNCTION  GetBiosMode:byte;assembler;asm mov ah,0fh;int 10h;end;
+FUNCTION  GetBiosTxSir:byte;assembler;asm mov ah,0fh;int 10h;mov al,ah;end;
+FUNCTION  GetBiosTxVys:byte;assembler;asm mov ax,1130h;mov bh,0;push bp;int 10h;pop bp;mov al,dl;inc al;end;
+FUNCTION  GetBiosCharVys:byte;assembler;asm mov ax,1130h;mov bh,0;push bp;int 10h;pop bp;mov al,cl;end;
+
+
+{---------------------------------------------------------------------------
+ Zavede zadany font (na fnt^ ocekava 256 znaku sirky 8 a vysky vyska).
+ Pri fnt=nil nahraje ROM font zadane vysky 8, 14 nebo 16.
+ Nastavi odpovidajici pocet radek.
+ Nemaze obrazovku.
+ Pouze pro textmod.
+ ---------------------------------------------------------------------------}
+FUNCTION LoadUserFont(fnt:pointer;vyska:byte):TError;
+var   {$ifdef dpmi}
+      dosfnt            :pointer;
+      segment           :word;
+      RealModeRegs      :dpmiRealCallRegs;
+      {$endif}
+      double            :byte;
+begin
+ {zapamatuje si doublescan}
+ double:=ReadCrtc(9) shr 7;
+
+ {nastavi font}
+ if fnt=nil then begin
+   case vyska of
+     16:asm mov bl,0;mov ax,1114h;int 10h;end;
+     14:asm mov bl,0;mov ax,1111h;int 10h;end;
+      8:asm mov bl,0;mov ax,1112h;int 10h;end;
+     {$ifdef beta}
+     else erBetaMsg('loadromfont size '+stri(vyska));
+     {$endif}
+     end;
+   LoadUserFont:=erOk;
+   end
+ else begin
+  {$ifndef dpmi}
+    asm
+        push bp
+        mov ax,1110h;mov cx,256;mov dx,0;mov bl,0;mov bh,vyska
+        les bp,fnt
+        int 10h
+        pop bp
+        mov @result,true
+    end;
+    LoadUserFont:=erOk;
+  {$else}
+    {alokuje pamet}
+    if not GetMemDos(segment,dosfnt,256*vyska) then begin
+      LoadUserFont:=erLowDosMem;
+      exit;
+      end;
+    {zkopci font do naalokovane dosove pameti}
+    move(fnt^,dosfnt^,256*vyska);
+    {zavede newfnt}
+    with RealModeRegs do begin
+       clr;
+       rEAX:=$1110;
+       rEBX:=vyska shl 8;
+       rECX:=$0100;
+       rES:=Segment;{adresa newfontu}
+       end;
+    LoadUserFont:=erDumb(dpmiRealModeInt($10,@RealModeRegs));
+    {uvolni pamet}
+    FreeMemDos(dosfnt,256*vyska);
+  {$endif}
+  end;
+
+ {nastavi vysku znaku, starsi BIOSy to samy neudelaj}
+ WriteCrtc(9,ReadCrtc(9) and $e0+vyska-1);
+ {kdyz se doublescan zmenil, ohlasi chybu}
+ if double<>(ReadCrtc(9) shr 7) then erMsg('Chyba v biosu, sluzba load user font.');
+end;
+
+
+{---------------------------------------------------------------------------
+ Nahraje v textmodu ROM font zadane vysky 8 az 16 a nastavi pocet radek.
+ Nemaze obrazovku.
+ Kdyz to nejde nastavit presne (napr kdyz neni pamet),
+ pokusi se o priblizne nastaveni s preferenci nizsich fontu.
+ Vyslednou vysku fontu nelze 100% zarucit ani priblizne,
+ vzhledem k existenci utilit typu VGA28.
+ ---------------------------------------------------------------------------}
+FUNCTION LoadResizedRomFont(vyska:byte):boolean;far;
+const romsize           :array[2..6] of byte=(14,8,8,14,16);
+      param             :array[8..16] of byte=(3,3,3,3,3,3,2,2,6);
+var   par               :byte;
+      romsiz            :byte;
+type  Tfntbuf           =array[0..4095] of byte;
+var   romfnt            :^Tfntbuf;
+      newfnt            :^Tfntbuf;
+      {$ifdef dpmi}
+      segment           :word;
+      selector          :word;
+      RealModeRegs      :dpmiRealCallRegs;
+      {$endif}
+
+   procedure expand;
+   var i,c,top,bot:byte;
+   begin
+    {zkonverti font do cilove velikosti (z pole romfnt do pole newfnt)}
+    fillchar(newfnt^,sizeof(newfnt^),0);
+    top:=(vyska-romsiz+1) div 2;
+    bot:=vyska-romsiz-top;
+    for c:=0 to 255 do
+     move(romfnt^[c*romsiz],newfnt^[c*vyska+top],romsiz);
+    for c:=176 to 255 do begin
+     if top>0 then
+      if CmpByte(@romfnt^[c*romsiz],romfnt^[c*romsiz],2)
+       then fillchar(newfnt^[c*vyska],top,romfnt^[c*romsiz])
+       else
+       if CmpBlock(@romfnt^[c*romsiz],@romfnt^[c*romsiz+4],4)
+        then for i:=1 to top do newfnt^[c*vyska+top-i]:=romfnt^[c*romsiz+i mod 2]{};
+     if bot>0 then
+      if CmpByte(@romfnt^[c*romsiz+romsiz-3],romfnt^[c*romsiz+romsiz-1],3)
+       then fillchar(newfnt^[c*vyska+top+romsiz],bot,romfnt^[c*romsiz+romsiz-1])
+       else
+       if CmpBlock(@romfnt^[c*romsiz+romsiz-4],@romfnt^[c*romsiz+romsiz-8],4)
+        then for i:=1 to bot do newfnt^[c*vyska+top+romsiz-1+i]:=romfnt^[c*romsiz+romsiz-1-i mod 2]{};
+     end;
+   end;
+
+var   zmena:boolean;
+Begin
+ zmena:=false;
+ vyska:=Bounded(vyska,8,16);
+
+ {prime nastaveni bez resizu}
+ if vyska in [8,14,16] then zmena:=LoadUserFont(nil,vyska)=erOk;
+
+ {nastaveni s resizem}
+ if not zmena or (GetBiosCharVys<>vyska) then begin
+   par:=param[vyska];
+   romsiz:=romsize[par];
+
+   if GetMem(pointer(newfnt),sizeof(newfnt^)) then begin
+     {najde adresu fontu z romky, velikost 8,14 nebo 16}
+     {$ifdef dpmi}
+      with RealModeRegs do begin
+        clr;
+        rEAX:=$1130;
+        rEBX:=par shl 8;
+        end;
+      if erDumb(dpmiRealModeInt($10,@RealModeRegs))=erOk then begin
+       {zkonverti adresu romfontu na selektor}
+       Seg2Desc(RealModeRegs.rES);
+       romfnt:=ptr(RealModeRegs.rES,RealModeRegs.rEBP);
+       Expand;
+       zmena:=zmena or (LoadUserFont(newfnt,vyska)=erOk);
+       end;
+     {$else}
+      asm
+       push bp
+       mov ax,1130h;mov bh,par
+       int 10h
+       mov ax,bp
+       pop bp
+       mov word ptr romfnt,ax;mov word ptr romfnt+2,es
+      end;
+      Expand;
+      zmena:=zmena or (LoadUserFont(newfnt,vyska)=erOk);
+     {$endif}
+     FreeMem(pointer(newfnt),sizeof(newfnt^));
+     end;
+   end;
+
+ {nouzove priblizne nastaveni v pripade ze selhalo presne nastaveni}
+ if not zmena then
+  case vyska of
+    15   :zmena:=zmena or (LoadUserFont(nil,14)=erOk);
+    9..13:zmena:=zmena or (LoadUserFont(nil,8) =erOk);
+    end;
+
+ LoadResizedRomFont:=zmena;
+End;
+
+FUNCTION LoadDiskFont(fnt:PathStr;vyska:byte):TError;
+var   p:pointer;
+      datasize,freesize:longint;
+      result:TError;
+begin
+ p:=nil;
+ datasize:=0;
+ freesize:=0;
+ result:=LoadFile(fnt,p,datasize,freesize);
+ if result=erOK then begin
+   result:=LoadUserFont(p,vyska);
+   FreeMem(p,datasize+freesize);
+   end;
+ LoadDiskFont:=result;
+end;
+
+{---------------------------------------------------------------------------
+ Jen v textmodu: Zepta se uzivatelske procedury UserFont co by chtel
+ uzivatel za font a nastavi ho.
+ ---------------------------------------------------------------------------}
+Procedure LoadFont(vyska:byte);
+var   name:PathStr;
+      p:pointer;
+begin
+ name:='';
+ p:=nil;
+ {pokud jsi nastavil proceduru UserFont, zavola ji}
+ if @UserFont<>nil then UserFont(name,p,vyska);
+ {tvoje procedura UserFont ma vratit nastavene name,p,vyska}
+ {efekt je videt na nasledujicich trech radkach}
+ if name<>'' then LoadDiskFont(name,vyska){nastavi .fnt font z disku} else
+  if p<>nil then LoadUserFont(p,vyska){nastavi .fnt font z pameti} else
+   LoadResizedRomFont(vyska);{resizne a nastavi rom font}
+end;
+
+{---------------------------------------------------------------------------
+ Nastavi barevny textovy mod s co nejblizsim poctem radek.
+ Textovy mod:
+   bity 0..6     - pozadovany pocet radek
+   bit  7        - nemazat videopamet
+   bity 8..9     - oznacuje VESA mody
+   bity 10..11   - 0 - necha defaultni sirku znaku
+                   1 - nastavi sirku znaku na 8
+                   2 - nastavi sirku znaku na 9
+ ---------------------------------------------------------------------------}
+Function TScreen.SetMode_TEXT(newmode:word):boolean;
+var   radek,charsirka:byte;
+      mazat:boolean;
+const scanlines:array[0..3] of word=(400,400,350,480);
+begin
+ {nastavi neuspech, pri neuspechu pak uz staci jen exitnout}
+ SetMode_TEXT:=false;
+
+ {rozlozi cislo v NewMode do tri slozek}
+ radek:=newmode and $7f;
+ mazat:=(newmode and $80)=0;
+ case newmode shr 10 and 3 of 0:charsirka:=0;
+                              1:charsirka:=8;
+                              2:charsirka:=9;
+                              3:exit;
+                             end;
+
+ {nastavi standardni textmod 3}
+ {pred a po zmene modu provadi bezpecnostni opatreni proti bliknuti}
+ PreAntiBlik;
+ asm
+     mov ax,3
+     cmp mazat,0;jnz @mazat;or al,80h;@mazat:
+     int 10h;
+ end;
+ PostAntiBlik;
+
+ {okno do videopameti ve standardnim texmodu zacina vzdy na adrese SegB800}
+ SegVram           :=SegB800;
+ WinSizeKB         :=32;
+ VramSizeKB        :=32;
+
+ {ve standardnich textmodech lze psat pres Bios}
+ BiosOutput        :=true;
+
+ {ted je jiste ze neni nastaven VESA mod}
+ VesaMode          :=false;
+ VesaNowBank       :=0;
+ VesaBanking       :=false;
+
+ {nastavi pozadovany font}
+ ZadanaVyskaZnaku    :=scanlines[Port[$3cc] shr 6] div (ReadCrtc(9) shr 7+1) div Bounded(radek,12,100);
+ LoadFont(ZadanaVyskaZnaku);
+
+ {na prani natvrdo setne sirku znaku v pixelech}
+ case charsirka of 8:SetCharSir(8);
+                   9:SetCharSir(9);
+                   end;
+
+ {nastavi promenny popisujici mod}
+ MapModel          :=model_text;
+ ModeID            :=newmode;
+ Xres              :=GetBiosTxSir;
+ Yres              :=GetBiosTxVys;
+ lineOffset        :=2*GetBiosTxSir;
+ charXres          :=GetCharSir;
+ charYres          :=GetBiosCharVys;
+ BiPP              :=16;
+
+ {vraci uspech}
+ SetMode_TEXT:=true;
+
+end;
 
 
 
@@ -1178,24 +1660,6 @@ const
       {pocet bitu na pixel v jednom bitplane v internim formatu (tj. 15bit mody zabiraji 16bitu apod)}
       BiPPlist:array[0..22] of byte=(16,0,0,0,8,8,0,0,0,0,0,0,0,0,0,0,16,16,16,16,24,24,32);
 
-Type
- PResItem=^TResItem;
- TResItem=object(TObject)
-   ax,ay       :word;   {vzdy nastaveno}
-   amodel      :byte;   {vzdy nastaveno}
-   amode       :word;   {vzdy nastaveno}
-   aflags      :byte;
-   aretrace    :integer;{-1=nevim, jinak nastaveno}
-   afreq       :integer;{-1=nevim, jinak nastaveno}
-   constructor Init(model,x,y,mode:word);
- end;
-
- TResCollection=object(TSortedCollection)
-   function Compare(p1,p2:pointer):integer;virtual;
- end;
-
-Var   ResList:TResCollection;{*tohle casem prijde do interface}
-
 {---------------------------------------------------------------------------
  Nabankuje na 64KB bank (n mod VesaBanks).
  DS nemusi ukazovat na datasegment.
@@ -1206,18 +1670,14 @@ Var   ResList:TResCollection;{*tohle casem prijde do interface}
 Procedure TScreen.VesaSetBank(n:byte);assembler;
  asm
      push ds
-     push si
-     lds si,self
+     pusha
 
-     cmp [si+VesaBanking],0;jz @bankend
+     lds si,self
+     cmp [si+VesaBanking],false;je @bankend
      mov al,n
      xor ah,ah
-     cmp ax,[si+VesaNowBank];jz @bankend
-     cmp [si+VramSizeKB],64;jna @bankend
+     cmp [si+VesaNowBank],ax;je @bankend
      mov [si+VesaNowBank],ax
-     push ax
-     push bx
-     push dx
      shl ax,6
      xor dx,dx
      div [si+VramSizeKB]
@@ -1238,12 +1698,8 @@ Procedure TScreen.VesaSetBank(n:byte);assembler;
      int 10h{nekdy se musi banknout i window B}
      @skipB:
 
-     pop dx
-     pop bx
-     pop ax
-
      @bankend:
-     pop si
+     popa
      pop ds
  end;
 
@@ -1309,7 +1765,18 @@ begin
 end;
 
 {---------------------------------------------------------------------------
- Nastavi display address start. Vraci uspesnost.
+ Ma zjistit kolik vraci tmrGetScrSync.
+ TScreen to nepotrebuje, ale potomci muzou, proto je metoda virtualni.
+ Tuhle metodu ignoruj, kdyby to slo tak je private.
+ ---------------------------------------------------------------------------}
+Function TScreen.DetectTmrScrSync:word;
+begin
+ DetectTmrScrSync:=0;
+end;
+
+{---------------------------------------------------------------------------
+ Nastavi display address start (pozor: nevime jestli pri tom ceka na retrace).
+ Vraci uspesnost.
  ---------------------------------------------------------------------------}
 Function TScreen.VesaSetvis(x,y:word):boolean;assembler;
  asm
@@ -1334,7 +1801,7 @@ Function TScreen.VesaSetvis(x,y:word):boolean;assembler;
      mov cx,x;
      mov dx,y;int 10h
      les di,self
-     mov bl,[es:di+_VesaSetvisSyncuje]
+     mov bl,[es:di+VesaSetvisSyncuje]
      mov [es:di+synced],bl
      cmp ax,4fh;mov al,0;jnz @end
      inc al
@@ -1342,13 +1809,13 @@ Function TScreen.VesaSetvis(x,y:word):boolean;assembler;
  end;
 
 {---------------------------------------------------------------------------
- Nastavi display address start a pocka dokud nastaveni nenabyde platnosti.
+ Nastavi display address start a pocka na retrace.
  Vraci uspesnost.
  ---------------------------------------------------------------------------}
 Function TScreen.VesaSetvisSync(x,y:word):boolean;
 begin
  VesaSetvis(x,y);
- if not _VesaSetvisSyncuje then begin
+ if not VesaSetvisSyncuje then begin
    WaitForTrace;
    WaitForRetrace;
    synced:=true;
@@ -1389,7 +1856,7 @@ begin
    rECX:=mode;
    rES:=Segment;
    end;
-  if midasDumbError(dpmiRealModeInt($10,@RealModeRegs))<>0 then goto freee;
+  if erDumb(dpmiRealModeInt($10,@RealModeRegs))<>erOk then goto freee;
   {je sluzba vesa.getinfo podporovana ?}
   if word(RealModeRegs.rEAX)<>$4f then goto freee;
  {$endif}
@@ -1401,36 +1868,52 @@ begin
 end;
 
 {---------------------------------------------------------------------------
+ Vraci polozk reslistu obsahujici zadany mod.
+ ---------------------------------------------------------------------------}
+FUNCTION GetResItem(model,mode:word):PResItem;
+
+  function ModeMatch(p:PResItem):boolean;far;
+  begin
+   ModeMatch:=(p^.amodel=model) and (p^.amode=mode);
+  end;
+
+begin
+ GetResItem:=ResList.FirstThat(@ModeMatch);
+end;
+
+{---------------------------------------------------------------------------
  Nastavi pro soucasny mod nejvhodnejsi retraceLen.
  Vraci false kdyz je chovani karty prilis podivne.
  Pozorovani: chovani karty je prilis podivne pod Win95 ve druhem a dalsich
    DOS boxech. V prvnim z otevrenych boxu je ok. Neznam Windows, ale
    zkus se podivat po nejakem 'retrace emulation' switchi.
- Trva zhruba 0.1s.
+ Trva zhruba 0.1s, ale muze se protahnout.
+ Kdyz jednou skonci neuspechem, skonci tak vzdycky.
  ---------------------------------------------------------------------------}
+var   badretrace:array[false..true] of boolean;
+
 Function TScreen.DetectRetraceLen:boolean;
 var   fast:boolean;
-label 1,spatny;
+label 1,9;
 begin
- if debug then BiosWriteln('DetectRetraceLen...');
- DetectRetraceLen:=false;
- _RetraceLen:=0;
+ RetraceLen:=0;       
  1:
  screenfreq:=0;
- if not DelayFlag(delayrec,1000000 div zlomeksec) then exit;
+ if badretrace[VesaMode] then goto 9;
+ DelayStart(1000000 div maxfreqerror);
  repeat
   refresh(1);
-  inc(screenfreq,zlomeksec);
+  inc(screenfreq,maxfreqerror);
   fast:=screenfreq>maxgoodfreq;
- until delayrec^.flag or fast;
+ until DelayEnd or fast;
  if fast then begin
    if debug then BiosWrite('.');
-   if _RetraceLen>50 then exit;
-   inc(_RetraceLen,3);
+   badretrace[VesaMode]:=RetraceLen>50;
+   inc(RetraceLen,3);
    goto 1;
    end;
- DetectRetraceLen:=true;
- if debug then BiosWriteln('DetectRetraceLen ok. ('+stri(_retraceLen)+','+stri(screenfreq)+')');
+ 9:
+ DetectRetraceLen:=not badretrace[VesaMode];
 end;
 
 {---------------------------------------------------------------------------
@@ -1438,16 +1921,14 @@ end;
  ---------------------------------------------------------------------------}
 Procedure TScreen.DetectVesaBanking;
 begin
- if (vesaversion>=$100) and (vesamode) then begin
-   if debug then BiosWriteln('DetectVesaBanking...');
-   VesaBanking:=true;{nejdriv nastavi true aby SetVesaBank vubec bezel}
+ if (vesaversion>=$100) and (vesamode) and (VramSizeKB>64) then begin
+   VesaBanking:=true;{nejdriv nastavi true aby VesaSetBank vubec bezel}
    mem[SegVram:0]:=1;
    VesaIncBank;
    mem[SegVram:0]:=0;
    VesaDecBank;
    VesaBanking:=mem[SegVram:0]=1;
    mem[SegVram:0]:=0;
-   if debug then BiosWriteln('DetectVesaBanking ok.');
    end
   else
    VesaBanking:=false;
@@ -1458,25 +1939,31 @@ end;
  Trva zhruba 0.1s.
  ---------------------------------------------------------------------------}
 Procedure TScreen.DetectVesaSetvisSync;
+const snimku=15;{aby mereni trvalo nad 55ms i pri nejvetsi freq}
 var   fast:boolean;
       setvisfreq:word;
       i:word;
+      s:TStopky;
 begin
- if debug then BiosWriteln('DetectVesaSetvisSync...');
  i:=0;
  setvisfreq:=0;
- if not DelayFlag(delayrec,1000000 div zlomeksec) then begin
-   _VesaSetvisSyncuje:=true;{nelze zmerit -> nastavi pravdepodobnejsi vysledek}
-   exit;
+ if DelayStart(1000000 div zlomeksec) then begin
+   {rychle mereni pomoci delayflagu}
+   repeat
+    i:=1-i;
+    vesasetvis(0,i);
+    inc(setvisfreq,zlomeksec);
+    fast:=setvisfreq>screenfreq+3*maxfreqerror;{3* pro uplnou jistotu, teoreticky by melo stacit 2*}
+   until DelayEnd or fast;
+   VesaSetvisSyncuje:=not fast;
+   end
+ else begin
+   {pomale mereni pomoci stopek}
+   s.Start;              
+   for i:=1 to snimku do vesasetvis(0,i);
+   VesaSetvisSyncuje:=s.LookAt>(snimku*1000 div maxgoodfreq);
    end;
- repeat
-  i:=1-i;
-  vesasetvis(0,i);
-  inc(setvisfreq,zlomeksec);
-  fast:=setvisfreq>screenfreq+3*maxfreqerror;{3* pro uplnou jistotu, teoreticky by melo stacit 2*}
- until delayrec^.flag or fast;
- _VesaSetvisSyncuje:=not fast;
- if debug then BiosWriteln('DetectVesaSetvisSync ok. ('+stri(setvisfreq)+')');
+ vesasetvis(0,0);
 end;
 
 {---------------------------------------------------------------------------
@@ -1495,15 +1982,11 @@ begin
  ModeInfoSupported:=true;
 end;
 
+
 {---------------------------------------------------------------------------
- Nastavi pozadovany VESA mod a prislusne globalni promenne.
+ Nastavi pozadovany VESA mod a prislusne promenne.
  ---------------------------------------------------------------------------}
 Function TScreen.SetMode_VESA(newModel:byte;newMode:word):boolean;
-
-  function ModeMatch(p:PResItem):boolean;far;
-  begin
-   ModeMatch:=p^.amode=newMode;
-  end;
 
 var   ModeInfo:PModeInfoBlock;
       ResItem:PResItem;
@@ -1519,7 +2002,7 @@ begin
  if VesaVersion=0 then exit;
 
  {hleda mod v seznamu modu; nenalezeno = nepodporovano}
- ResItem:=ResList.FirstThat(@ModeMatch);
+ ResItem:=GetResItem(newModel,newMode);
  if ResItem=nil then goto freee;
 
  {nahraje info}
@@ -1538,14 +2021,14 @@ begin
    CurScreen         :=nil;{prechazi do chaoticke faze kdy cast promennych}
                            {popisuje stary mod, cast novy..}
 
-  {z modeinfo nacte zakladni udaje do globalnich promennych}
+  {z modeinfo nacte zakladni udaje do promennych}
    BiosOutput        :=(ModeAttributes and 4)>0;{je podporovan bios output?}
    VesaGranularity   :=WinGranularity;{jaka je granularita?}
    lineOffset        :=BytesPerScanLine;{jak jsou dlouhe radky ve videopameti?}
    VesaNowBank       :=0;{po nastaveni modu jsem v banku 0}
    ModeID            :=newMode;
 
-  {z modeinfo nacte rozsirene udaje do globalnich promennych}
+  {z modeinfo nacte rozsirene udaje do promennych}
    if optional then
     begin
      MapModel        :=MemoryModel;
@@ -1559,9 +2042,10 @@ begin
        charXres      :=1;
        charYres      :=1;
        end;
-     BitPlanes       :=1;{=NumOfPlanes; ale trident mi v textmodu vraci 4}
-                         {*opravit pri podpore 16coloru}
-     BiPP            :=BitsPerPixel;
+
+     if MemoryModel=model_text
+      then BiPP      :=16{v textmodu natvrdo 16 protoze nevim proc vsichni vraci 4}
+      else BiPP      :=BitsPerPixel;
      if MemoryModel in [model_packed, model_direct] then
                                           {model_packed - ARK Logic pouziva i pro Hi/TrueColor}
                                           {model_direct - Jedna se o HiColor nebo TrueColor}
@@ -1584,43 +2068,47 @@ begin
       MapModel    :=aModel;
       Xres        :=aX;
       Yres        :=aY;
-      BitPlanes   :=1;{*opravit pri podpore dalsich modu}
       BiPP        :=BiPPlist[MapModel];
       {naplneni charXres a charYres necha na pozdeji (po nastaveni modu)}
       end;
 
 
-   if debug then BiosWriteln('VesaModeSet...');
    asm
      {nastavi mod}
      mov ax,4f02h;mov bx,newMode           {nastavi parametry pro setmode}
      int 10h                               {vola vesabios}
      cmp ax,4fh;jnz freee                  {testuje zda bylo volani ok}
    end;
-   if debug then BiosWriteln('VesaModeSet ok.');
 
    PostAntiBlik;
 
+  {nastavi pozadovany font}
+   if MapModel=model_text then begin
+     if optional
+      then ZadanaVyskaZnaku:=charYres 
+      else ZadanaVyskaZnaku:=GetCharVys;
+     LoadFont(ZadanaVyskaZnaku);
+     end;
 
   {adresu zacatku okna do videopameti ve vesamodech nactu z WinA/BSegment}
    if (WinAAttributes and 7)=7 then begin
      SegVram         :=WinASegment;
      VesaUseWinA     :=true;
      VesaUseWinB     :=false;
-     VesaBanking     :=true;
+     VesaBanking     :=WinSize=64;
      end else
    if (WinBAttributes and 7)=7 then begin
      SegVram         :=WinBSegment;
      VesaUseWinA     :=false;
      VesaUseWinB     :=true;
-     VesaBanking     :=true;
+     VesaBanking     :=WinSize=64;
      end else
    if (WinAAttributes and WinBAttributes and 1)=1 then begin
      if WinASegment<>WinBSegment then goto freee;
      SegVram         :=WinASegment;
      VesaUseWinA     :=true;
      VesaUseWinB     :=true;
-     VesaBanking     :=true;
+     VesaBanking     :=WinSize=64;
      end else
    if (WinAAttributes and 6)=6 then begin
      SegVram         :=WinASegment;
@@ -1636,11 +2124,20 @@ begin
      end else
    goto freee;
 
+   {detekuje chybu vesa biosu (vraceni spatneho segmentu)}
+   if (MapModel=model_text) and (SegVram=$a000) then begin
+     i:=SegVram;
+     Seg2Desc(i);
+     mem[i:0]:=32;
+     if mem[i:0]<>32 then begin
+       SegVram       :=$b800;
+       WinSize       :=32;
+       end;
+     end;
+
    Seg2Desc(SegVram);
    WinSizeKB         :=WinSize;
-   VramSizeKB        :=NumOfBanks*BankSize;{*overit na karte s 4KB banky}
-                       {=1}      {=0}   {*he, proc mi karta vraci tyhle cisla?}
-   if VramSizeKB=0 then VramSizeKB:=VesaBanksTotal*64;
+   VramSizeKB        :=VesaBanksTotal*64;
 
    end;
 
@@ -1661,31 +2158,20 @@ begin
     charYres         :=1;
     end;
 
+ {v textmodu nepodporuju banking}
+ if MapModel=model_text then VesaBanking:=false;
  {spolehlive overeni funkcnosti bankingu}
  if VesaBanking then DetectVesaBanking;
  if not VesaBanking then VramSizeKB:=WinSizeKB;
- if not VesaBanking and (longint(Xres)*Yres*BiPP*bitplanes div 8 div 1024>WinSizeKB)
+ if not VesaBanking and (longint(Xres)*Yres*BiPP div 8 div 1024>WinSizeKB)
   then goto freee;{banking nefunguje a obrazovka je vetsi nez WinSize -> }
-                 { -> zachova se jako kdyz mod nejde nastavit}
+                  { -> zachova se jako kdyz mod nejde nastavit}
 
- {celkem spolehliva detekce funkcnosti retrace a mereni obnovovaci frekvence}
- {vysledky si uklada a pri pozdejsim nastaveni tehoz modu pouzije}
- with ResItem^ do
-  if aretrace<>-1 then begin
-    _retraceLen:=aretrace;
-    screenfreq:=afreq;
-    end else
-  if not DetectRetraceLen then goto freee else begin
-    aretrace:=_retraceLen;
-    afreq:=screenfreq;
-    end;
-
- {celkem spolehliva detekce rychlosti vesasetvisu}
- DetectVesaSetvisSync;
-
- {jsem v banku 0, ale delam ze to nevim, aby si prvni vystup musel banknout}
- {to se hodi kdyz vypisuju ladici hlasky writelnem, kterej prebankne z 0}
- if debug then VesaNowBank:=255;
+ {kontrola zda ziskane udaje davaji smysl}
+ if MapModel=model_text then begin
+   if lineOffset<>2*Xres then erMsg('Vadny vesa bios. Nekdy pro nej udelam podporu, zatim pouzij jine rozliseni.');
+   {*dodelat}
+   end;
 
  {je to dobry}
  SetMode_VESA:=true;
@@ -1700,254 +2186,10 @@ end;
 
 
 
-{€€€€€€€€€€€€€€€€ T E X T  /  B I O S €€€€€€€€€€€€€€€€}
-
-
-{---------------------------------------------------------------------------
- Ziskani informaci o modu pres BIOS.
-   Mode    - cislo modu
-   TxSir   - sirka obrazovky ve znacich
-   TxVys   - vyska obrazovky (ve znacich?)
-   charYres - vyska znaku v pixelech
- ---------------------------------------------------------------------------}
-FUNCTION  GetBiosMode:byte;assembler;asm mov ah,0fh;int 10h;end;
-FUNCTION  GetBiosTxSir:byte;assembler;asm mov ah,0fh;int 10h;mov al,ah;end;
-FUNCTION  GetBiosTxVys:byte;assembler;asm mov ax,1130h;mov bh,0;push bp;int 10h;pop bp;mov al,dl;inc al;end;
-FUNCTION  GetBiosCharVys:byte;assembler;asm mov ax,1130h;mov bh,0;push bp;int 10h;pop bp;mov al,cl;end;
-
-
-{---------------------------------------------------------------------------
- Nahraje v textmodu ROM font zadane vysky 8 az 16 a nastavi pocet radek.
- Nemaze obrazovku.
- Kdyz to nejde nastavit presne (napr kdyz neni pamet),
- pokusi se o priblizne nastaveni s preferenci nizsich fontu.
- Vyslednou vysku fontu nelze 100% zarucit ani priblizne,
- vzhledem k existenci utilit typu VGA28.
- ---------------------------------------------------------------------------}
-PROCEDURE _LoadRomFont(vyska:byte);
-const romsize           :array[2..6] of byte=(14,8,8,14,16);
-      param             :array[8..16] of byte=(3,3,3,3,3,3,2,2,6);
-var   par               :byte;
-      romsiz            :byte;
-type  Tfntbuf           =array[0..4095] of byte;
-var   romfnt            :^Tfntbuf;
-      newfnt            :^Tfntbuf;
-      {$ifdef dpmi}
-      segment           :word;
-      selector          :word;
-      RealModeRegs      :dpmiRealCallRegs;
-      {$endif}
-
-   procedure expand;
-   var i,c,top,bot:byte;
-   begin
-    {zkonverti font do cilove velikosti (z pole romfnt do pole newfnt)}
-    fillchar(newfnt^,sizeof(newfnt^),0);
-    top:=(vyska-romsiz+1) div 2;
-    bot:=vyska-romsiz-top;
-    for c:=0 to 255 do
-     move(romfnt^[c*romsiz],newfnt^[c*vyska+top],romsiz);
-    for c:=176 to 255 do begin
-     if top>0 then
-      if CmpByte(@romfnt^[c*romsiz],romfnt^[c*romsiz],2)
-       then fillchar(newfnt^[c*vyska],top,romfnt^[c*romsiz])
-       else
-       if CmpBlock(@romfnt^[c*romsiz],@romfnt^[c*romsiz+4],4)
-        then for i:=1 to top do newfnt^[c*vyska+top-i]:=romfnt^[c*romsiz+i mod 2]{};
-     if bot>0 then
-      if CmpByte(@romfnt^[c*romsiz+romsiz-3],romfnt^[c*romsiz+romsiz-1],3)
-       then fillchar(newfnt^[c*vyska+top+romsiz],bot,romfnt^[c*romsiz+romsiz-1])
-       else
-       if CmpBlock(@romfnt^[c*romsiz+romsiz-4],@romfnt^[c*romsiz+romsiz-8],4)
-        then for i:=1 to bot do newfnt^[c*vyska+top+romsiz-1+i]:=romfnt^[c*romsiz+romsiz-1-i mod 2]{};
-     end;
-   end;
-
-var   presne:boolean;
-label free,bad;
-Begin
- {presne nastaveni pokud je vyska rovna vysce romfontu}
- if vyska<8 then vyska:=8 else if vyska>16 then vyska:=16;
- case vyska of
-   16:asm mov bl,0;mov ax,1114h;int 10h;end;
-   14:asm mov bl,0;mov ax,1111h;int 10h;end;
-    8:asm mov bl,0;mov ax,1112h;int 10h;end;
-   end;
- if GetBiosCharVys=vyska then exit;
- par:=param[vyska];
- romsiz:=romsize[par];
-
- {presne nastaveni pokud neni vyska rovna vysce romfontu}
- presne:=false;
-
- {----
-  REAL
-  ----}
-  {$ifndef dpmi}
-    {alokuje pamet}
-    if not GetMem(pointer(newfnt),sizeof(newfnt^)) then goto bad;
-    asm {najde adresu fontu z romky, velikost 8,14 nebo 16}
-       push bp
-       mov ax,1130h;mov bh,par
-       int 10h
-       mov ax,bp
-       pop bp
-       mov word ptr romfnt,ax;mov word ptr romfnt+2,es
-    end;
-    {roztahne font z romfnt do newfnt}
-    Expand;
-    {zavede newfnt}
-    asm
-       push bp
-       mov ax,1110h;mov cx,256;mov dx,0;mov bl,0;mov bh,vyska
-       les bp,newfnt
-       int 10h
-       pop bp
-    end;
-    {nastavi vysku znaku, starsi BIOSy to samy neudelaj}
-    WriteCrtc(9,vyska-1);
-    {nastaveno presne}
-    presne:=true;
-    {uvolni pamet}
-    FreeMem(pointer(newfnt),sizeof(newfnt^));
-  {$endif}
-
- {----
-  DPMI
-  ----}
-  {$ifdef dpmi}
-    {alokuje DOS pamet pro newfnt}
-    if not GetMemDos(segment,pointer(newfnt),sizeof(newfnt^)) then goto bad;
-    {najde adresu fontu z romky, velikost 8,14 nebo 16}
-    with RealModeRegs do begin
-       clr;
-       rEAX:=$1130;
-       rEBX:=par shl 8;
-       end;
-    if midasDumbError(dpmiRealModeInt($10,@RealModeRegs))<>0 then goto free;
-    {zkonverti adresu romfontu na selektor}
-    Seg2Desc(RealModeRegs.rES);
-    romfnt:=ptr(RealModeRegs.rES,RealModeRegs.rEBP);
-    {roztahne font z romfnt do newfnt}
-    Expand;
-    {zavede newfnt}
-    with RealModeRegs do begin
-       clr;
-       rEAX:=$1110;
-       rEBX:=vyska shl 8;
-       rECX:=$0100;
-       rES:=Segment;{adresa newfontu}
-       end;
-    if midasDumbError(dpmiRealModeInt($10,@RealModeRegs))<>0 then goto free;
-    {nastavi vysku znaku, starsi BIOSy to samy neudelaj}
-    WriteCrtc(9,vyska-1);
-    {nastaveno presne}
-    presne:=true;
-    {uvolni pamet, nestoji za to testovat uspech}
-    free:
-    FreeMemDos(pointer(newfnt),sizeof(newfnt^));
-  {$endif}
-
- {nouzove priblizne nastaveni v pripade ze selhalo presne nastaveni}
- bad:
- if not presne then
-  case vyska of
-   15:asm mov bl,0;mov ax,1111h;int 10h;end;
-   9..13:asm mov bl,0;mov ax,1112h;int 10h;end;
-   end;
-End;
-
-
-{---------------------------------------------------------------------------
- Nastavi v textmodu zadany pocet radek (resp.nejblizsi vyssi pocet).
- Nemaze obrazovku.
- Vysledny pocet radek nelze 100% zarucit ani priblizne,
- vzhledem k existenci utilit typu VGA28 :-)
- ---------------------------------------------------------------------------}
-PROCEDURE SetTextLines(lines:integer);
-begin
- _LoadRomFont(400 div Bounded(lines,25,100));
-end;
-
-
-{---------------------------------------------------------------------------
- Nastavi barevny textovy mod s co nejblizsim poctem radek.
- Textovy mod:
-   bity 0..6     - pozadovany pocet radek
-   bit  7        - nemazat videopamet
-   bity 8..9     - oznacuje VESA mody
-   bity 10..11   - 0 - necha defaultni sirku znaku
-                   1 - nastavi sirku znaku na 8
-                   2 - nastavi sirku znaku na 9
- ---------------------------------------------------------------------------}
-Function TScreen.SetMode_TEXT(newmode:word):boolean;
-var   radek,charsirka:byte;
-      mazat:boolean;
-begin
- {nastavi neuspech, pri neuspechu pak uz staci jen exitnout}
- SetMode_TEXT:=false;
-
- {rozlozi cislo v NewMode do tri slozek}
- radek:=newmode and $7f;
- mazat:=(newmode and $80)=0;
- case newmode shr 10 and 3 of 0:charsirka:=0;
-                              1:charsirka:=8;
-                              2:charsirka:=9;
-                              3:exit;
-                             end;
-
- {nastavi standardni textmod 3}
- {pred a po zmene modu provadi bezpecnostni opatreni proti bliknuti}
- PreAntiBlik;
- asm
-     mov ax,3
-     cmp mazat,0;jnz @mazat;or al,80h;@mazat:
-     int 10h;
- end;
- PostAntiBlik;
-
- {okno do videopameti ve standardnim texmodu zacina vzdy na adrese SegB800}
- SegVram           :=SegB800;
- WinSizeKB         :=32;
- VramSizeKB        :=32;
-
- {ve standardnich textmodech lze psat pres Bios}
- BiosOutput        :=true;
-
- {ted je jiste ze neni nastaven VESA mod}
- VesaMode          :=false;
- VesaNowBank       :=0;
- VesaBanking       :=false;
-
- {na prani zmeni pocet radek}
- SetTextLines(radek);
-
- {na prani natvrdo setne sirku znaku v pixelech}
- case charsirka of 8:SetCharSir(8);
-                   9:SetCharSir(9);
-                   end;
-
- {nastavi globalni promenny popisujici mod}
- MapModel          :=model_text;
- ModeID            :=newmode;
- Xres              :=GetBiosTxSir;
- Yres              :=GetBiosTxVys;
- lineOffset        :=2*GetBiosTxSir;
- charXres          :=GetCharSir;
- charYres          :=GetBiosCharVys;
- BitPlanes         :=1;
- BiPP              :=16;
-
- {vraci uspech}
- SetMode_TEXT:=true;
-
-end;
-
-
 
 {€€€€€€€€€€€€€€€€ M O D E - X €€€€€€€€€€€€€€€€}
 
-const XModes = 21;
+const XModes = 20;
 
 {---------------------------------------------------------------------------
  Tabulky registru pro nastaveni X-modu.
@@ -1969,7 +2211,6 @@ procedure XModeInfo;assembler;
  {360x480}dw 0e7eeh,06B00h,05901h,05A02h,08E03h,5E04h,8A05h,0D06h,3E07h,4009h,0EA10h,0AC11h,0DF12h,2D13h,0E715h,616h
  {360x360}dw 0e7eeh,06b00h,05901h,05A02h,08E03h,05E04h,08A05h,04009h,08810h,08511h,06712h,02D13h,06D15h,0BA16h
  {376x308}dw 0e7eeh,06E00h,5D01h,5E02h,9103h,6204h,8F05h,6206h,0F07h,4009h,310Fh,3710h,8911h,3312h,2F13h,3C15h,5C16h
- {376x564}dw 0e7eeh,6E00h,5D01h,5E02h,9103h,6204h,8F05h,6206h,0F007h,6109h,310Fh,3710h,8911h,3312h,2F13h,3C15h,5C16h
  {256x200}dw 0e3eeh,05f00h,03f01h,04202h,09f03h,04c04h,00005h
  {256x240}dw 0e3eeh,05f00h,03f01h,04202h,09f03h,04c04h,00005h,00d06h,03e07h,04109h,0ea10h,0ac11h,0df12h,0e715h,616h
  {256x224}dw 0e3eeh,05f00h,3f01h,4202h,8203h,4a04h,9a05h,0b06h,3e07h,08h,4109h,0da10h,9c11h,0bf12h,2013h,0c715h,416h
@@ -1984,13 +2225,12 @@ procedure XModeInfo;assembler;
 
 Const
 
-  XModeRes : array[0..XModes-1,1..2] of Word =
+  XModeRes : array[1..XModes,1..2] of Word =
     ( (320,200), (320,240), (360,200), (360,240),
       (376,282), (320,400), (320,480), (360,400),
-      (360,480), (360,360), (376,308), (376,564),
-      (256,200), (256,240), (256,224), (256,256),
-      (360,270), (400,300), (256,400), (256,480),
-      (360,464));
+      (360,480), (360,360), (376,308), (256,200),
+      (256,240), (256,224), (256,256), (360,270),
+      (400,300), (256,400), (256,480), (360,464));
 
 (*
 
@@ -2092,7 +2332,7 @@ asm
 @dalsi:
  repne scasb
  dec   bx
- jns   @dalsi
+ jnz   @dalsi
  mov   si,di
 
  segcs lodsb
@@ -2127,7 +2367,7 @@ asm
 
  mov   si,newMode    {nacte sirku obrazu z XModeRes..}
  shl   si,2
- mov   ax,[si+offset XModeRes]
+ mov   ax,[si+offset XModeRes-4]
  shr   ax,3
  push  13h
  push  ax
@@ -2137,7 +2377,7 @@ end;
 
 
 {---------------------------------------------------------------------------
- Nastavi zadany Xmod a prislusne globalni promenne.
+ Nastavi zadany Xmod a prislusne promenne.
  ---------------------------------------------------------------------------}
 Function TScreen.SetMode_X(newModel:byte;newMode:word):boolean;
 begin
@@ -2145,7 +2385,7 @@ begin
  SetMode_X:=false;
 
  {nepodporovany mod}
- if newMode>=XModes then exit;
+ if not (newMode in [1..XModes]) then exit;
 
  {nastavi mod}
  {pred a po zmene modu provadi bezpecnostni opatreni proti bliknuti}
@@ -2168,7 +2408,7 @@ begin
  VesaNowBank       :=0;
  VesaBanking       :=false;
 
- {nastavi globalni promenne popisujici mod}
+ {nastavi promenne popisujici mod}
  MapModel          :=newModel;
  ModeID            :=newMode;
  Xres              :=XModeRes[newMode,1];
@@ -2178,7 +2418,6 @@ begin
   else lineOffset  :=Xres;
  charXres          :=1;
  charYres          :=1;
- BitPlanes         :=1;
  BiPP              :=8;
 
  {mod uspesne nastaven}
@@ -2190,72 +2429,57 @@ end;
 {€€€€€€€€€€€€€€€€ S E T V I S  /  S C R O L €€€€€€€€€€€€€€€€}
 
 {---------------------------------------------------------------------------
- Vraci cislo posledni scanline.
- Tj. v modu 3 400, v modu 13h 400, v modu 640x480 480 apod.
- Nektere starsi VesaBiosy muzou vracet spatnou hodnotu...
- ---------------------------------------------------------------------------}
-Function TScreen.GetTotalScans:integer;
-var   i:word;
-begin
- if VesaMode then i:=Yres*charYres
-             else i:=GetVerticalDisplayedEnd;
- GetTotalScans:=minW(i,1023);
-end;
-
-{---------------------------------------------------------------------------
- Vraci kolikrat paprsek probiha 1 radek. V textmodu to je vyska fontu,
- v 320x200 2, v 640x480 1 apod.
- Volat jen kdyz je sprave nastaven mod.
- Nektere starsi VesaBiosy muzou vracet spatnou hodnotu...
- ---------------------------------------------------------------------------}
-Function TScreen.GetLineScans:integer;
-begin
- if VesaMode then GetLineScans:=charYres
-             else GetLineScans:=ReadCrtc(9) and 31+1;
-end;
-
-{---------------------------------------------------------------------------
- Na radce Y rozdeli obrazovku. Od radky Y se bude zobrazovat od adresy 0
- nezavisle na nastaveni Display address start (viz Setvis).
+ Na scanline Y rozdeli obrazovku. Od scanline Y+1 se bude zobrazovat
+ od adresy 0 nezavisle na nastaveni Display address start (viz Setvis).
  Zadne kontroly.
+ Nemusi fungovat ve vesa modech.
  Zachova registry.
  ---------------------------------------------------------------------------}
-PROCEDURE _SplitY(y:word);assembler;
+PROCEDURE SetLineCompare(y:word);assembler;
  asm
-      pusha
-      mov dx,3d4h;
-      mov bx,y
-      mov al,18h;mov ah,bl;call OutDxAx
-      mov al,7;out dx,al;inc dx;in al,dx;and al,255-16;test bh,1;jz @no1;add al,16;@no1:out dx,al;dec dx
-      mov al,9;out dx,al;inc dx;in al,dx;and al,255-64;test bh,2;jz @no2;add al,64;@no2:out dx,al
-      popa
+      push ax
+      push dx
+       mov dx,3d4h
+       mov al,18h;mov ah,byte ptr y;call OutDxAx
+       mov al,7;out dx,al;inc dx;in al,dx;and al,255-16;test byte ptr y+1,1;jz @no1;add al,16;@no1:out dx,al;dec dx
+       mov al,9;out dx,al;inc dx;in al,dx;and al,255-64;test byte ptr y+1,2;jz @no2;add al,64;@no2:out dx,al
+      pop dx
+      pop ax
  end;
 
 {---------------------------------------------------------------------------
  Na radce Y rozdeli obrazovku. Od radky Y se bude zobrazovat od adresy 0
  nezavisle na nastaveni Display address start (viz Setvis).
  Kdyz Y prekroci pocet radek na obrazovce, obraz rozdelen nebude.
+ Nemusi fungovat ve vesa modech.
  Zachova registry.
  ---------------------------------------------------------------------------}
 Procedure TScreen.SplitY(y:word);assembler;
- asm {otestuje jestli uz neni nastaveno spravne}
-     push es
+ asm push es
      push di
      push bx
+     push ax
      les di,self
-     mov bx,y;cmp bx,[es:di+nowSplitY];jz @done;mov [es:di+nowSplitY],bx
+     mov bx,y
+     {porovna s maximem a pripadne zarovna}
+     cmp bx,[es:di+maxSplitY]
+     jna @notoverflow
+     mov bx,[es:di+maxSplitY]
+     @notoverflow:
+     {otestuje jestli uz neni nastaveno spravne}
+     cmp bx,[es:di+nowSplitY]
+     je @done
+     mov [es:di+nowSplitY],bx
+      {roznasobi doublescanem}
+      cmp [es:di+DoubleScan],2
+      jne @single
+      add bx,bx
+      inc bx
+      @single:
       {nastavi to}
-      push ax
-      push dx
-      mov dx,3d4h;
-      mov ax,[es:di+maxSplitY]
-      cmp bx,ax;jc @ok;mov bx,ax;@ok:
-      mov al,18h;mov ah,bl;call OutDxAx
-      mov al,7;out dx,al;inc dx;in al,dx;and al,255-16;test bh,1;jz @no1;add al,16;@no1:out dx,al;dec dx
-      mov al,9;out dx,al;inc dx;in al,dx;and al,255-64;test bh,2;jz @no2;add al,64;@no2:out dx,al
-      pop dx
-      pop ax
-     @done:
+      push bx;call SetLineCompare
+    @done:
+     pop ax
      pop bx
      pop di
      pop es
@@ -2270,7 +2494,6 @@ Procedure TScreen.SetvisHi(a:word);assembler;
      pusha
      push es
      les di,self
-     mov ax,a;mov [es:di+nowvisReg],ax
      mov dx,3d4h;mov al,0ch;mov ah,byte ptr a+1;call OutDxAx
      inc al;mov ah,byte ptr a;call OutDxAx
      pop es
@@ -2340,7 +2563,7 @@ Procedure TScreen.PanUp(y:byte);assembler;
 {---------------------------------------------------------------------------
  Nastavi levy horni roh obrazu do souradnic x,y.
  Souradnice jsou v pixelech, a to i v textmodu.
- Funkcnost je zarucena jen pri setvising=okay, resp scrolling=okay.
+ S vadnym vesa biosem nemusi fungovat.
  ---------------------------------------------------------------------------}
 Procedure TScreen.Setvis(x,y:word);assembler;
  asm
@@ -2354,10 +2577,6 @@ Procedure TScreen.Setvis(x,y:word);assembler;
      push x
      push y
      db 66h;push word ptr self;call vesasetvis
-     {*
-     trident v textmodu dela tohle: X scrolluje po pixelech, Y po znacich,
-     casem doplnim detekci teto chyby a jeji osetreni
-     }
      jmp @DONE
 
    @NOVESA:
@@ -2374,24 +2593,17 @@ Procedure TScreen.Setvis(x,y:word);assembler;
      push dx{push for panup}
      mov dx,[es:di+lineOffset];shr dx,1;mul dx;add ax,bx{ax=Hi(XY)}
      push ax{push for setvishi}
-{*odladit jednu verzi na vic kartach}
-(*trident ok
      db 66h;push word ptr self;call WaitForTrace
      {pushed before}db 66h;push word ptr self;call SetvisHi
      db 66h;push word ptr self;call WaitForRetrace
      {pushed before}db 66h;push word ptr self;call PanUp
      {pushed before}db 66h;push word ptr self;call PanLeft
      mov [es:di+synced],1
-{et6000 ok}*)
-     {pushed before}db 66h;push word ptr self;call SetvisHi
-     {pushed before}db 66h;push word ptr self;call PanUp
-     {pushed before}db 66h;push word ptr self;call PanLeft
-     (**)
      jmp @DONE
 
    @UNCHAINED:
    @PACKED:
-     mov ax,y;mul [es:di+lineOffset]
+     mov ax,y;mov bx,[es:di+vramXres];shr bx,2;mul bx
      mov bx,x;shr bx,2;add ax,bx
      push ax{push for setvishi}
      db 66h;push word ptr self;call WaitForTrace
@@ -2415,18 +2627,27 @@ Procedure TScreen.Setvis(x,y:word);assembler;
 {---------------------------------------------------------------------------
  Vygeneruje bitmapy nekolika standardnich sipek.
  ---------------------------------------------------------------------------}
+var   mouseBaseColor:byte;
 const mouseColors=4;
-      {$ifdef dement}
-      mouseBaseColor=13;
-      {$else}
-      mouseBaseColor=256-mouseColors;
-      {$endif}
       mousePalette:array[1..12] of byte=(18,18,0, 30,30,0, 45,45,0, 58,58,0);
 
-      s=mouseBaseColor;
-      t=mouseBaseColor+1;
-      u=mouseBaseColor+2;
-      v=mouseBaseColor+3;
+      s=1;
+      t=2;
+      u=3;
+      v=4;
+
+      sipka0sir=7;
+      sipka0vys=9;
+      sipka0data:array[1..sipka0sir*sipka0vys] of byte=(
+             u,t,t,s,0,0,0,
+             t,v,u,t,t,s,0,
+             t,v,v,v,u,t,0,
+             t,v,v,u,t,0,0,
+             t,v,u,v,t,0,0,
+             t,u,t,u,v,s,0,
+             t,0,0,t,u,t,0,
+             0,0,0,0,t,v,s,
+             0,0,0,0,0,t,s);
 
       sipka1sir=8;
       sipka1vys=16;
@@ -2470,63 +2691,40 @@ const mouseColors=4;
 
       sipka3sir=1;
       sipka3vys=1;
-      sipka3data:array[1..sipka3sir*sipka3vys] of word=($3f00+ord('˛'));
+      sipka3data:array[1..sipka3sir*sipka3vys] of word=($0f00+ord('˛'));
 
-var   sipka8x16   :PBitmap;
-      sipka16x16  :PBitmap;
-      sipka1x1    :PBitmap;
-
-FUNCTION InitMousePointers:boolean;
+{---------------------------------------------------------------------------
+ Nastavi ktere barvy pouzije sipka mysi. Defaultne je nastaveno 1,
+ tedy barvy 1..4.
+ ---------------------------------------------------------------------------}
+PROCEDURE MouseSetBaseColor(newbase:byte);
+var   i:word;
 begin
- InitMousePointers:=false;
-
- new(sipka8x16,Init(model_packed,sipka1sir,sipka1vys));
- if sipka8x16=nil then exit;
- sipka8x16^.StaticMem(@sipka1data,sizeof(sipka1data));
- sipka8x16^.transparent:=true;
-
- new(sipka16x16,Init(model_packed,sipka2sir,sipka2vys));
- if sipka16x16=nil then exit;
- sipka16x16^.StaticMem(@sipka2data,sizeof(sipka2data));
- sipka16x16^.transparent:=true;
-
- new(sipka1x1,Init(model_text,sipka3sir,sipka3vys));
- if sipka1x1=nil then exit;
- sipka1x1^.StaticMem(@sipka3data,sizeof(sipka3data));
-
- InitMousePointers:=true;
-end;
-
-PROCEDURE DoneMousePointers;
-begin
- KillObj(PObject(sipka8x16));
- KillObj(PObject(sipka16x16));
- KillObj(PObject(sipka1x1));
+ for i:=ofs(sipka0data) to ofs(sipka2data)+sizeof(sipka2data)-1 do
+  if mem[dseg:i]>0 then inc(mem[dseg:i],newbase-mouseBaseColor);
+ mouseBaseColor:=newbase;
 end;
 
 {---------------------------------------------------------------------------
  Inicializuje sipku mysi = vybere vhodnou standardni sipku pro tohle rozliseni
  a naalokuje buffer pro ukladani pozadi pod sipkou.
  ---------------------------------------------------------------------------}
-Procedure TScreen.MouseSetPointer(p:PBitmap;todestroy:boolean;pointX,pointY:word);
+Procedure TScreen.MouseSetPointer(p:PBitmap;pointX,pointY:word);
 var   oldmouse:boolean;
 begin
  oldmouse:=MouseHide;
  MouseKillPointer;
  if p=nil then begin
-   mouseDestroyBitmap :=false;
-   mousePointX        :=0;
-   mousePointY        :=0;
-   case MapModel of model_text:mouseBitmap:=sipka1x1;
-                    model_packed,
-                    model_unchained:if Yres>Xres
-                                     then mouseBitmap:=sipka8x16
-                                     else mouseBitmap:=sipka16x16;
-                    {*dalsi sipky}
+   mousePoint.X       :=0;
+   mousePoint.Y       :=0;
+   case MapModel of
+     model_text:InitStaticBitmap(mouseBitmap,model_text,sipka3sir,sipka3vys,@sipka3data,true);
+     model_packed,
+     model_unchained:if Yres>Xres then InitStaticBitmap(mouseBitmap,model_packed,sipka1sir,sipka1vys,@sipka1data,true) else
+                     if Yres<350 then InitStaticBitmap(mouseBitmap,model_packed,sipka0sir,sipka0vys,@sipka0data,true) else
+                                     InitStaticBitmap(mouseBitmap,model_packed,sipka2sir,sipka2vys,@sipka2data,true);
                     end;
-   {$ifdef beta}
-   if mouseBitmap=nil then erBetaMsg('mousesetpointer');
-   {$endif}
+   if mouseBitmap=nil then Halt(erLowMem);
    if mouseBitmap^.MainPal<>nil then
     with mouseBitmap^.MainPal^ do begin
      first:=mouseBaseColor;
@@ -2535,16 +2733,17 @@ begin
      end;
    end
   else begin
-   mouseDestroyBitmap :=todestroy;
-   mousePointX        :=pointX;
-   mousePointY        :=pointY;
+   mousePoint.X       :=pointX;
+   mousePoint.Y       :=pointY;
    mouseBitmap        :=p;
    end;
  with mouseBitmap^ do begin
    new(mouseBuffer,Init(MapModel,sizeX,sizeY));
-   MouseSetRange(0,0,Xres-sizeX,Yres-sizeY);
+   mouseRng.Assign(0,0,Xres-sizeX,Yres-sizeY);
+   MouseSetRange;
    end;
  if oldmouse then MouseShow;
+ {* hlidat aby nenastavil big sipku tesne u kraje obrazovky}
 end;
 
 {---------------------------------------------------------------------------
@@ -2552,10 +2751,8 @@ end;
  ---------------------------------------------------------------------------}
 Procedure TScreen.MouseKillPointer;
 begin
- KillObj(PObject(mouseBuffer));
- if mouseDestroyBitmap
-  then KillObj(PObject(mouseBitmap))
-  else mouseBitmap:=nil;
+ KillObj(mouseBuffer);
+ KillObj(mouseBitmap);
 end;
 
 {---------------------------------------------------------------------------
@@ -2563,8 +2760,8 @@ end;
  ---------------------------------------------------------------------------}
 Procedure TScreen.MouseAdjustSpeed;
 begin
- mouseSetSpeed(350000 div mouseSpeed div Xres,
-               350000 div mouseSpeed div Yres);
+ mouseSetSpeed(200000 div mouseSpeed div Xres,
+               200000 div mouseSpeed div Yres);
 end;
 
 {---------------------------------------------------------------------------
@@ -2591,21 +2788,21 @@ var   oldpen:byte;
 begin
  {$ifdef beta}
  if debugpal then SetHWCol(0,0,0,63);
+ if mouseWarning<>0 then erBetaMsg('chyba v synchronizaci mouseshow '+stri(mouseWarning));
+ mouseWarning:=1;
  {$endif}
- asm pushf;cli;end;
  if not mouseflag then begin
-   mouseSipkaX:=mouseX;
-   mouseSipkaY:=mouseY;
+   mouseSipka:=mouse;
    oldpen:=pen;
    pen:=PEN_SCREEN;
-   Box2BtF(mouseBuffer,mouseSipkaX,mouseSipkaY);
-   BtF2Box(mouseBitmap,mouseSipkaX,mouseSipkaY);
+   Box2BtF(mouseBuffer,mouseSipka.X+mousePoint.X,mouseSipka.Y+mousePoint.Y);
+   BtF2Box(mouseBitmap,mouseSipka.X+mousePoint.X,mouseSipka.Y+mousePoint.Y);
    pen:=oldpen;
    mouseflag:=true;
    mouseRedrawFlag:=true;
    end;
- asm popf;end;
  {$ifdef beta}
+ mouseWarning:=0;
  if debugpal then SetHWCol(0,0,0,0);
  {$endif}
 end;
@@ -2618,18 +2815,19 @@ var   oldpen:byte;
 begin
  {$ifdef beta}
  if debugpal then SetHWCol(0,63,0,0);
+ if mouseWarning<>0 then erBetaMsg('chyba v synchronizaci mousehide '+stri(mouseWarning));
+ mouseWarning:=2;
  {$endif}
- asm pushf;cli;end;
  MouseHide:=mouseflag;
  if mouseflag then begin
    oldpen:=pen;
    pen:=PEN_SCREEN;
-   BtF2Box(mouseBuffer,mouseSipkaX,mouseSipkaY);
+   BtF2Box(mouseBuffer,mouseSipka.X+mousePoint.X,mouseSipka.Y+mousePoint.Y);
    pen:=oldpen;
    mouseflag:=false;
    end;
- asm popf;end;
  {$ifdef beta}
+ mouseWarning:=0;
  if debugpal then SetHWCol(0,0,63,0);
  {$endif}
 end;
@@ -2639,7 +2837,7 @@ end;
  ---------------------------------------------------------------------------}
 Procedure TScreen.MouseRescanState;
 begin;
- mouseGet(mouseX,mouseY,mouseZ);
+ mouseGet(mouse.X,mouse.Y,mouse.Z);
 end;
 
 {---------------------------------------------------------------------------
@@ -2647,22 +2845,15 @@ end;
  ---------------------------------------------------------------------------}
 Procedure TScreen.MouseRescanPress;
 begin
- if mys.mouseRescanPress(mousePresX,mousePresY,mousePresZ) then begin
-   inc(mousePresX,mousePointX);
-   inc(mousePresY,mousePointY);
-   end;
+ mys.mouseRescanPress(mousePres.X,mousePres.Y,mousePres.Z);
 end;
 
 {---------------------------------------------------------------------------
  Nahrada mys.mouseSetRange.
  ---------------------------------------------------------------------------}
-Procedure TScreen.MouseSetRange(x1,y1,x2,y2:word);
+Procedure TScreen.MouseSetRange;
 begin
- mouseRngX1:=x1;
- mouseRngY1:=y1;
- mouseRngX2:=x2;
- mouseRngY2:=y2;
- mys.mouseSetRange(x1,y1,x2,y2);
+ with mouseRng do mys.mouseSetRange(a.x,a.y,b.x,b.y);
 end;
 
 {---------------------------------------------------------------------------
@@ -2670,18 +2861,18 @@ end;
  ---------------------------------------------------------------------------}
 Procedure TScreen.MouseSetPos(x,y:integer);
 begin
- mouseX:=Bounded(x,mouseRngX1,mouseRngX2);
- mouseY:=Bounded(y,mouseRngY1,mouseRngY2);
- mys.mouseSetPos(mouseX,mouseY);
+ mouse.X:=Bounded(x,mouseRng.a.x,mouseRng.b.x);
+ mouse.Y:=Bounded(y,mouseRng.a.y,mouseRng.b.y);
+ mys.mouseSetPos(mouse.X,mouse.Y);
 end;
 
 {---------------------------------------------------------------------------
  Posune sipku o dx,dy. Pri preteceni zarovna do povoleneho rozsahu.
  Neprekresluje sipku, na to pouzij redraw.
  ---------------------------------------------------------------------------}
-Procedure TScreen.MouseShift(dx,dy,speed:integer);
+Procedure TScreen.MouseShift(dx,dy:integer);
 begin
- MouseSetPos(mouseX+dx*speed div 256,mouseY+dy*speed div 256);
+ MouseSetPos(mouse.X+dx,mouse.Y+dy);
 end;
 
 {---------------------------------------------------------------------------
@@ -2689,7 +2880,7 @@ end;
  ---------------------------------------------------------------------------}
 Procedure TScreen.MouseRedraw;
 begin
- if (mouseX<>mouseSipkaX) or (mouseY<>mouseSipkaY) then
+ if (mouse.X<>mouseSipka.X) or (mouse.Y<>mouseSipka.Y) then
   if mouseFlag then begin
     MouseHide;
     MouseShow;
@@ -2731,7 +2922,7 @@ Begin
  CurScreen:=nil;
  asm mov ax,13h;int 10h;end;
  i:=0;
- DelayFlag(delayrec,1000000 div presnost);
+ DelayStart(1000000 div presnost);
  repeat
   asm
    mov es,SegA000
@@ -2741,7 +2932,7 @@ Begin
    db 66h;rep stosw
    inc i
   end;
- until delayrec^.flag;
+ until DelayEnd;
  DCV:=i*presnost;
 end;
 
@@ -2762,7 +2953,9 @@ begin
  ExpandFul:=(sizeX=vramXres) and (sizeY=vramYres);
  if expand then begin
    SizeX    :=vramXres;
-   SizeY    :=vramYres+1{aby smazal i posledni nekompletni radek};
+   SizeY    :=vramYres;
+   if WinSizeKB=64 then inc(SizeY);{aby pri Clr2Ful smazal i posledni nekompletni radek videopameti}
+      {pozor prasarna. urcite skodi pri winsize<>64, dalsi se ukaze casem..}
    end
   else begin
    SizeX    :=Xres;
@@ -2780,10 +2973,11 @@ end;
 Procedure TScreen.LoadCfg;
 begin
  setvisYbug:=-1;
+ gotoYbug:=-1;
 end;
 
 {---------------------------------------------------------------------------
- Nastavi pozadovany mod a vsechny potrebne globalni promenne.
+ Nastavi pozadovany mod a vsechny potrebne promenne.
 
  Mod jehoz cislo odpovida standardnim VESA modum je povazovan za VESA mod.
  Kazdy jiny graficky mod ma nadeklarovanou prislusnou konstantu.
@@ -2796,29 +2990,26 @@ end;
                    2 - nastavi sirku znaku na 9 (+2048)
  ---------------------------------------------------------------------------}
 Function TScreen.SetMode(newModel:byte;newMode:word):boolean;
-var   ok:boolean;
 begin
- SetMode:=false;
-
- if not inherited Init(newModel,BiPPlist[newModel],{rozmery zatim neznam}0,0) then exit;
+ inherited Init(newModel,BiPPlist[newModel],{rozmery zatim neznam}0,0);
 
  {zapamatuje si prevscreen}
  if CurScreen<>@self then
   if CurScreen<>nil then PrevScreen:=CurScreen else begin
     PrevModel:=model_text;
-    if GetBiosMode=3 then begin PrevSir:=GetBiosTxSir;PrevVys:=GetBiosTxVys;end
-                     else begin PrevSir:=80;PrevVys:=25;end;
+    if GetBiosMode=3 then PrevMode:=GetBiosTxVys
+                     else PrevMode:=25;
     end;
 
  {nastavi mod}
  case newmodel of
    model_text:if IsVesamode(newModel,newMode)
-                 then ok:=SetMode_VESA(newModel,newMode){VESA textmod}
-                 else ok:=SetMode_TEXT(newMode);        {VGA textmod}
+                 then SetMode:=SetMode_VESA(newModel,newMode){VESA textmod}
+                 else SetMode:=SetMode_TEXT(newMode);        {VGA textmod}
    model_unchained,
    model_packed:if IsVesamode(newModel,newMode)
-                 then ok:=SetMode_VESA(newModel,newMode){VESA packed 256color}
-                 else ok:=SetMode_X(newModel,newMode);  {VGA packed/unchained 256color}
+                 then SetMode:=SetMode_VESA(newModel,newMode){VESA packed 256color}
+                 else SetMode:=SetMode_X(newModel,newMode);  {VGA packed/unchained 256color}
    model_direct,                                        {Libovolny Hi/TrueColor}
    model_BGR15,                                         {standardni HiColor 15bit}
    model_RGB15,                                         {nestandardni HiColor 15bit,
@@ -2827,43 +3018,16 @@ begin
    model_RGB16,                                         {nestandardni HiColor 16bit, viz RGB15}
    model_BGR24,                                         {standardni TrueColor 24bit}
    model_RGB24,                                         {nestandardni TrueColor 24bit, viz RGB24}
-   model_BGRA32:      ok:=SetMode_VESA(newModel,newMode);{standardni TC 32bit}
-   else               ok:=false;                        {nepodporovany mod}
+   model_BGRA32:      SetMode:=SetMode_VESA(newModel,newMode);{standardni TC 32bit}
+   else               SetMode:=false;                        {nepodporovany mod}
   end;
-
- {bylo-li nastaveni modu uspesne...}
- if ok then begin
-   {natahne nektere parametry modu}
-   LoadCfg;
-   {velikost virtualni obrazovky rovna normalni obrazovce}
-   vramXres :=Xres;
-   vramYres :=longint(VramSizeKB)*1024*8 div (vramXres*BiPP*BitPlanes);
-   {zadny split}
-   topYres  :=Yres;
-   botYres  :=0;
-   {maximalni hodnota nastavitelna v SplitY}
-   maxSplitY:=GetTotalScans;
-   nowSplitY:=65535;
-   {setvis na zacatku videopameti}
-   vramVisX :=0;
-   vramVisY :=0;
-   nowvisReg:=0;
-   {nastavi pocatecni souradnice, rozsah a citlivost pro mys}
-   if MapModel=model_text then mouseSetJump(8,8) else mouseSetJump(4,4);
-   MouseSetPointer(nil,{fuk}false,0,0);
-   mouseSetPos(Xres div 2,Yres div 2);
-   mouseAdjustSpeed;
-   {uz znam rozmery, tak je nastavim do atributu abstractmap}
-   ExpandFul(false);
-   {teprv ted, kdyz je vse nastavene, je mod inicializovan}
-   CurScreen:=@self;
-   end;
- SetMode:=ok;
 end;
 
 {---------------------------------------------------------------------------
  Obnovi stav obrazovky (rozliseni fyzicke i virtualni, split, mys...
   ale ne bitmapu a paletu).
+ Pozor: kdyz pred reinitem zmenis LoadFont, muze se nastavit mod s jinym
+  poctem radek nez byl prve, tim vznikne pekny chaos.
  ---------------------------------------------------------------------------}
 Procedure TScreen.ReInit;
 begin
@@ -2879,38 +3043,38 @@ begin
      model_unchained:SetXMode(MapModel,ModeID);
      model_text:begin
                  asm mov ax,3;int 10h;end;
-                 {na prani zmeni pocet radek}
-                 SetTextLines(ModeID);
                  {na prani natvrdo setne sirku znaku v pixelech}
                  SetCharSir(charXres);
-                 {zakaze scrol spodni pulky obrazu ve splitscreenu}
-                 EnableSplitScrol(false);
                 end;
      end;
+ if MapModel=model_text then LoadFont(ZadanaVyskaZnaku);
  CurScreen:=@self;
  if MapModel<>model_text then BlackHWPal;{zcerna paletu protoze nasledujici
    radky muzou na obrazovku dostat nesmazanou vramku}
  SetVramXRes(vramXres);
- _SplitY(nowSplitY);
+ SetLineCompare(DoubleScan*(nowSplitY+1)-1);
  SetVis(vramVisX,vramVisY);
- mouseSetRange(mouseRngX1,mouseRngY1,mouseRngX2,mouseRngY2);
- mouseSetPos(mouseX,mouseY);
+ mouseSetRange;
+ mouseSetPos(mouse.X,mouse.Y);
  mouseAdjustSpeed;
 end;
 
 
 {---------------------------------------------------------------------------
- Nastavi sirku virtualni obrazovky v pixelech, pripadne nejblizsi vyssi sirku.
+ Nastavi sirku virtualni obrazovky v pixelech (resp znacich v textmodu),
+ pripadne nejblizsi vyssi sirku.
  Opravi:
   - vramXres
   - vramYres
   - lineOffset
  Vraci true pokud se podarila nastavit zadana nebo vyssi hodnota.
  Pozor: pokud vadny vesa bios vraci uspech ale nic nenastavi, tato rutina
-   se nemuze branit. Ale viz promenna virtXstep.
+   se nemuze branit, nepozna to.
  ---------------------------------------------------------------------------}
 Function TScreen.SetVramXRes(virtualX:word):boolean;
-var   BPL,newcrtc:word;
+var   newcrtc:word;
+      ret_vramXres,ret_lineOffset:word;
+      exp:boolean;
 label doneOk,doneBad;
 begin
  {$ifdef beta}
@@ -2920,8 +3084,11 @@ begin
  {nastavi neuspech, pri neuspechu pak uz staci jen exitnout}
  SetVramXRes:=false;
 
+ exp:=sizeY>Yres;
+
  IF VesaMode then
   begin
+   virtualX:=virtualX*charXres;{prevede udaj ze znaku na pixely}
    asm
        mov ax,4f06h;mov bl,0          {sluzba set virtual length}
        mov cx,virtualX                {nastavi parametry}
@@ -2930,17 +3097,22 @@ begin
        mov ax,4f06h;mov bl,1          {sluzba get virtual length}
        int 10h                        {vola vesabios}
        cmp ax,4fh;jnz donebad         {probehla sluzba uspesne?}
-       mov BPL,bx                     {BytesPerLine}
-       les di,self
-       mov [es:di+vramXres],cx
-       mov [es:di+vramYres],dx
+       mov ret_lineOffset,bx          {ulozi vysledky}
+       mov ret_vramXres,cx
    end;
-   case MapModel of
-                 model_packed:lineOffset:=BPL;
-                 model_text:lineOffset:=BPL shl 1;
-                 {*dalsi vesa modely}
-                 else goto donebad;
-                 end;
+   virtualX:=virtualX div charXres;{prevede udaje z pixelu na znaky}
+   ret_vramXres:=ret_vramXres div charXres;
+
+   {if vbe daz heavy kaoz..}
+   if (ret_lineOffset=lineOffset) xor (ret_vramXres=vramXres) then begin
+     {try to return old state}
+     virtualX:=vramXres*charXres;
+     asm mov ax,4f06h;mov bl,0;mov cx,virtualX;int 10h;end;
+     goto donebad;
+     end;
+
+   lineOffset:=ret_lineOffset;
+   vramXres  :=ret_vramXres;
   end
  ELSE
   case MapModel of
@@ -2970,28 +3142,10 @@ begin
   {toto provadi po uspesnem nastaveni, presto jeste muze vratit false
    pokud vesa bios nastavil min nez mel (ma nastavovat nejblizsi VYSSI hodnotu)}
   SetVramXRes       :=vramXres>=virtualX;
-  vramYres          :=longint(VramSizeKB)*1024*8 div (vramXres*BiPP*BitPlanes);
+  vramYres          :=longint(VramSizeKB)*1024*8 div (vramXres*BiPP);
+  {udaj z vramX/Yres musi prenest do sizeX/Y}
+  ExpandFul(exp);
  doneBad:
-end;
-
-
-{---------------------------------------------------------------------------
- Nastavi v dolni casti obrazovky pevnou listu vysky Y.
- Funkcnost je zarucena jen pri splitting=okay.
- V textmodu je jednotkou radek textu, v gfx.modech radek pixelu.
- ---------------------------------------------------------------------------}
-Procedure TScreen.SetSplit(splitlines:word);
-var   lines:word;
-begin
- {$ifdef beta}
- if CurScreen<>@self then erBetaMsg('setsplit 1');
- {$endif}
-
- topYres:=Yres-splitlines;
- botYres:=splitlines;
- {je mozne, ze split nefunguje ve vesa modech, doufejme}
- {ze v tom pripade aspon nezamrzne pocitac}
- SplitY(maxSplitY-GetLineScans*splitlines-1);
 end;
 
 
@@ -3000,24 +3154,15 @@ end;
  Ukonci praci s modem a vrati se do predchoziho.
  ---------------------------------------------------------------------------}
 Destructor TScreen.Done;
-var   p:PScreen;
 begin
- if SilentDone
-  then inherited Done
-  else begin
-   MouseHide;
-   MouseKillPointer;
-   p:=PrevScreen;
-   inherited Done;
-   if p<>nil
-    then p^.ReInit
-    else begin
-          new(p,Init(PrevModel,PrevSir,PrevVys,0));
-          CurScreen:=nil;
-          if p<>nil then Dispose(p);
-         end;
-   if CurScreen=@self then CurScreen:=nil;
-   end;
+ if not SilentDone then MouseHide;
+ MouseKillPointer;
+ if not SilentDone then
+  if PrevScreen<>nil
+    then PrevScreen^.ReInit
+    else SetMode(PrevModel,PrevMode);
+ inherited Done;
+ if CurScreen=@self then CurScreen:=nil;
 end;
 
 
@@ -3028,7 +3173,7 @@ end;
 
 Constructor  TAbstractMap.Init(newmodel,newBiPP,sir,vys:word);
 begin
- if not inherited Init then Fail;
+ inherited Init;
  MapModel   :=newmodel;
  BiPP       :=newBiPP;
  SizeX      :=sir;
@@ -3088,34 +3233,67 @@ begin
  Box2BtB(p,srcX,srcY,p^.sizeX,p^.sizeY,0,0);
 end;
 
-Function TAbstractMap.CopyBox(srcX,srcY,Sirka,Vyska:word):PBitmap;
+
+Function TAbstractMap.BoxCopy(srcX,srcY,Sirka,Vyska:word):PBitmap;
 var   map:PBitmap;
 begin
  New(map,Init(MapModel,Sirka,Vyska));
  if map<>nil then Box2BtF(map,srcX,srcY);
- CopyBox:=map;
+ BoxCopy:=map;
 end;
 
-Function TAbstractMap.Box2Box(p:PAbstractMap;srcX,srcY,Sirka,Vyska,destX,destY:word):boolean;
+Function TAbstractMap.FulCopy:PBitmap;
+begin
+ FulCopy:=BoxCopy(0,0,sizeX,sizeY);
+end;
+
+Function TAbstractMap.ResizeBoxCopy(srcX,srcY,srcSir,srcVys,destSir,destVys:word):PBitmap;
 var   map:PBitmap;
 begin
- Box2Box:=false;
- map:=CopyBox(srcX,srcY,Sirka,Vyska);
- if map<>nil then begin
-   BtF2Box(map,destX,destY);
-   map^.Free;
-   Box2Box:=true;
-   end;
+ New(map,Init(MapModel,destSir,destVys));
+ if map<>nil then ResizeBox2BtF(map,srcX,srcY,srcSir,srcVys);
+ ResizeBoxCopy:=map;
 end;
 
-Function TAbstractMap.Ful2Box(p:PAbstractMap;destX,destY:word):boolean;
+Function TAbstractMap.ResizeFulCopy(destSir,destVys:word):PBitmap;
 begin
- Ful2Box:=Box2Box(p,0,0,SizeX,SizeY,destX,destY);
+ ResizeFulCopy:=ResizeBoxCopy(0,0,sizeX,sizeY,destSir,destVys);
 end;
 
-Function TAbstractMap.Box2Ful(p:PAbstractMap;srcX,srcY:word):boolean;
+Function TBitmap.BoxCopy(srcX,srcY,Sirka,Vyska:word):PBitmap;
+var   map:PBitmap;
 begin
- Box2Ful:=Box2Box(p,srcX,srcY,p^.SizeX,p^.SizeY,0,0);
+ map:=inherited BoxCopy(srcX,srcY,Sirka,Vyska);
+ if (map<>nil) and (MainPal<>nil) and (map^.MainPal<>nil) then map^.MainPal^:=MainPal^;
+ BoxCopy:=map;
+end;
+
+Function TBitmap.ResizeBoxCopy(srcX,srcY,srcSir,srcVys,destSir,destVys:word):PBitmap;
+var   map:PBitmap;
+begin
+ map:=inherited ResizeBoxCopy(srcX,srcY,srcSir,srcVys,destSir,destVys);
+ if (map<>nil) and (MainPal<>nil) and (map^.MainPal<>nil) then map^.MainPal^:=MainPal^;
+ ResizeBoxCopy:=map;
+end;
+
+
+Procedure TAbstractMap.Box2Box(p:PAbstractMap;srcX,srcY,Sirka,Vyska,destX,destY:word);
+var   map:PBitmap;
+begin
+ map:=BoxCopy(srcX,srcY,Sirka,Vyska);
+ if map=nil then Halt(erLowMem);{*kopcit po mensich blocich}
+ BtF2Box(map,destX,destY);
+ map^.Free;
+end;
+
+Procedure TAbstractMap.Ful2Box(p:PAbstractMap;destX,destY:word);
+begin
+ Box2Box(p,0,0,SizeX,SizeY,destX,destY);
+end;
+
+Procedure TAbstractMap.Box2Ful(p:PAbstractMap;srcX,srcY:word);
+begin
+ Box2Box(p,srcX,srcY,p^.SizeX,p^.SizeY,0,0);
 end;
 
 
@@ -3133,7 +3311,7 @@ var   delkabloku:word;
 label 1;
 begin
  {uvolneni nulove bitmapy}
- if tab=nil then exit;
+ if (tab=nil) or (sir=0) or (usedvys=0) then exit;
  {uvolneni nenulove bitmapy}
  line:=0;
  1:
@@ -3142,7 +3320,9 @@ begin
  while line<usedvys do begin
    inc(delkabloku);
    inc(line);
-   if (line=usedvys) or (seg(startblok^)<>seg(tab^[line]^)) then begin
+   if (line=usedvys)
+   or (PtrRec(startblok).Seg<>PtrRec(tab^[line]).Seg)
+   or (PtrRec(tab^[line]).Ofs<>PtrRec(tab^[line-1]).Ofs+sir) then begin
      FreeMem(startblok,sir*delkabloku);
      if line<usedvys then goto 1;{nejumpi aby nenacital tab^[max+1]}
      end;
@@ -3157,8 +3337,7 @@ end;
  ---------------------------------------------------------------------------}
 FUNCTION  AllocMap(tab:PLines;sir,vys,minvys:word):word;
 var   blocklines,i:word;
-      pb:^byte;
-      p:pointer;
+      pb:PLine;
       line:word;
 begin
  {alokace nulove bitmapy}
@@ -3168,22 +3347,24 @@ begin
  blocklines:=65520 div sir;
  while line<vys do begin
    if blocklines>vys-line then blocklines:=vys-line;
-   if not GetMem(p,longint(blocklines)*sir) then begin
-     if blocklines>1 then begin blocklines:=blocklines div 2;continue;end;
-     if line>=minvys then begin
-       AllocMap:=line;
-       end
-      else begin
+   if not GetMem(pointer(pb),blocklines*sir) then begin
+     {skonci v okamziku kdy vi ze minvys nedosahne}
+     if minvys{tolik chci}>=line+blocklines{tolik uz nemuzu} then begin
        FreeMap(tab,sir,line);
        AllocMap:=0;
+       exit;
        end;
+     if blocklines>1 then begin
+       blocklines:=blocklines div 2;
+       continue;
+       end;
+     AllocMap:=line;
      exit;
      end;
-   pb:=p;
    for i:=0 to blocklines-1 do begin
-     tab^[line]:=PLine(pb);
+     tab^[line]:=pb;
      inc(line);
-     inc(pb,sir);
+     inc(PtrRec(pb).Ofs,sir);
      end;
    AllocMap:=vys;
    end;
@@ -3205,18 +3386,40 @@ var   i:word;
       p:PPal;
 begin
  inherited Init(newmodel,BiPPlist[newmodel],sir,vys);
-
- if newmodel in [model_packed,model_unchained] then begin
-   if AddPal(nil,pfStill+pfOnscreen+pfActive,0,255,0,0,0,0)=nil then begin Done;Fail;end;
-   end;
-
- NewBuffer(pointer(tab),4*vys);
- if tab=nil then begin Done;Fail;end;
+ {alokuje paletu}
+ if newmodel in [model_packed,model_unchained] then
+  if AddPal(nil,pfStill+pfOnscreen+pfActive,0,255,0,0,0,0)=nil then begin Done;Fail;end;
+ {alokuje tabulku linek}
+ if not GetMem(pointer(tab),4*vys) then begin Done;Fail;end;
  tabsize:=vys;
+ {alokuje linky}
  mapsize:=AllocMap(tab,sizeXb,vys,vys);
  if mapsize=0 then begin Done;Fail;end;
-
+ {zajisti aby slo psat i do nenaalokovanejch linek}
  for i:=mapsize to vys-1 do tab^[i]:=tab^[mapsize-1];
+end;
+
+{---------------------------------------------------------------------------
+ Uvolni bitmapu.
+ ---------------------------------------------------------------------------}
+Destructor TBitmap.Done;
+begin
+ {uvolni palety}
+ KillObj(pals);
+ {uvolni bitmapu}
+ if not static then FreeMap(tab,sizeXb,mapsize);
+ FreeMem(pointer(tab),4*word(tabsize));
+ inherited Done;
+end;
+
+FUNCTION InitStaticBitmap(var b:PBitmap;model,sir,vys:integer;p:pointer;trans:boolean):boolean;
+begin
+ new(b,Init(model,sir,vys));
+ if b<>nil then begin
+   b^.StaticMem(p,65535);
+   b^.transparent:=trans;
+   end;
+ InitStaticBitmap:=b<>nil;
 end;
 
 
@@ -3262,6 +3465,7 @@ Function TBitmap.AddLines(lines:word):boolean;
 var   rezerva:integer;
       toalloc:integer;
       i:integer;
+      tab2:PLines;
 begin
  AddLines:=false;
  {vyuziti rezervy v tabsize}
@@ -3273,7 +3477,11 @@ begin
    end;
  {pridavne alokovani tab}
  if lines>0 then begin
-   if not SetBufferSize(tab,4*(tabsize+lines)) then exit;
+   GetMem(pointer(tab2),4*word(tabsize+lines));
+   if tab2=nil then exit;
+   Move(tab^,tab2^,4*word(tabsize));
+   FreeMem(pointer(tab),4*word(tabsize));
+   tab:=tab2;
    inc(tabsize,lines);
    inc(sizeY,lines);
    end;
@@ -3302,8 +3510,8 @@ var   i          :word;
       lines2wrap :word;
       oldp       :pointer;
 begin
+ if not static then FreeMap(tab,sizeXb,mapsize);
  static     :=true;
- FreeMap(tab,sizeXb,mapsize);
  oldp       :=p;
  lines2wrap :=size div sizeXb;
  for i:=0 to sizeY-1 do begin
@@ -3327,8 +3535,8 @@ end;
 Procedure  TBitmap.StaticTex(p:pointer);
 var   i:word;
 begin
+ if not static then FreeMap(tab,sizeXb,mapsize);
  static     :=true;
- FreeMap(tab,sizeXb,mapsize);
  for i:=0 to sizeY-1 do begin
    {fill tab}
    tab^[i]:=p;
@@ -3345,8 +3553,8 @@ end;
 Procedure  TBitmap.StaticMap(map:PBitmap;srcX,srcY:word);
 var   i:word;
 begin
+ if not static then FreeMap(tab,sizeXb,mapsize);
  static     :=true;
- FreeMap(tab,sizeXb,mapsize);
  for i:=0 to sizeY-1 do tab^[i]:=PLine(@map^.tab^[(srcY+i) mod map^.sizeY]^[srcX]);
 end;
 
@@ -3383,22 +3591,17 @@ begin
  AddPal:=nil;
  if pals=nil then begin
    new(pals,Init(1,1));
-   if pals=nil then if dumb then exit else Halt(erLowMem);
+   if pals=nil then Halt(erLowMem);
    end;
  if pal=nil then begin
-   New(pal,Init);
-   if pal=nil then if dumb then exit else Halt(erLowMem);
+   new(pal,Init);
+   if pal=nil then Halt(erLowMem);
    end;
  with pal^ do begin
    flags      :=aflags;
    first      :=fromcol;
    last       :=tocol;
-   xx1        :=x1;
-   yy1        :=y1;
-   xx2        :=x2;
-   yy2        :=y2;
-   sxx        :=x1+x2;
-   syy        :=y1+y2;
+   place.Assign(x1,y1,x2,y2);
    end;
  pals^.Insert(pal);
  AddPal:=pal;
@@ -3409,38 +3612,34 @@ end;
  Onscreen znamena ze ji ma nastavit i na obrazovce (normalne
  lokalnim paletam jen nastavi flagy).
  ---------------------------------------------------------------------------}
-Procedure TBitmap.SyncPal(sx,sy:word;onscreen:boolean);
+Procedure TBitmap.SyncPal(scr:TRect;onscreen:boolean);
+var   zmena:boolean;
+  procedure CheckThisOut(p:PPal);far;
+  var scr2:TRect;
+      picmimo,palmimo:boolean;
+  begin
+   with p^ do
+    if (flags and pfStill)=0 then begin
+      scr2:=scr;
+      scr2.Intersect(place);
+      picmimo:=scr2.Empty;
+      palmimo:=(flags and pfOnscreen)=0;
+      if picmimo xor palmimo then begin
+        if picmimo then flags:=flags and not pfOnScreen
+                   else flags:=flags or      pfOnScreen;
+        zmena:=true;
+        end;
+      end;
+  end;
 begin
- {*dodelat}
-end;
-(*
-var   testuju,bestp:_PLpal;
-      mind,nowd,besti,nowi:word;
-begin
- {skonci kdyz neni co nastavovat}
- if (firstpal=nil) or ((firstpal^.next=nil) and (nowpal=1)) then exit;
- {hleda nejvhodnejsi paletu}
- testuju:=firstpal;
- mind:=65535;
- nowi:=0;
- while testuju<>nil do with testuju^ do begin
-   inc(nowi);
-   nowd:=abs(sx-sxx)+abs(sy-syy);{primitivni, ale zatim funkcni kriterium}
-   if nowd<mind then begin
-     mind:=nowd;
-     bestp:=testuju;
-     besti:=nowi;
-     end;
-   testuju:=_PLpal(next);
-   end;
- {nastavi nejvhodnejsi jen kdyz se lisi od aktualni}
- if besti<>nowpal then with bestp^ do begin
-   move(Lpal[3*fromcol],pal^.pal[3*fromcol],3*(tocol-fromcol+1));
-   if onscreen then pal^.ShowPart(fromcol,tocol);
-   nowpal:=besti;
+ if (pals<>nil) and (pals^.count>1) then begin
+   zmena:=false;
+   pals^.ForEach(@CheckThisOut);
+   if zmena and onscreen then SetBright(MainPal^.nowbright);
+     {nektery palety nastavuje zdanlive zbytecne (uz jsou nastaveny),
+     vyznam to ale ma pri kolizich vice palet}
    end;
 end;
-*)
 
 Procedure TBitmap.Col2Box(destX,destY,Sirka,Vyska:word;pixel:longint);assembler;
  asm
@@ -3554,16 +3753,31 @@ PROCEDURE _ResizeRaw2Raw(srcRawmap,destRawmap:PBitmap;srcX,srcY,srcSir,srcVys,de
      cmp destSir,0;jz @done
      cmp destVys,0;jz @done
 
+     {$ifdef beta}
+     cmp srcX,0;js @beta
+     cmp srcY,0;js @beta
+     cmp destX,0;js @beta
+     cmp destY,0;js @beta
+     jmp @zabeta
+     @beta:
+      push cs
+      push offset @msg1
+      call chyby.erBetaMsg
+      @msg1:
+       db 16,'_resizeraw2raw 1'
+     @zabeta:
+     {$endif}
+
      {load params}
      lds si,srcRawmap
      mov cl,[si+TBitmap.transparent]
      mov transparent,cl
      db 0fh,0b4h,9ch;dw TBitmap.Tab{LFS BX,[SI+TRawmap.Tab]}
      mov ax,srcY;shl ax,2;add bx,ax
-     mov si,bx
      lds si,destRawmap
      db 0fh,0b5h,94h;dw TBitmap.Tab{LGS DX,[SI+TRawmap.Tab]}
      mov ax,destY;shl ax,2;add dx,ax
+     mov si,bx
      mov di,dx
 
      {doit}
@@ -3601,6 +3815,60 @@ PROCEDURE _ResizeRaw2Raw(srcRawmap,destRawmap:PBitmap;srcX,srcY,srcSir,srcVys,de
      pop ds
  end;
 
+
+Procedure TAbstractMap.ResizeBtB2Box(p:PBitmap;srcX,srcY,srcSir,srcVys,destX,destY,destSir,destVys:word);
+var   b:PBitmap;
+begin
+ new(b,Init(MapModel,destSir,destVys));
+ if b=nil then Halt(erLowMem);
+ {*zatim jde jen v modelu packed}
+ _ResizeRaw2Raw(p,b,srcX,srcY,srcSir,srcVys,0,0,destSir,destVys);
+ BtF2Box(b,destX,destY);
+ KillObj(b);
+end;
+
+Procedure TAbstractMap.ResizeBtB2Ful(p:PBitmap;srcX,srcY,srcSir,srcVys:word);
+begin
+ ResizeBtB2Box(p,srcX,srcY,srcSir,srcVys,0,0,sizeX,sizeY);
+end;
+
+Procedure TAbstractMap.ResizeBtF2Box(p:PBitmap;destX,destY,destSir,destVys:word);
+begin
+ ResizeBtB2Box(p,0,0,p^.sizeX,p^.sizeY,destX,destY,destSir,destVys);
+end;
+
+Procedure TAbstractMap.ResizeBtF2Ful(p:PBitmap);
+begin
+ ResizeBtB2Box(p,0,0,p^.sizeX,p^.sizeY,0,0,sizeX,sizeY);
+end;
+
+
+Procedure TAbstractMap.ResizeBox2BtB(p:PBitmap;srcX,srcY,srcSir,srcVys,destX,destY,destSir,destVys:word);
+var   b:PBitmap;
+begin
+ b:=BoxCopy(srcX,srcY,srcSir,srcVys);
+ if b=nil then Halt(erLowMem);
+ {*zatim jde jen v modelu packed}
+ _ResizeRaw2Raw(b,p,0,0,srcSir,srcVys,destX,destY,destSir,destVys);
+ KillObj(b);
+end;
+
+Procedure TAbstractMap.ResizeFul2BtB(p:PBitmap;destX,destY,destSir,destVys:word);
+begin
+ ResizeBox2BtB(p,0,0,sizeX,sizeY,destX,destY,destSir,destVys);
+end;
+
+Procedure TAbstractMap.ResizeBox2BtF(p:PBitmap;srcX,srcY,srcSir,srcVys:word);
+begin
+ ResizeBox2BtB(p,srcX,srcY,srcSir,srcVys,0,0,p^.sizeX,p^.sizeY);
+end;
+
+Procedure TAbstractMap.ResizeFul2BtF(p:PBitmap);
+begin
+ ResizeBox2BtB(p,0,0,sizeX,sizeY,0,0,p^.sizeX,p^.sizeY);
+end;
+
+
 Procedure TBitmap.BtB2Box(p:PBitmap;srcX,srcY,sirka,vyska,destX,destY:word);
 begin
  if p^.MapModel=MapModel then
@@ -3613,17 +3881,16 @@ begin
   Raw2Raw(@self,p,longint(srcX)*BiPP shr 3,srcY,sirka,vyska,longint(destX)*BiPP shr 3,destY);
 end;
 
-{---------------------------------------------------------------------------
- Uvolni bitmapu.
- ---------------------------------------------------------------------------}
-Destructor TBitmap.Done;
+Procedure TBitmap.ResizeBtB2Box(p:PBitmap;srcX,srcY,srcSir,srcVys,destX,destY,destSir,destVys:word);
 begin
- {uvolni palety}
- if pals<>nil then begin Dispose(pals,Done);pals:=nil;end;
- {uvolni bitmapu}
- if not static then FreeMap(tab,sizeXb,mapsize);
- DisposeBuffer(tab);
- inherited Done;
+ {*zatim jde jen v modelu packed}
+ _ResizeRaw2Raw(p,@self,srcX,srcY,srcSir,srcVys,destX,destY,destSir,destVys);
+end;
+
+Procedure TBitmap.ResizeBox2BtB(p:PBitmap;srcX,srcY,srcSir,srcVys,destX,destY,destSir,destVys:word);
+begin
+ {*zatim jde jen v modelu packed}
+ _ResizeRaw2Raw(@self,p,srcX,srcY,srcSir,srcVys,destX,destY,destSir,destVys);
 end;
 
 
@@ -3818,13 +4085,6 @@ Procedure TScreen.Col2Box(destX,destY,sirka,vyska:word;pixel:longint);assembler;
 
 {ﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂ RES LIST ﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂﬂ}
 
-const ResProfCommon=1;{bezne pouzivane mody}
-      ResProfPareni=2;{mody pouzivane v Parenisti}
-      ResProfBad=64;{mody ktere nejdou setnout}
-      ResProfTemp=128;{pro docasne pouziti}
-      ResProfiles=255;{vsechny profily dohromady}
-
-
 constructor TResItem.Init(model,x,y,mode:word);
 begin
  inherited Init;
@@ -3832,13 +4092,19 @@ begin
  ax      :=x;
  ay      :=y;
  amode   :=mode;
- aflags  :=ResProfCommon;
- aretrace:=-1;
- afreq   :=-1;
+ optional:=false;
+end;
+
+procedure TResCollection.Insert(Item:Pointer);
+var I:Integer;
+begin
+ if not Search(KeyOf(Item),I) or Duplicates then AtInsert(I,Item)
+  {na rozdil od defaultniho insertu, co nezaradi, to killne}
+  else KillObj(Item);
 end;
 
 function TResCollection.Compare(p1,p2:pointer):integer;
-var   a,b:integer;
+var   a,b,i:integer;
 begin
  a:=PResItem(p1)^.amodel;
  b:=PResItem(p2)^.amodel;
@@ -3847,57 +4113,53 @@ begin
  if a<>b then Compare:=ord(a>b)-ord(a<b) else begin
    a:=PResItem(p1)^.ax+PResItem(p1)^.ay;
    b:=PResItem(p2)^.ax+PResItem(p2)^.ay;
-   Compare:=ord(a>b)-ord(a<b);
+   i:=ord(a>b)-ord(a<b);
+   if i<>0
+    then Compare:=i
+    else Compare:=integer(PResItem(p1)^.ax)-PResItem(p2)^.ax;
    end;
 end;
 
 {---------------------------------------------------------------------------
- Inicializuje globalni seznam rozliseni a nahraje do nej VGA mody.
- Nutno provest pred VesaInitem, ktery taky prihodi svoji trosku.
+ Inicializuje VGA mody v ResListu.
  ---------------------------------------------------------------------------}
-FUNCTION InitResList:boolean;
+PROCEDURE InitVga;
 var   i:integer;
 begin
- InitResList:=false;
- if not ResList.Init(30,10) then exit;
  with ResList do begin
-  Insert(New(PResItem,Init(model_packed,320,200,X320x200)));
-  for i:=0 to XModes-1 do
-   Insert(New(PResItem,Init(model_unchained,XModeRes[i,1],XModeRes[i,2],i)));
-  InitResList:=true;
+  {vlozi vga textmody}
+  for i:=8 to 16 do
+   Insert(New(PResItem,Init(model_text,80,400 div i,400 div i)));
+  for i:=1 to XModes do begin
+    {vlozi vga unchained}
+    Insert(New(PResItem,Init(model_unchained,XModeRes[i,1],XModeRes[i,2],i)));
+    {vlozi vga packed}
+    if longint(XModeRes[i,1])*XModeRes[i,2]<=65536 then
+     Insert(New(PResItem,Init(model_packed,XModeRes[i,1],XModeRes[i,2],i)));
+    end;
   end;
-end;
-
-{---------------------------------------------------------------------------
- Vraci jestli je zadany mod podporovan.
- ---------------------------------------------------------------------------}
-Function ModeSupported(model,mode:word):boolean;
-
-  function ThisOne(p:PResItem):boolean;far;
-  begin
-    ThisOne:=(p^.amodel=model) and (p^.amode=mode);
-  end;
-
-begin
- ModeSupported:=ResList.FirstThat(@ThisOne)<>nil;
 end;
 
 {---------------------------------------------------------------------------
  Vraci pointer na udaje o nejblizsim modu v ResListu.
  Pri neuspechu nil.
  ---------------------------------------------------------------------------}
-Function GetBestMode(mm,xx,yy,prof:word):PResItem;
+FUNCTION GetBestMode(mm,xx,yy:word):PResItem;
 var   i:word;
       d,mind:integer;
 
   procedure TestSimilarity(p:PResItem);far;
+  const koefHi=1;{jak moc vadi kdyz vybere vetsi rozliseni}
+        koefLo=3;{jak moc vadi kdyz vybere mensi rozliseni}
   begin
    with p^ do
     if ( (amodel=mm) or
          ((amodel=model_packed) and (mm=model_unchained)) or
          ((amodel=model_unchained) and (mm=model_packed))
-       ) and ((aflags and prof)>0) and ((aflags and ResProfBad)=0) then begin
-           d:=abs(integer(ax)-xx)+abs(integer(ay)-yy)+abs(integer(amodel)-mm);
+       ) then begin
+           d:=abs(integer(amodel)-mm);
+           if ax>xx then inc(d,koefHi*(ax-xx)) else inc(d,koefLo*(xx-ax));
+           if ay>yy then inc(d,koefHi*(ay-yy)) else inc(d,koefLo*(yy-ay));
            if d<mind then begin mind:=d;GetBestMode:=p;end;
            end;
   end;
@@ -3909,21 +4171,64 @@ begin
 end;
 
 {---------------------------------------------------------------------------
+ Doplni chybejici udaje. Je-li mode=0, doplni nejblizsi mod k sir a vys,
+ jinak doplni odpovidajici sir a vys k mode.
+ ---------------------------------------------------------------------------}
+FUNCTION ModeDoplnInfo(var model,sir,vys,mode:integer):boolean;
+  function Matching(p:PResItem):boolean;far;
+  begin
+   with p^ do
+    if amode=mode then begin
+      model         :=amodel;
+      sir           :=ax;
+      vys           :=ay;
+      Matching      :=true;
+      ModeDoplnInfo :=true;
+      end
+    else
+      Matching      :=false;
+  end;
+begin
+ if mode=0 then begin
+   ModeDoplnInfo:=true;
+   mode:=GetBestMode(model,sir,vys)^.amode;
+   end
+ else begin
+   ModeDoplnInfo:=false;
+   ResList.FirstThat(@Matching);
+   end;
+end;
+
+FUNCTION ModeSupported(model,mode:word):boolean;
+begin
+ ModeSupported:=GetResItem(model,mode)<>nil;
+end;
+
+{---------------------------------------------------------------------------
  Pri nenulovem newMode nastavi presne tento mod.
- V opacnem pripade nastavi mod nejblizsi rozliseni newSir*newVys.
- V InitResult vraci uspesnost.
+ V opacnem pripade vybere z ResListu nejblizsi rozliseni k newSir*newVys.
+ V InitResult vraci jak to dopadlo.
+
  Paleta, vramXres, setvis, split a obsah vram nemusi byt po nastaveni modu
  na defaultnich hodnotach. Treba jses-li v modu $101 a nechas nastavit
  mod $101, vsechna nastaveni i obraz ve videopameti zustanou beze zmen.
+ Tomu lze zabranit pomoci forbid_alreadyset:=true.
+
+ Poznamka: V ResListu je jen jeden z modu 320x200 packed, 320x200 unchained.
+ Priklad: Teoreticky te nezajima model a na nastaveni pouzijes
+  Init(tojefuk,320,200,0). Pokdu chces konkretne treba packed, nastav mod
+  pomoci Init(model_packed,tojefuk,tojefuk,X320x200).
  ---------------------------------------------------------------------------}
 Constructor TScreen.Init(newModel,newSir,newVys,newMode:word);
 
   {Je-li dany mod uz nastaven, nemaze obrazovku ani nemeni split,setvis...
    zkopci atributy do selfu (zfalsovany init) a vrati true.}
-  function Already(tryModel,trySir,tryVys,tryMode:word):boolean;
+  function _AlreadySet(tryModel,trySir,tryVys,tryMode:word):boolean;
   begin
-   Already:=false;
-   if (CurScreen<>nil) and (CurScreen^.MapModel=tryModel) and
+   _AlreadySet:=false;
+   if (CurScreen<>nil) and
+      (not CurScreen^.forbid_alreadyset) and
+      (CurScreen^.MapModel=tryModel) and
       ( ((tryMode<>0) and (CurScreen^.ModeID=tryMode)) or
         ((CurScreen^.Xres=trySir) and (CurScreen^.Yres=tryVys)) ) then
      begin
@@ -3932,59 +4237,105 @@ Constructor TScreen.Init(newModel,newSir,newVys,newMode:word);
         self:=CurScreen^;
         PrevScreen:=CurScreen;
         CurScreen:=@self;
+        {aby mel VLASTNI mousebitmap/mousebuffer}
+        mouseBitmap:=nil;
+        mouseBuffer:=nil;
+        MouseSetPointer(nil,0,0);
         end;
       InitResult:=alreadyset;
-      Already:=true;
+      _AlreadySet:=true;
      end;
+  end;
+
+  function _NewSet(tryModel,tryMode:word):boolean;
+  var ResItem:PResItem;
+  begin
+   _NewSet:=false;
+   if SetMode(tryModel,tryMode) then begin
+     {natahne udaje cachovane v reslistu}
+     ResItem:=GetResItem(tryModel,tryMode);
+     if (ResItem<>nil) and ResItem^.optional then with ResItem^ do begin
+       {vytazeni z reslistu}
+       retraceLen        :=aretracelen;
+       screenfreq        :=ascreenfreq;
+       vesasetvissyncuje :=avesasetvissyncuje;
+       timerscrsync      :=atimerscrsync;
+       end
+     else begin
+       {detekce}
+       if not DetectRetraceLen then begin
+         CurScreen:=nil;
+         exit;
+         end;
+       if VesaMode then DetectVesaSetvisSync;
+       timerscrsync      :=DetectTmrScrSync;{timer detekovat posledni, zavisi na predchozich}
+       {ulozeni do reslistu}
+       if ResItem<>nil then with ResItem^ do begin
+         optional          :=true;
+         aretracelen       :=retraceLen;
+         ascreenfreq       :=screenfreq;
+         avesasetvissyncuje:=vesasetvissyncuje;
+         atimerscrsync     :=timerscrsync;
+         end;
+       end;
+     {natahne udaje cachovane v cfg}
+     LoadCfg;
+     {velikost virtualni obrazovky rovna normalni obrazovce}
+     vramXres  :=Xres;
+     vramYres  :=longint(VramSizeKB)*1024*8 div (vramXres*BiPP);
+     {odhadne doublescan, (ReadCrtc(9) shr 7)=1 funguje jen v textmodu}
+     if ( (not vesamode and (MapModel=model_text)) and (ReadCrtc(9) shr 7=1) ) or
+        ( (vesamode or (MapModel<>model_text))     and (charYres*Yres<300)   )
+       then DoubleScan:=2 else DoubleScan:=1;
+     {maximalni hodnota nastavitelna v SplitY}
+     maxSplitY :=charYres*Yres-1;
+     nowSplitY :=maxSplitY;{zadny split}
+     {setvis na zacatku videopameti}
+     vramVisX  :=0;
+     vramVisY  :=0;
+     {nastavi pocatecni souradnice, rozsah a citlivost pro mys}
+     if MapModel=model_text then mouseSetJump(8,8) else mouseSetJump(4,4);
+     MouseSetPointer(nil,0,0);
+     mouseSetPos(Xres div 2,Yres div 2);
+     mouseAdjustSpeed;
+     {uz znam rozmery, tak je nastavim do atributu abstractmap}
+     ExpandFul(false);
+     {aktivni jsem ted ja}
+     CurScreen:=@self;
+     InitResult:=newset;
+     _NewSet:=true;
+     end;
+  end;
+
+  function _AnySet(tryModel,trySir,tryVys,tryMode:word):boolean;
+  begin
+   _AnySet:=
+      _AlreadySet(tryModel,trySir,tryVys,tryMode) or
+      _NewSet(tryModel,tryMode);
   end;
 
 var   bestmode:PResItem;
       wasinited:boolean;
-label 1,nejde;
 begin
- if Already(newModel,newSir,newVys,newMode) then exit;
-
  wasinited:=CurScreen<>nil;
 
- if newMode<>0 then begin
-   if not SetMode(newModel,newMode) then goto nejde;
-   InitResult:=newset;
-   exit;
-   end;
-
- case newModel of
-   model_text:
-     begin
-     if not SetMode(model_text,newMode) then goto nejde;
-     InitResult:=newset;
-     exit;
-     end;
-   model_packed,
-   model_unchained:
-     begin
-      1:
-      bestmode:=GetBestMode(newModel,newSir,newVys,ResProfCommon);
-      if bestmode=nil then goto nejde;
-      with bestmode^ do
-       if Already(amodel,ax,ay,amode) then exit else
-         begin
-          {nastavi novy mod}
-          if not SetMode(amodel,amode) then begin
-           aflags:=aflags and ResProfBad;
-           goto 1;
-           end;
-          InitResult:=newset;
-          exit;
-         end;
-     end;
+ if newMode<>0 then
+   begin
+    if _AnySet(newModel,newSir,newVys,newMode) then exit;
+   end
+ else
+   while true do begin
+    bestmode:=GetBestMode(newModel,newSir,newVys);
+    if bestmode=nil then break;
+    with bestmode^ do if _AnySet(amodel,ax,ay,amode) then exit;
+    ResList.Free(bestmode);
    end;
 
  {mod nejde nastavit}
- nejde:
-  if wasinited and (CurScreen<>nil)
-   then InitResult:=stillold
-   else InitResult:=chaos;
-  Fail;
+ if wasinited and (CurScreen<>nil)
+  then InitResult:=stillold
+  else InitResult:=chaos;
+ Fail;
 end;
 
 {---------------------------------------------------------------------------
@@ -3993,6 +4344,7 @@ end;
   -nastavi VesaVersion, pri nepritomnosti vesy 0
   -nastavi VesaID
   -do ResListu prida vesa mody
+ Kdyz narazi na "stub" VBE, nastavi VesaID a VesaBanksTotal, ale VesaVersion=0.
  ---------------------------------------------------------------------------}
 PROCEDURE InitVesa;
       {Doplnek ModeInfobloku; obsahuje informace ktere nutne potrebuji,}
@@ -4051,7 +4403,8 @@ var   VesaInfo:PVesaInfoBlock;
 
  procedure Analyza;
  var   i:word;
-       p:Pint;
+       sz,sc,ss:string[70];
+       app:string[20];
  begin
   with vesainfo^ do
    if magic<>'VESA' then begin
@@ -4067,32 +4420,41 @@ var   VesaInfo:PVesaInfoBlock;
      {$ifdef dpmi}
      Seg2Desc(PtrRec(OEMStrPtr).Seg);
      Seg2Desc(PtrRec(VideoModePtr).Seg);
+     Seg2Desc(PtrRec(ProductStrPtr).Seg);
      {$endif}
      VesaID:=Pc2Str(OEMStrPtr);
+     {vykickuje duplicitni slova}
+     sz:=VesaID;sc:=' '+Pc2Str(ProductStrPtr);
+     while sz<>'' do begin
+       ss:=CutString(' ',sz);
+       if pos(ss,sc)=0 then sc:=sc+' '+ss;
+       end;
      for i:=1 to length(VesaID) do
       if (VesaID[i]<' ') then VesaID[i]:=' ';
-     VesaID:=copy(GetCore(VesaID),1,70-8)+' ('+stri(VesaBanksTotal*64)+')';
-     {zkopci seznam modu z dosmem do highmem}
-     p:=Pint(@free);
-     repeat p^:=VideoModePtr^;inc(p);inc(VideoModePtr) until VideoModePtr^=-1;
-     p^:=-1;
-     VideoModePtr:=pointer(@free);
-     {pracuje se seznamem modu v highmem}
-     while VideoModePtr^<>-1 do begin
-       if VideoModePtr^>=256{jen vesa mody} then
-        if GetModeInfo(VideoModePtr^,ModeInfo) then begin
-          if ModeInfoSupported(ModeInfo) then
-           with ModeInfo^ do
-            if (ModeAttributes and 2)>0{je k dispozici rozsirene info}
-             then ResList.Insert(new(PResItem,Init(MemoryModel,XResolution,YResolution,VideoModePtr^)))
-             else for i:=0 to ModesSupported-1 do
-              with ModeInfoConst[i] do
-               if VMode=VideoModePtr^ then
-                ResList.Insert(new(PResItem,Init(MModel,XSize,YSize,VideoModePtr^)));
-          FreeMemDos(pointer(ModeInfo),sizeof(ModeInfo^));
-          end;
-       inc(VideoModePtr);
+     app:=' ('+stri(VesaBanksTotal*64)+')';
+     if VideoModePtr^=-1 {"stub" vbe} then begin
+       VesaVersion:=0;
+       if pos('stub',LoCased(VesaID))=0 then app:=app+' stub';
+       end
+     else begin
+       {*pocitat s biosy, ktere maji oem mody az za -1}
+       while VideoModePtr^<>-1 do begin
+         if VideoModePtr^>=256{jen vesa mody} then
+          if GetModeInfo(VideoModePtr^,ModeInfo) then begin
+            if ModeInfoSupported(ModeInfo) then
+             with ModeInfo^ do
+              if (ModeAttributes and 2)>0{je k dispozici rozsirene info}
+               then ResList.Insert(new(PResItem,Init(MemoryModel,XResolution,YResolution,VideoModePtr^)))
+               else for i:=0 to ModesSupported-1 do
+                with ModeInfoConst[i] do
+                 if VMode=VideoModePtr^ then
+                  ResList.Insert(new(PResItem,Init(MModel,XSize,YSize,VideoModePtr^)));
+            FreeMemDos(pointer(ModeInfo),sizeof(ModeInfo^));
+            end;
+         inc(VideoModePtr);
+         end;
        end;
+     VesaID:=copy(GetCore(VesaID),1,70-length(app))+app;
      end;
  end;
 
@@ -4121,7 +4483,7 @@ Begin
    rEAX:=$4f00;
    rES:=Segment;
    end;
-  if midasDumbError(dpmiRealModeInt($10,@RealModeRegs))<>0 then goto freee;
+  if erDumb(dpmiRealModeInt($10,@RealModeRegs))<>erOk then goto freee;
   {je sluzba vesa.getinfo podporovana ?}
   if word(RealModeRegs.rEAX)<>$4f then goto freee;
  {$endif}
@@ -4136,46 +4498,46 @@ End;
 
 
 
-
-
 {∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞INIT/DONE∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞}
 
-const
- inited:boolean=false;
+var result:integer;
 
-function Init:word;
+procedure UserInit;
  begin
-  Init:=erOk;
-  if not inited then begin
-   mouseSpeed   :=32;
-   debugpal     :=false;
-   CurScreen    :=nil;
-   if not InitMousePointers then begin Init:=erLowMem;exit;end;
-   if not InitResList       then begin Init:=erLowMem;exit;end;
-   InitVesa;
-   inited       :=true;
-   end;
+  BugList.Register(erBadMode,'Nejde nastavit zobrazovac° m¢d.');
+  mouseSpeed       :=32;
+  mouseBaseColor   :=1;
+  debugpal         :=false;
+  CurScreen        :=nil;
+  UserFont         :=nil;
+  badretrace[false]:=false;
+  badretrace[true] :=false;
+  if ResList.Init(100,50) then begin
+    InitVesa;{nejdriv nahraje vesa mody}
+    InitVga; {pak uz pridava jen ty vga mody, ktere vesa neumi}
+    exit;
+    end;
+  result:=erLowMem;
  end;
 
-procedure Done;
+procedure UserDone;
  begin
-  if inited then begin
-   DoneMousePointers;
-   inited       :=false;
-   end;
+  ResList.Done;
+  if CurScreen<>nil then begin
+    {nemuzu dat KillObj, co kdyby mel nekdo screenu statickou}
+    {*CurScreen^.Done;
+    CurScreen:=nil;}
+    end;
  end;
 
+{$i initdone.inc}
 {$ifdef autoinit}
 BEGIN
  erCheck(Init);
 {$endif}
 END.
 
-
 podporu pro monochrom textmod (7) a navrat do nej
-vyradit nespolehlivy xmody nebo okomentovat spolehlivost
-do tabla xmodu jak dlouho cekat na stabilizaci obrazu
-doporucit delay po setmode, sam ho nedelat
 disablovat praci s paletou v HC/TC
 nektery veci podminit vesaverze>=102 apod
 vesa get protected mode code
@@ -4186,7 +4548,5 @@ ask vesa:
  BitsPerPixel in textmode ?
 pouzit offscreenmemoffset, offscreenmemsize
 pouzit getmaximumscanlinelength
-pocitat s tim, ze atribut tab se muze kdykoliv! zmenit
 zabranit alokaci palety u bitmap ktery ji nepotrebujou (mousebuffer apod)
-odzkouset addlines/dellines/...
-nepise v unchained do vram nejak moc pomalu? (=bug?)
+co kdyz pouziva dve okna a ty jsou na ruznejch adresach? (to neni ohlidany!!!)

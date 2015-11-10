@@ -1,11 +1,10 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.10ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
 
 Unit      Stringy;
 Interface {$i define.inc}
-Uses      Chyby,Memo;
 Function  Init:word;
 Procedure Done;
 
@@ -16,7 +15,7 @@ TYPE      PString = ^string;
  Konverze
  ---------------------------------------------------------------------------}
 {obecne konverze}
-PROCEDURE Xlat(var st:string;src,dest:string);
+PROCEDURE Xlat(var st:openstring;src,dest:string);
 FUNCTION  Xlated(st,src,dest:string):string;
 
 {hexa cisla}
@@ -70,7 +69,7 @@ FUNCTION  hkNalezi(prvek,mnozina:string):boolean;
 {---------------------------------------------------------------------------
  Znaky ze src nahradi znaky z dest.
  ---------------------------------------------------------------------------}
-PROCEDURE Xlat(var st:string;src,dest:string);
+PROCEDURE Xlat(var st:openstring;src,dest:string);
 var   i,j:word;
 begin
  for i:=1 to length(st) do begin
@@ -118,7 +117,7 @@ begin
  l:=0;
  for i:=1 to length(st) do begin
    d:=DehexedChar(st[i]);
-   if d=-1 then begin Dehexed:=-1;exit;end;
+   if (d=-1) or (l>=1 shl 27) then begin Dehexed:=-1;exit;end;
    l:=l shl 4+d;
    end;
  Dehexed:=l;
@@ -276,8 +275,8 @@ FUNCTION Str2Pc(var st:openstring):pchar;assembler;
  ---------------------------------------------------------------------------}
 FUNCTION GetCore(st:string):string;
 begin
- while (st>'') and ((st[length(st)]=' ') or (st[length(st)]=#0)) do dec(st[0]);
- while (st>'') and ((st[1]=' ') or (st[1]=#0)) do delete(st,1,1);
+ while (st>'') and (st[length(st)] in [' ',#0]) do dec(st[0]);
+ while (st>'') and (st[1] in [' ',#0]) do delete(st,1,1);
  GetCore:=st;
 end;
 
@@ -434,8 +433,8 @@ end;
 
 {---------------------------------------------------------------------------
  Nahradi n-te cislo ve stringu. Ohlida si aby se dve cisla nesloucila.
- Neni-li tam n-te, betaverze ohlasi chybu, ostra nedela nic.
- Priklad: ReplacedNum('1+2*3-04--5',4,14)='1+2*3+14--5'
+ Neni-li tam n-te cislo, neudela nic.
+ Priklad: ReplacedNum('1+2*3-004--5',4,14)='1+2*3+14--5'
           ReplacedNum('1+2*3+14--5',5,15)='1+2*3+14-+15'
  ---------------------------------------------------------------------------}
 FUNCTION  ReplacedNum(st:string;n:integer;value:longint):string;
@@ -445,8 +444,7 @@ begin
  GetNumPos(st,n,pos,len);
  plus:='';
  if value>=0 then if st[pos-1] in ['+','-','0'..'9'] then plus:='+';
- if len>0 then ReplacedNum:=copy(st,1,pos-1)+plus+Stri(value)+copy(st,pos+len,255)
-          else {$ifdef beta}erBetaMsg('replacednum'){$endif};
+ if len>0 then ReplacedNum:=copy(st,1,pos-1)+plus+Stri(value)+copy(st,pos+len,255);
 end;
 
 {---------------------------------------------------------------------------
@@ -477,12 +475,13 @@ label bad;
 begin
  hkIsOk:=false;
  zavorek:=0;
- for i:=1 to length(st) do case st[i] of '"':goto bad;
-                                         '[':inc(zavorek);
-                                         ']':if zavorek>0 then dec(zavorek) else goto bad;
-                                     #0..#31:goto bad;
-                                         '|':if zavorek=0 then goto bad;
-                                         end;
+ for i:=1 to length(st) do
+  case st[i] of '"':goto bad;
+                '[':inc(zavorek);
+                ']':if zavorek>0 then dec(zavorek) else goto bad;
+            #0..#31:goto bad;
+                '|':if zavorek=0 then goto bad;
+                end;
  if zavorek<>0 then goto bad;
  hkIsOk:=true;
  bad:
@@ -503,7 +502,8 @@ begin
  if prvek=mnozina then goto OK;
 
  {odstrani sekvence hvezdicek, ktere zada vul snazici se zahltiti stack}
- for i:=length(mnozina) downto 2 do if (mnozina[i]='*') and (mnozina[i-1]='*') then delete(mnozina,i,1);
+ for i:=length(mnozina) downto 2 do
+  if (mnozina[i]='*') and (mnozina[i-1]='*') then delete(mnozina,i,1);
 
  if prvek='' then begin
    if mnozina[1]='*' then if hkNalezi('',copy(mnozina,2,255)) then goto OK;
@@ -516,7 +516,8 @@ begin
    else
    if mnozina[i]='*' then
      begin
-     for j:=i to length(prvek)+1 do if hkNalezi(copy(prvek,j,255),copy(mnozina,i+1,255)) then goto OK;
+     for j:=i to length(prvek)+1 do
+      if hkNalezi(copy(prvek,j,255),copy(mnozina,i+1,255)) then goto OK;
      end
    {---------------- obstara syntaxi [|] ---------------}
    else
@@ -525,18 +526,20 @@ begin
      {i <- pozice zacatku vyrazu: '['}
      {k <- pozice konce vyrazu: ']'}
      l:=0;
-     for k:=i+1 to length(mnozina) do case mnozina[k] of '[':inc(l);
-                                                     ']':if l>0 then dec(l) else break;
-                                                     end;
+     for k:=i+1 to length(mnozina) do
+      case mnozina[k] of '[':inc(l);
+                         ']':if l>0 then dec(l) else break;
+                         end;
      {j <- pozice zacatku substringu: '[' nebo '|'}
      j:=i;
      repeat
        {m <- pozice konce substringu: '|' nebo ']'}
        l:=0;
-       for m:=j+1 to k do case mnozina[m] of '[':inc(l);
-                                           ']':if l>0 then dec(l) else break;
-                                           '|':if l=0 then break;
-                                           end;
+       for m:=j+1 to k do
+        case mnozina[m] of '[':inc(l);
+                           ']':if l>0 then dec(l) else break;
+                           '|':if l=0 then break;
+                           end;
        if hkNalezi(copy(prvek,i,200),copy(mnozina,j+1,m-j-1)+copy(mnozina,k+1,255)) then goto OK;
        j:=m;
      until mnozina[m]=']';
@@ -556,7 +559,7 @@ end;
 
 function Init:word;
  begin
-  Init:=erOk;
+  Init:=0{erOk};
  end;
 
 procedure Done;

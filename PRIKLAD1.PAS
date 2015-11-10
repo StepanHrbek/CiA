@@ -1,8 +1,8 @@
 {
- Ukazka prace s INI souborem, nastavenim grafickeho modu, bitmapou, fontem,
- handlerem klavesnice.
+ Ukazka prace s nastavenim grafickeho modu, bitmapou, fontem,
+ handlerem klavesnice, INI souborem.
  Vyzaduje soubory PRIKLAD.INI, MODERN.FN.
- V souboru define.inc musi byt zapnut autoinit.
+ V souboru define.inc musi byt zapnut autoinit a mel by byt i autodone.
  ---
  Program nastavi mod 640x480 a necha te hybat mysi. Mezitim
  na pozadi pribyvaji ctverecky. Skonci po stisku libovolne klavesy
@@ -10,21 +10,22 @@
  Tu priste nacte a mys se objevi tam kdes ji posledne nechal.
 }
 
-{$m 10000,100000,100000} 
+{$M 10000,100000,100000}
+{$i define.inc}
 
-Uses Chyby,Sys,Mys,Ini,Vga,Fonty,Key;
+Uses Chyby,Sys,Mys,Ini,Vga,Cache,Fonty,Key;
 
-Var s    :TScreen;{obrazovka}
-    b    :PBitmap;{nejaka bitmapka}
-    f    :PFont;  {nejaky font}
-    mx,my:integer;{poloha mysi}
-    i    :word;
+Var s      :TScreen;{obrazovka}
+    b      :PBitmap;{nejaka bitmapka}
+    f      :PFont;  {nejaky font}
+    mx,my  :integer;{poloha mysi}
+    i      :word;
     x,y,r,dx,dy:real;{promenne pro vypocty pohybu se setrvacnosti}
 
 Const
-    napis:string[6]='Ahoj!';
-    mezer:word=0;
-    sirmez:word=0;
+    napis  :string[6]='Ahoj!';
+    mezer  :word=0;
+    sirmez :word=0;
 
 Procedure Vars;assembler;
 {Seznam promennych v INI souboru.
@@ -40,7 +41,7 @@ Procedure Vars;assembler;
 Begin
  {zavesi handler klavesnice}
  {v teto ukazce pouze kvuli cteni leveho shiftu}
- Int9Handler(true);
+ kSetHandler(true);
 
  {cte promenne z ini}
  iniSetup(nil,nil,@vars);
@@ -48,12 +49,14 @@ Begin
 
  {nahraje si do pameti nejaky font}
  {v teto ukazce kvuli vypsani Ahoj!}
- f:=CFontGet(fnDefault);
+ f:=caFontGet(fnDefault);
  if f=nil then erFile(fnDefault);
 
  {nastavi nejaky mod (nejblizsi k tomuto rozliseni)}
- {muzes si zkusit jine packed a unchained mody}
  if not s.Init(model_packed,640,480,0) then Halt(erBadMode);
+ {muzes si zkusit jine packed a unchained mody}
+ {kdybys chtel nastavit konkretni mod a zadny jiny, volej init takto:
+ if not s.Init(model_packed,0,0,P640x480) then Halt(erBadMode);}
 
  {nastavi polohu mysi tak, jak ji nacet z priklad.ini}
  s.MouseSetPos(mx,my);
@@ -83,8 +86,8 @@ Begin
    x:=x+dx/101;
    y:=y+dy/100;
    s.MouseHide;                            {skryje sipku}
-   s.BtF2Box(b,s.Xres div 2+round(x),      {hodi bitmapku na obrazovku}
-               s.Yres div 2+round(y));
+   s.BtF2Box(b,word(s.Xres div 2+round(x)),{hodi bitmapku na obrazovku}
+               word(s.Yres div 2+round(y)));
    s.MouseShow;                            {zobrazi sipku}
    if not kPressed[kLShift]                {neni-li stisknut levy shift}
     then s.Sync;                           {ceka na paprsek a obslouzi mys}
@@ -94,24 +97,25 @@ Begin
  {btw, zde neni nutne, po skonceni programu se pamet odalokuje automaticky}
  b^.Free;
 
- {nacte polohu mysi do promennych, ktere pote ulozi do INI}
- mx:=s.mouseX;
- my:=s.mouseY;
+ {nastavi polohu mysi do promennych, ktere pote ulozi do INI}
+ mx:=s.mouse.X;
+ my:=s.mouse.Y;
 
  {vrati puvodni (textovy) mod}
  s.Done;
 
  {zahodi font}
  {btw, zde neni nutne, po skonceni programu se pamet odalokuje automaticky}
- CFontLeave(f);
+ caLeave(f);
 
  {zapise promenne do ini}
  iniWrite('priklad.ini',0);
 
  {odpoji handler klavesnice}
- Int9Handler(false);
+ {btw, neni nutne, odpojeni je v autodone}
+ kSetHandler(false);
 
- {vyprazdni buffer klavesnice a skonci}
+ {vyprazdni buffer klavesnice, vypise hlasku a skonci}
  FlushKey;
  writeln('Bye!');
 End.

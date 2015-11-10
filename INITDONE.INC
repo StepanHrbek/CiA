@@ -1,0 +1,72 @@
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
+ ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
+ ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
+ ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
+
+(*
+Podpora pro standardni Init/Done procedury vsech unit.
+Konec kazde unity by mel vypadat takto:
+
+var result:integer;
+
+procedure UserInit;
+ begin
+  pokus o inicializaci unity
+  pri neuspechu nastavit do result kod chyby a skoncit (unita neni! inicializovana)
+  pri uspechu dokoncit inicializaci a skoncit (nemusis nastavovat result)
+ end;
+
+procedure UserDone;
+ begin
+  deinicializace unity
+  nemusis hlidat jestli uz byla inicializovana, urcite byla
+ end;
+
+{$i initdone.inc}
+{$ifdef autoinit}
+BEGIN
+ erCheck(Init);
+{$endif}
+END.
+*)
+
+const inited:boolean=false;
+
+{$ifdef autodone}
+var oldExitProc:pointer;
+procedure RuntimeExit;far;
+ begin
+  asm mov ax,seg @data;mov ds,ax;end;
+  exitProc:=oldExitProc;
+  {Zastavi proud HW interruptu ktere by mohly delat problemy.}
+  if @ShutDownInts<>nil then ShutDownInts;
+  ShutDownInts:=nil;
+  {Dej pozor abys tady volal ZDEJSI Done (deklaruj Done v interface)}
+  Done;
+ end;
+{$endif}
+
+function Init:word;
+ var er:integer;
+ begin
+  result:=erOk;
+  if not inited then begin
+    UserInit;
+    if result=erOk then begin
+      {$ifdef autodone}
+      oldExitProc:=exitProc;
+      exitProc:=@RuntimeExit;
+      {$endif}
+      inited:=true;
+      end;
+    end;
+  Init:=result;
+ end;
+
+procedure Done;
+ begin
+  if inited then begin
+   UserDone;
+   inited:=false;
+   end;
+ end;

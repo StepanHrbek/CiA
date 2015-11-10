@@ -1,4 +1,4 @@
-{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.10ÄÄÄ¿
+{ÚÄÄÄC.I.A.ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄverze 0.32ÄÄÄ¿
  ³S timto souborem smi byt nakladano pouze v souladu s podminkami uvedenymi³
  ³v dokumentaci C.I.A. Pouzitim souboru potvrzujes, ze podminky akceptujes.³
  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ}
@@ -24,7 +24,11 @@ FUNCTION HiWord(l:longint):word;inline($58/$58);{pop ax;pop ax}
 FUNCTION LoWord(l:longint):word;inline($58/$5b);{pop ax;pop bx}
 FUNCTION HiInt(l:longint):integer;inline($58/$58);{pop ax;pop ax}
 FUNCTION LoInt(l:longint):integer;inline($58/$5b);{pop ax;pop bx}
+FUNCTION HiByte(w:word):byte;inline($58/$8a/$c4);{pop ax;mov al,ah}
+FUNCTION LoByte(w:word):byte;inline($58);{pop ax}
 FUNCTION MakeLong(hi,lo:word):longint;inline($58/$5a);{pop ax;pop dx}
+FUNCTION MakeWord(hi,lo:byte):word;inline($58/$5a/$8a/$e2);{pop ax;pop dx;mov ah,dl}
+FUNCTION MakeInt(hi,lo:byte):integer;inline($58/$5a/$8a/$e2);{pop ax;pop dx;mov ah,dl}
 FUNCTION Long2Word(n:longint):word;
 FUNCTION Long2Int(n:longint):integer;
 FUNCTION Bounded(base,bot,top:longint):longint;
@@ -57,8 +61,6 @@ FUNCTION  GuessKey:char;
 
 PROCEDURE BiosGotoXY(x,y:byte);
 FUNCTION  BiosGetXY:word;
-PROCEDURE BiosWrite(st:string);
-PROCEDURE BiosWriteln(st:string);
 
 
 {---------------------------------------------------------------------------
@@ -67,8 +69,9 @@ PROCEDURE BiosWriteln(st:string);
 
 Type  TStopky = object
                   cas        :longint; {po Start a Stop je tu ubehly cas v ms}
-                  ticks      :longint; {po Start a Stop je tu ubehly cas v 'ticich' (asi pet a pul ms)}
+                  ticks      :longint; {po Start a Stop je tu ubehly cas v 'ticich' (asi 55 ms)}
                   procedure  Start;
+                  function   LookAt:longint;
                   function   Stop:longint;
                   procedure  Cont;
                 end;
@@ -78,22 +81,10 @@ Type  TStopky = object
  Presne mereni casu (presnejsi nez stopky).
  ---------------------------------------------------------------------------}
 
-{jednoduchy interface}
-PROCEDURE DelayStart(mikrosekund:longint);
-FUNCTION  DelayEnd:boolean;
+var       EventWaitOk:boolean; {funguji nasledujici funkce?}
 
-{interface pouze pro specialni ucely}
-Type      PDelayRec = ^TDelayRec;
-          TDelayRec = record
-                       flag:boolean;
-                       {$ifdef dpmi}
-                       seg:word;
-                       {$endif}
-                      end;
-Var       DelayRec:PDelayRec;{struktura na mereni casu,
-                          staci mi jedna globalni, ta AT sluzba stejne asi neni reentrantni,
-                          naalokuje se automaticky, neodalokovava se}
-FUNCTION  DelayFlag(var p:PDelayRec;mikrosekund:longint):boolean;
+FUNCTION  DelayStart(mikrosekund:longint):boolean;
+FUNCTION  DelayEnd:boolean;
 
 
 {---------------------------------------------------------------------------
@@ -104,29 +95,64 @@ PROCEDURE StoreDTA;
 PROCEDURE RestoreDTA;
 
 
+{---------------------------------------------------------------------------
+ Operacni system / Timeslice
+ ---------------------------------------------------------------------------}
+
+Const
+  MDOS      =0;
+  OS2       =1;
+  Windows   =2;
+  DesqView  =3;
+  NetWare   =4;
+  DoubleDOS =5;
+
+  os:array[0..5] of pchar=('DOS','OS/2','Windows','DesqView','NetWare','DoubleDos');
+
+Var
+  Ops            : Byte;    { Operating System OS/2/DOS/WIN/DV}
+
+PROCEDURE CheckOS;
+FUNCTION  DosVersionMaj:byte; inline($b4/$30/$cd/$21);{mov ah,30h;int 21h}
+FUNCTION  DosVersionMin:byte; inline($b4/$30/$cd/$21/$8a/$c4);{mov ah,30h;int 21h;mov al,ah}
+
+PROCEDURE GiveTimeSlice;
+
 
 {ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß}
                           IMPLEMENTATION
 {ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ}
 
 
-FUNCTION Long2Word(n:longint):word;
-begin
- if n>65535 then Long2Word:=65535 else
- if n<0 then Long2Word:=0 else Long2Word:=n;
-end;
-
-FUNCTION Long2Int(n:longint):integer;
-begin
- if n>32767 then Long2Int:=32767 else
- if n<-32768 then Long2Int:=-32768 else Long2Int:=n;
-end;
-
-FUNCTION Bounded(base,bot,top:longint):longint;
+FUNCTION Bounded(base,bot,top:longint):longint;assembler;
+ asm
+  db 66h;mov ax,word ptr base
+  db 66h;mov bx,word ptr bot;db 66h;cmp ax,bx;jle @bx
+  db 66h;mov bx,word ptr top;db 66h;cmp bx,ax;jle @bx
+  mov dx,word ptr base+2
+  jmp @end
+  @bx:
+  mov ax,bx
+  db 66h;shr bx,16
+  mov dx,bx
+  @end:
+ end;
+{o 49 bajtu delsi a mnohem pomalejsi ekvivalent:
 begin
  if base<bot then base:=bot else
  if base>top then base:=top;
  Bounded:=base;
+end;
+to abys vedel co stoji "slusnost" :)}
+
+FUNCTION Long2Word(n:longint):word;
+begin
+ Long2Word:=Bounded(n,0,65535);
+end;
+
+FUNCTION Long2Int(n:longint):integer;
+begin
+ Long2Int:=Bounded(n,-32768,32767);
 end;
 
 
@@ -190,102 +216,93 @@ FUNCTION  BiosGetXY:word;assembler;
  end;
 
 
-PROCEDURE BiosWrite(st:string);assembler;
- var p:pointer absolute st;
- asm
-     push bp
-     mov ax,300h;xor bx,bx;int 10h
-     mov ax,1301h;mov bx,7;xor cx,cx
-     les bp,p;mov cl,[es:bp];inc bp
-     int 10h
-     pop bp
- end;
-
-PROCEDURE BiosWriteln(st:string);assembler;
- var p:pointer absolute st;
- asm
-     push bp
-     mov ax,300h;xor bx,bx;int 10h
-     mov ax,1301h;mov bx,7;xor cx,cx
-     les bp,p;mov cl,[es:bp];inc bp
-     int 10h
-      mov ax,1301h;mov bx,7;mov cx,2
-      push cs;pop es;lea bp,@newline
-      int 10h
-     pop bp
-      jmp @end
-      @newline:
-      db 13,10
-      @end:
- end;
-
-
 {ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ STOPKY ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ}
 
+Var       DelaySeg    :word;
+          DelayFlag   :^boolean;
 
 {---------------------------------------------------------------------------
- Je-li p nil, naalokuje ho, jinak pouzije tento.
- Za zadany pocet mikrosekund nastavi flag.
- Vraci jestli je sluzba podporovana.
+ Po zadanem pocet mikrosekund bude DelayEnd vracet true.
+ DelayStart vraci jestli je sluzba podporovana a zaclo odpocitavani.
  ---------------------------------------------------------------------------}
-{$ifndef dpmi}
-FUNCTION DelayFlag(var p:pdelayrec;mikrosekund:longint):boolean;
-begin
- DelayFlag:=false;
- {naalokuje flag}
- if p=nil then
-  if not GetMem(pointer(p),sizeof(p^)) then exit;
- p^.flag:=false;
- {vola at sluzbu}
- asm
-     mov ax,8300h
-     les bx,p
-     les bx,[es:bx]
-     mov dx,word ptr mikrosekund
-     mov cx,word ptr mikrosekund+2
-     int 15h
- end;
- DelayFlag:=true
-end;
-{$else}
-FUNCTION DelayFlag(var p:pdelayrec;mikrosekund:longint):boolean;
-var   segment:word;
+FUNCTION DelayStart(mikrosekund:longint):boolean;
+var   ok:boolean;
+      {$ifdef dpmi}
       RealModeRegs:dpmiRealCallRegs;
+      {$endif}
 begin
- DelayFlag:=false;
- {naalokuje flag}
- if p=nil then begin
-  if not GetMemDos(segment,pointer(p),sizeof(p^)) then exit;
-  p^.seg:=segment;
-  end;
- p^.flag:=false;
- {vola at sluzbu}
- with RealModeRegs do begin
-  clr;
-  rEAX:=$8300;
-  rES:=p^.seg;
-  rEBX:=word(p);
-  rEDX:=LoWord(mikrosekund);
-  rECX:=HiWord(mikrosekund);
-  end;
- if midasDumbError(dpmiRealModeInt($15,@RealModeRegs))=0
-  then DelayFlag:=true
-  else p^.flag:=true;
-end;
-{$endif}
-
-{---------------------------------------------------------------------------
- Za zadany pocet mikrosekund od DelayStart bude DelayEnd vracet true.
- Pouziva globalni promennou DelayRec.
- ---------------------------------------------------------------------------}
-PROCEDURE DelayStart(mikrosekund:longint);
-begin
- DelayFlag(DelayRec,mikrosekund);
+ DelayFlag^:=not EventWaitOk;
+ DelayStart:=EventWaitOk;
+ if EventWaitOk then begin
+   {$ifdef dpmi}
+   with RealModeRegs do begin
+    {stop previous wait}
+    clr;
+    rEAX:=$8301;
+    erCheck(dpmiRealModeInt($15,@RealModeRegs));
+    {start new wait}
+    clr;
+    rEAX:=$8300;
+    rES:=DelaySeg;
+    rEBX:=PtrRec(DelayFlag).Ofs;
+    rEDX:=LoWord(mikrosekund);
+    rECX:=HiWord(mikrosekund);
+    erCheck(dpmiRealModeInt($15,@RealModeRegs));
+    ok:=(flags and 1{cf})=0;
+    end;
+   {$else}
+   asm
+    {stop previous wait}
+    mov ax,8301h
+    int 15h
+    {start new wait}
+    mov ax,8300h
+    les bx,DelayFlag
+    mov dx,word ptr mikrosekund
+    mov cx,word ptr mikrosekund+2
+    int 15h
+    {ok?}
+    mov ok,true
+    jnc @ok
+    mov ok,false
+    @ok:
+   end;
+   {$endif}
+   if not ok then begin
+     if not dumb then erMsg('event wait busy');
+     DelayFlag^:=true;
+     DelayStart:=false;
+     end;
+   end;
 end;
 
 FUNCTION DelayEnd:boolean;
 begin
- DelayEnd:=DelayRec^.flag;
+ DelayEnd:=DelayFlag^;
+end;
+
+{---------------------------------------------------------------------------
+ Overi funkcnost event wait. Trva n ms.
+ ---------------------------------------------------------------------------}
+Function TestEventWaitMs(n:word):boolean;
+var   s:TStopky;
+begin
+ TestEventWaitMs:=false;
+ if DelayStart(longint(n)*1000) then
+  if not DelayEnd then begin
+    s.Start;
+    repeat
+    until (s.LookAt>n+60) or DelayEnd;
+    TestEventWaitMs:=DelayEnd;
+    end;
+end;
+
+{---------------------------------------------------------------------------
+ Overi funkcnost event wait. V prumeru trva 1ms, maximalne asi 200ms.
+ ---------------------------------------------------------------------------}
+Function TestEventWait:boolean;
+begin
+ TestEventWait:=TestEventWaitMs(1) or TestEventWaitMs(10) or TestEventWaitMs(100);
 end;
 
 
@@ -303,8 +320,16 @@ end;
 Function TStopky.Stop:longint;
 begin
  ticks:=meml[seg0040:$6c]-ticks;
- Cas:=round(ticks*5.4925493);
+ Cas:=round(ticks*54.925493);
  Stop:=Cas;
+end;
+
+{---------------------------------------------------------------------------
+ Koukne se na bezici stopky a vrati cas v ms.
+ ---------------------------------------------------------------------------}
+Function TStopky.LookAt:longint;
+begin
+ LookAt:=round((meml[seg0040:$6c]-ticks)*54.925493);
 end;
 
 {---------------------------------------------------------------------------
@@ -351,27 +376,115 @@ PROCEDURE RestoreDTA;assembler;
  end;
 
 
+{ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ TIMESLICE ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ}
+
+Procedure CheckOS;assembler;
+{ Currently Supports DesqView, Microsoft Windows and IBM's OS/2 }
+asm
+  mov ops, MDOS { Default DOS }
+  mov ah, 30h   { AH = 30h }
+  int 21h       { dos version }
+  cmp al, 14h
+  jae @IBMOS2   { Jump if >= to 20 }
+
+
+  mov ax,2B01h
+  mov cx,4445h
+  mov dx,5351h
+  int 21h       { Desqview Installed? }
+  cmp al, 255
+  jne @DesqView { Jump if AL <> 255 }
+
+  mov ax,160Ah
+  int 2Fh       { Windows Install? test1}
+  or  ax,ax
+  je  @Windows  { If = Jump to Windows }
+
+  mov ax,1600h
+  int 2Fh       { Windows Install? test2}
+  and al,7fh
+  or  al,al
+  jne @Windows
+
+  jmp @Finish   { Nothing found, go to the end }
+
+@IBMOS2:
+  mov Ops, Os2  { Set OS Value }
+  jmp @Finish
+
+@DesqView:
+  mov ops, DesqView  { Set OS Value }
+  jmp @Finish
+
+@Windows:
+  mov ops, Windows  { Set OS Value }
+  jmp @Finish
+
+@FINISH:
+end;
+
+Procedure GiveTimeSlice;assembler;
+asm
+  mov   al,Ops
+  cmp   al, DesqView
+  je    @DVwait
+  cmp   al, Windows
+  je    @WinOS2wait
+  cmp   al, OS2
+  je    @WinOS2wait
+  cmp   al, NetWare
+  je    @Netwarewait
+  cmp   al, DoubleDOS
+  je    @DoubleDOSwait
+
+@Doswait:
+  int   $28
+  jmp   @WaitDone
+
+@DVwait:
+  mov   AX, $1000
+  int   $15
+  jmp   @WaitDone
+
+@DoubleDOSwait:
+  mov   AX, $EE01
+  int   $21
+  jmp   @WaitDone
+
+@WinOS2wait:
+  mov   AX, $1680
+  int   $2F
+  jmp   @WaitDone
+
+@Netwarewait:
+  mov   BX, $000A
+  int   $7A
+
+@WaitDone:
+end;
+
+
 {°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°INIT/DONE°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°}
 
-const
- inited:boolean=false;
+var result:integer;
 
-function Init:word;
+procedure UserInit;
  begin
-  Init:=erOk;
-  if not inited then begin
-   DelayRec     :=nil;
-   inited       :=true;
-   end;
+  ops          :=MDOS;
+  EventWaitOk  :=true;
+  if GetMemDos(DelaySeg,pointer(DelayFlag),1) then begin
+    EventWaitOk:=TestEventWait;
+    exit;
+    end;
+  result:=erLowMem;
  end;
 
-procedure Done;
+procedure UserDone;
  begin
-  if inited then begin
-   inited       :=false;
-   end;
+  FreeMemDos(pointer(DelayFlag),1);
  end;
 
+{$i initdone.inc}
 {$ifdef autoinit}
 BEGIN
  erCheck(Init);
