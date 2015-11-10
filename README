@@ -1,0 +1,147 @@
+
+                                                               19.rijen 1996
+                                                                  verze 0.10
+                        ฑÛÛÛÛÝ    ฑÛÛÛÛÝ     ฑÛÝ
+                       ฑÛÝ         ฑÛÝ      ฑÛÛÛÝ
+                      ฑÛÝ         ฑÛÝ      ฑÛÝ ฑÛÝ
+                     ฑÛÝ         ฑÛÝ      ฑÛÛÛÛÛÛÛÝ
+                    ฑÛÝ         ฑÛÝ      ฑÛÝ     ฑÛÝ
+                    ฑÛÛÛÛÝode ฑÛÛÛÛÝt   ฑÛÝ       ฑÛÝgain Sam
+
+
+ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
+ณ  Zakladni informace:                                                      ณ
+ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+ þ Jde o sadu pascalskych unit snazicich se pokryt nejnizsi vrstvu stavby
+   programu (vga, pamet, mys, klavesnice...).
+ þ Zdrojaky jsou urceny pro kompilaci Turbo/Borland Pascalem 7, pro DOS,
+   pro realmod nebo protected mod, procesory od 386 vys. Lze je pouzivat
+   i v DLL. Funkcnost v jinem prostredi neni zarucena.
+ þ Ke zkompilovani jsou nutne unity standardne dodavane k Borland Pascalu 7.
+ þ Tam kde zalezi na rychlosti je optimalizovano na rychlost na 386/486.
+   V ostatnich pripadech na jednoduchost.
+ þ Cislo verze napovida, ze soucasny stav ma k dokonalosti daleko :)
+ þ V souboru priklad.pas je ukazka par zakladnich veci.
+
+
+ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
+ณ  Poznamky k uprave zdrojaku:                                              ณ
+ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+ þ Popisy procedur a promennych jednou budou v helpu (*.TPH), zatim jsou
+   roztrousene po zdrojacich takto:
+   Hlavni komentar k unite je na zacatku, komentare k promennym a spol
+   jsou u deklaraci, komentare k proceduram a spol u jejich tel.
+ þ Unity v uses jsou razeny takto: Chyby, Memo, standardni Borlandi unity,
+   ostatni unity.
+ þ Metody jsou psany 'Procedure', neobjektove procedury vetsinou 'PROCEDURE'.
+ þ Po upozorneni ze identifikatory obsahuji prilis mnoho ceskoanglickych
+   slatanin dostava mirnou prednost anglictina.
+ þ Je-li u procedury psano 'Nemeni registry' nemusi to platit na 100%.
+   AX se zmeni je-li zapnuty stack checking a procedura pouziva stack
+   (stack pouziva pokud ma parametry, lokalni promenne nebo je to metoda).
+ þ Komentar {* oznacuje mista kde je neco nedodelane, v oficialnim releasu
+   by se nemel prilis vyskytovat :).
+
+
+ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
+ณ  Popis unit:                                                              ณ
+ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+   UNITA   POPIS                  CO STOJI ZA POZORNOST
+
+ þ Chyby   sprava chyb
+ þ DPMI    DPMI sluzby
+ þ Fajly   disky, soubory, PCK
+ þ Fonty   bitmapove fonty       -format FN
+ þ INI     konfiguracni soubory  -format INI
+ þ Key     handler klavesnice
+ þ Memo    sprava pameti         -univerzalnost pro vsechny podporovane
+ þ Mys     sprava mysi             pametove modely, alokace souvislych bloku
+ þ Stringy prace se stringy        64KB a delsich
+ þ Sys     systemove drobnosti   -nahrada casti crt makry, presne mereni casu
+ þ Texty   prace s texty v pameti
+ þ VGA     vga, vesa, bitmapy    -univerzalnost pro vsechny podporovane mody,
+                                   resi chyby nekterych karet a vesa biosu
+
+   Podrobnejsi informace jsou v jednotlivych unitach.
+
+
+ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
+ณ  Popis ostatnich souboru:                                                 ณ
+ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+   SOUBOR         POPIS
+
+ þ bit2scr.inc    include k vga
+ þ define.inc     globalni nastaveni $define pro vsechny unity
+ þ fnt2fn.exe     konvertor fontu *.fnt -> *.fn
+ þ loadfile.inc   include k fajlum
+ þ readme         dokumentace
+ þ priklad.ini    viz nasledujici
+ þ priklad.pas    ukazka prace s INI, nastavenim modu, bitmapou
+ þ *.fn           ukazka fontu
+
+
+ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
+ณ  Co udelat pro spolupraci s Midasem:                                      ณ
+ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+ þ Zahod zdejsi unitu DPMI a pouzij originalni midasovskou,
+   maly rozdil je pouze v recordu dpmiRealCallRegs.
+ þ Do midasovske unity Mmem pridej Uses Memo,
+   aby Midas presel na zdejsi spravu pameti.
+ þ V define.inc nastav {$define midas}.
+
+
+ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
+ณ  Jake vlastnosti TP/BP 7.0 mimo normu pascalu jsou pouzity (zneuzity) ?   ณ
+ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+ þ Vyhodnocovani vyrazu v urcitem poradi (pr: GetWord=GetByte shl 8+GetByte).
+ þ Break zachovava ridici promennou cyklu.
+ þ Ulozeni promennych v pameti v urcitem poradi, navaznosti.
+ þ Predavani vysledku funkci v registrech.
+ þ Ukoncovani procedur retem.
+ þ Pro uplnost jeste: direktivy, asm...
+
+
+ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
+ณ  Dalsi vyvoj:                                                             ณ
+ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+ þ Nikdo neni dokonaly a zejmena tyto unity ne.
+   Zde je prostor pro celou obec programatorskou,
+   radi do unit zaclenime vase vylepseni, opravy atd.
+ þ Jakekoliv komentare jsou vitany.
+
+
+ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
+ณ  Chyby:                                                                   ณ
+ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+ þ Soucasnou nejvetsi chybou je ranne stadium celeho projektu.
+   Momentalne nejkritictejsi mista ve zdrojacich jsou
+    - cela unita Chyby
+    - unita Vga je odladena pouze na 256color modech a trochu textmodech
+    - trochu i system bitmap, viz komentar o streamech ve vga.pas
+    - unita fajly ma nekolik nedokoncenych mist
+ þ Chybi help.
+
+
+ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
+ณ  Historie:                                                                ณ
+ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+ þ 24.leden 1996 - napad, zacatek prace
+ þ 19.rijen 1996 - verze 0.10
+
+
+ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
+ณ  Podminky:                                                                ณ
+ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+ þ Je zakazano pouzit C.I.A. zpusobem, ktery by nekoho materialne obohatil.
+ þ Za nasledky pouziti C.I.A. nerucime.
+
+
+ีอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออธ
+ณ  Autori:                                                                  ณ
+ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+ þ Dement          dement@bbs.infima.cz     kdeco
+ þ Jan Patera      xpatera1@br.fjfi.cvut.cz hi+truecolor
+ þ Erixon          sysop@foxone.fido.cz     disky, PCK
+ þ ReDox           redox@bbs.infima.cz      nastaveni X-modu
+ þ Sahara Surfers  pekangas@sci.fi          dpmi
+
