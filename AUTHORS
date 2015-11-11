@@ -1,0 +1,17 @@
+﻿Authors:
+========
+
+Stepan Hrbek   <dee.at.dee.cz>
+
+
+Contributors:
+=============
+
+Carlos         <crs.at.centrum.cz>           file selector, pathbrowser, font editor, fonts, parts of disk, fajly, num, stringy and more
+Jan Patera     <patera.at.pictview.com>      JPG/PNG/GIF/PCX/FLI/FLC loaders
+Jezek 2        <jezek.2.at.seznam.cz>        TurboVision-like dialogues
+Sahara Surfers                               dpmi, timer
+Erixon         <sysop.at.foxone.fido.cz>     part of disk routines, PCK
+Daniel Sykora  <redox.at.volny.cz>           setting X-mode
+Waclaw         <waclaw.at.email.cz>          dskSerialNumber
+
